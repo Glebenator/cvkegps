@@ -161,21 +161,21 @@
         <div class="eyebrow">Milestone 01 · Complete</div>
         <h1>Main screen<br>and live GPS.</h1>
         <p>The first native Android version is built. It shows GPS readings in a Material 3 screen.
-          One permission recovery defect remains open. Route recording and publication work remain open.</p>
+          Permission recovery after repeated denial is fixed and verified. Route recording and publication work remain open.</p>
       </div>
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-10-20">20 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>c109f66</code></dd></div>
+          <div><dt>Permission fix baseline</dt><dd><code>c934f5e</code></dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
       </aside>
     </div>
     <div class="metrics" aria-label="Last verified results">
-      <div class="metric"><strong>6 / 6</strong><span>Device tests passed</span><span class="small">Android 16 emulator</span></div>
+      <div class="metric"><strong>7 / 7</strong><span>GPS and permission tests passed</span><span class="small">Android 16 emulator</span></div>
       <div class="metric"><strong>2 builds</strong><span>Debug and release passed</span><span class="small">Release APK is unsigned</span></div>
-      <div class="metric"><strong>0 findings</strong><span>Debug and release lint</span><span class="small">Last checked: 20 October</span></div>
+      <div class="metric"><strong>0 findings</strong><span>Debug lint</span><span class="small">Release lint needs a repeat</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
       <a href="#status">Current scope</a>
@@ -183,6 +183,7 @@
       <a href="#verification">Verification</a>
       <a href="#implementation">Code and structure</a>
       <a href="#future">Future work</a>
+      <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
     </nav>
 
@@ -248,27 +249,46 @@
             The readings and pause control now fit together. This capture shows the waiting state.
             Captured 20 October 2026. App baseline: <code>c109f66</code>.</figcaption>
         </figure>
+        <figure class="shot" style="grid-column:1 / -1">
+          <a href="docs/progress/images/2026-10-20-permission-recovery.png" target="_blank" rel="noopener" aria-label="Open full permission recovery screenshot">
+            <img src="docs/progress/images/2026-10-20-permission-recovery.png" width="1080" height="2400" loading="lazy"
+              alt="Location access is denied. The action now says Open app settings.">
+          </a>
+          <figcaption><strong>Two denials · Settings action available</strong>
+            Captured 20 October 2026 at 13:01 PDT. No location data is shown.
+            Baseline: the 12:04 debug APK from the shared working folder, with the permission fix and layout work in progress.
+            This image records permission recovery. It is not the final layout acceptance image.</figcaption>
+        </figure>
       </div>
     </section>
 
     <section id="verification" aria-labelledby="verification-heading">
-      <div class="section-head"><h2 id="verification-heading"><span class="number">03</span>Verification</h2><span class="tag done">6 passed · 0 failed · 0 skipped</span></div>
-      <div class="note" style="margin:0 0 24px"><strong>Open review finding · P2: permission recovery after two denials.</strong>
+      <div class="section-head"><h2 id="verification-heading"><span class="number">03</span>Verification</h2><span class="tag done">7 passed · 0 failed · 0 skipped</span></div>
+      <div class="note" style="margin:0 0 24px"><strong>P2 permission recovery · Fixed and verified.</strong>
         A review agent reproduced this defect on the API 36 emulator on 20 October 2026.
         After two denials, Android marked both location permissions as <code>USER_FIXED</code>.
         The app still showed “Allow precise location”. A third tap opened no dialog.
-        The permission callback assigns the same state value, so the settings action can remain out of date.
-        See <a href="app/src/main/java/com/example/cvkegps/ui/SpeedometerRoute.kt">SpeedometerRoute.kt, lines 27–38</a>.
-        The existing test covers one denial followed by approval. It does not cover two denials.
-        This review used the existing debug APK and live device output. The full test suite was not repeated.
-        The review installation was removed and the emulator was stopped.</div>
-      <p class="section-intro">Last device run: <time datetime="2026-10-20T11:10:35-07:00">20 October 2026, 11:10 PDT</time>.
-        The six tests took 54.6 seconds in total. They use the production location source and Android test locations.</p>
+        The old callback could leave the settings action out of date.
+        <a href="app/src/main/java/com/example/cvkegps/ui/SpeedometerRoute.kt">The fix</a> updates observable permission state
+        after each result and when the app resumes. A second code review found no new permission defect.
+        The new automated test checks two denials, activity recreation, and the Android App info page.
+        It grants permission through Android's test API, checks that no GPS request exists while Settings is open,
+        then returns and checks speed, altitude, and the pause action.
+        A separate direct API 36 check also passed: two denials, rotation, a grant through the Settings controls,
+        and a restored GPS request. The automated test does not operate those Settings permission controls.</div>
+      <p class="section-intro">Last core device run: <time datetime="2026-10-20T13:56:10-07:00">20 October 2026, 13:56 PDT</time>.
+        Seven tests passed on the dedicated API 36 emulator. Test commands took 153.4 seconds in total.
+        Each test ran in a separate AndroidJUnitRunner invocation, with app data cleared before each test.
+        This run did not use Orchestrator. Tests use the production location source and Android test locations.
+        The tested APK also contains concurrent layout edits. It predates the final short-window layout correction.
+        The layout chat will build and verify that correction separately.
+        The local evidence records APK hashes and the tested source hashes.</p>
       <div class="table-wrap">
         <table>
           <caption>End-to-end device tests · Android 16, API 36</caption>
           <thead><tr><th scope="col">User flow</th><th scope="col">Evidence</th><th scope="col">Result</th></tr></thead>
           <tbody>
+            <tr><td>Repeated permission denial</td><td>Two denials show the Settings action. It survives recreation. The app opens App info, stays idle there, and receives GPS after a test-API grant and return.</td><td><span class="tag done">Passed</span></td></tr>
             <tr><td>Permission recovery</td><td>Deny access, request it again, allow it through the system dialog, then receive GPS.</td><td><span class="tag done">Passed</span></td></tr>
             <tr><td>Screen recreation</td><td>Speed and altitude update. Maximum speed survives activity recreation.</td><td><span class="tag done">Passed</span></td></tr>
             <tr><td>Poor GPS fix</td><td>A fix with poor accuracy does not create a speed reading or increase the maximum.</td><td><span class="tag done">Passed</span></td></tr>
@@ -282,13 +302,15 @@
         <article class="panel">
           <h3>Build and visual checks</h3>
           <ul>
-            <li>Debug APK and unsigned release APK built successfully.</li>
-            <li>Debug and release lint reported no issues.</li>
-            <li>Light mode, dark mode, landscape, and 200% text were inspected.</li>
+            <li>The latest debug app and test APKs built successfully. An unsigned release APK also built earlier in this fix.</li>
+            <li>Debug lint passed before the final concurrent layout edits. Final layout lint is assigned to the layout chat.
+              The latest release lint run was stopped because the host was low on memory.</li>
+            <li>Light mode, dark mode, landscape, and 200% text were inspected for baseline <code>c109f66</code>.</li>
             <li>Emulator display settings were restored after inspection.</li>
           </ul>
-          <p class="test-note">Lint treats warnings as errors. Dependency update notices are excluded.
-            Dependency versions require a separate compatibility review.</p>
+          <p class="test-note">Release lint passed for the initial baseline. Repeat it before publication.
+            Lint treats warnings as errors. Dependency update notices are excluded.
+            Layout changes in another chat have a separate acceptance check.</p>
         </article>
         <article class="panel">
           <span class="tag pending">Not yet verified</span>
@@ -303,8 +325,10 @@
       </div>
       <p class="test-note">Evidence: <a href="app/src/androidTest/java/com/example/cvkegps/SpeedometerDeviceTest.kt">device test source</a>
         and <a href="README.md">dated build notes</a>.
-        The <a href="app/build/reports/androidTests/connected/debug/index.html">generated device report</a> is local build output.
-        It is available after the tests run and is not stored in Git.</p>
+        Local output: <a href="artifacts/permission-device-results.json">seven-test result and APK hashes</a>,
+        <a href="artifacts/permission-verified-source-hashes.json">tested source hashes</a>, and
+        <a href="artifacts/permission-manual-result.json">direct Settings check</a>.
+        These generated files are not stored in Git. The table records their results for this milestone.</p>
     </section>
 
     <section id="implementation" aria-labelledby="implementation-heading">
@@ -318,6 +342,16 @@
         <span aria-hidden="true">→</span>
         <div><strong>Material screen</strong><small>Readings and user actions</small></div>
       </div>
+      <details open>
+        <summary>Permission recovery: update the settings action after each result</summary>
+        <p>The permission callback and the resume effect update observable Compose state.
+          The action can then change even when the GPS status remains unchanged.</p>
+        <pre><code>permissionNeedsSettings = permissionRequested &amp;&amp;
+    ContextCompat.checkSelfPermission(activity, Manifest.permission.ACCESS_FINE_LOCATION) !=
+    PackageManager.PERMISSION_GRANTED &amp;&amp;
+    !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.ACCESS_FINE_LOCATION)</code></pre>
+        <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/ui/SpeedometerRoute.kt">SpeedometerRoute.kt</a>.</p>
+      </details>
       <details open>
         <summary>Measurement model: SI units and explicit missing values</summary>
         <p>This model contains no Android location objects. The future iOS app can use the same measurement rules
@@ -386,8 +420,8 @@ const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
           <span class="tag pending">Required · Before Android publication</span>
           <h3>Validate and prepare the app</h3>
           <ol>
-            <li>Fix the P2 permission recovery defect. Refresh observable permission state after every result.
-              Add a device test for two denials, recovery through app settings, and restored GPS access.</li>
+            <li>Complete the separate layout acceptance check and final debug lint.
+              Repeat release lint and verify the final release build.</li>
             <li>Test GPS outdoors on physical devices. Include stationary use, movement, weak signal, and signal recovery.</li>
             <li>Measure battery use against an idle baseline. Measure cold start and frame timing in a release build.</li>
             <li>Test TalkBack, denied and approximate permission, permission revocation, and screen lock.
@@ -447,16 +481,29 @@ const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
       <ol class="history">
         <li>
           <time datetime="2026-10-20">20 October 2026</time>
+          <div><h3>Permission recovery fixed <code>c934f5e</code></h3>
+            <p>Refresh observable permission state after each result and on resume.
+              The Settings action now appears after two denials and remains available after activity recreation.
+              A second code review found no new permission defect.</p>
+            <p>Seven GPS and permission tests passed. A separate direct check passed through Android's Settings controls.
+              Added the recovery screenshot, source excerpt, and a direct link to the GPS power research.
+              The tested APK includes concurrent layout edits, which have separate visual checks.
+              Debug lint passed before those final edits; the latest release lint run remains incomplete.</p>
+            <p>Report checks passed for 32 local links and anchors, six source excerpts, four images,
+              and screen widths from 320 to 1440 pixels.</p></div>
+        </li>
+        <li>
+          <time datetime="2026-10-20">20 October 2026</time>
           <div><h3>Location power research completed</h3><p>Compared location providers, request controls,
             service lifetimes, permission rules, and power measurement tools. Saved the proposed recording design
             and initial test policies. Identified data-loss risks if the current display stream is reused for recording.</p>
-            <p>Research only. App code is unchanged. No battery test was run. The permission recovery defect remains open.</p></div>
+            <p>Research only. App code was unchanged. No battery test was run. The permission recovery defect was open at this milestone.</p></div>
         </li>
         <li>
           <time datetime="2026-10-20">20 October 2026</time>
           <div><h3>Code review completed · One P2 defect open</h3><p>A review agent checked the app and test evidence.
             A focused device check confirmed a failure to recover after two permission denials.
-            No separate layout defect was confirmed. App code remains unchanged.</p>
+            No separate layout defect was confirmed. App code was unchanged at this milestone.</p>
             <p>Further test gaps include approximate permission, permission removal, old or future timestamps,
               speed uncertainty, the minimum supported Android version, and TalkBack.
               Existing build and lint results were inspected, not repeated.</p></div>

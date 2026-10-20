@@ -108,11 +108,13 @@ Start an emulator from Android Studio, then run:
 The tests cover:
 
 1. Deny permission, request it again, and receive GPS through the system dialog.
-2. Display speed, altitude, and maximum speed across activity recreation.
-3. Reject a poor fix without increasing the maximum.
-4. Clear an old reading and recover when a new fix arrives.
-5. Remove GPS requests during pause and in the background; resume correctly.
-6. Recover after GPS is disabled and enabled.
+2. Deny permission twice, retain the settings action across activity recreation,
+   open app settings, and receive GPS after Android's test API grants permission.
+3. Display speed, altitude, and maximum speed across activity recreation.
+4. Reject a poor fix without increasing the maximum.
+5. Clear an old reading and recover when a new fix arrives.
+6. Remove GPS requests during pause and in the background; resume correctly.
+7. Recover after GPS is disabled and enabled.
 
 The tests inject locations into the Android location service. They do not replace the
 production source or ViewModel. Listener checks inspect current Android registrations.
@@ -135,11 +137,23 @@ build. The Compose compiler version matches the Kotlin version supplied by AGP.
 
 ## Verification on 2026-10-20
 
-- Debug and unsigned release builds passed.
-- Debug and release lint reported no issues.
-- All six device tests passed on an Android 16 (API 36) emulator.
-- Light mode, dark mode, landscape, and 200% text were inspected.
+- The debug app and test APK builds passed. An unsigned release APK also built during this fix.
+- Debug lint passed before the final concurrent layout edits. Final layout lint needs a repeat.
+- The latest release lint run was stopped because the host was low on memory.
+  Release lint passed for the initial baseline; repeat it before publication.
+- Seven GPS and permission tests passed on an Android 16 (API 36) emulator.
+  Each test used a separate AndroidJUnitRunner invocation with app data cleared first.
+  This run did not use Orchestrator and did not include the separate layout test.
+- The repeated-denial test opens Android App info, grants permission through
+  `UiAutomation`, and checks GPS after return. A separate direct device check
+  passed through the actual Settings permission controls.
+- The tested APK includes concurrent layout edits but predates the final short-window correction.
+  The layout chat will build and verify that correction separately.
+  Light mode, dark mode, landscape, and 200% text passed inspection for the initial baseline.
 - Real-device GPS accuracy, TalkBack, frame timing, and battery use remain unmeasured.
+
+See [the progress report](PROGRESS.html#verification) for the dated evidence and
+[the location power research](docs/location-power-research.md) for the recording plan.
 
 ## Future work
 

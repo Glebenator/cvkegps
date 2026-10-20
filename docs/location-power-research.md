@@ -202,8 +202,10 @@ replace this app's permission flow.
 
 ## Measurement and verification plan
 
-1. **Fix permission recovery.** Resolve the known P2 failure after two denials.
-   Test recovery through app settings before extending location access.
+1. **Permission recovery completed on 20 October 2026.** The P2 failure after
+   two denials is fixed. Seven GPS and permission tests passed. A separate direct
+   check passed through the Settings permission controls.
+   See the [verification record](../PROGRESS.html#verification).
 2. **Establish the baseline.** Use a release build on a Pixel and at least one
    other manufacturer's phone. Include API 29 and API 37 in functional coverage.
 3. **Control the comparison.** Use the same route, mounting position, screen
