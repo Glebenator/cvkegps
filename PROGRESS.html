@@ -161,7 +161,7 @@
         <div class="eyebrow">Milestone 01 · Complete</div>
         <h1>Main screen<br>and live GPS.</h1>
         <p>The first native Android version is built. It shows GPS readings in a Material 3 screen.
-          Route recording and publication work remain open.</p>
+          One permission recovery defect remains open. Route recording and publication work remain open.</p>
       </div>
       <aside class="meta" aria-label="Report details">
         <dl>
@@ -253,6 +253,15 @@
 
     <section id="verification" aria-labelledby="verification-heading">
       <div class="section-head"><h2 id="verification-heading"><span class="number">03</span>Verification</h2><span class="tag done">6 passed · 0 failed · 0 skipped</span></div>
+      <div class="note" style="margin:0 0 24px"><strong>Open review finding · P2: permission recovery after two denials.</strong>
+        A review agent reproduced this defect on the API 36 emulator on 20 October 2026.
+        After two denials, Android marked both location permissions as <code>USER_FIXED</code>.
+        The app still showed “Allow precise location”. A third tap opened no dialog.
+        The permission callback assigns the same state value, so the settings action can remain out of date.
+        See <a href="app/src/main/java/com/example/cvkegps/ui/SpeedometerRoute.kt">SpeedometerRoute.kt, lines 27–38</a>.
+        The existing test covers one denial followed by approval. It does not cover two denials.
+        This review used the existing debug APK and live device output. The full test suite was not repeated.
+        The review installation was removed and the emulator was stopped.</div>
       <p class="section-intro">Last device run: <time datetime="2026-10-20T11:10:35-07:00">20 October 2026, 11:10 PDT</time>.
         The six tests took 54.6 seconds in total. They use the production location source and Android test locations.</p>
       <div class="table-wrap">
@@ -357,6 +366,8 @@ const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
           <span class="tag pending">Required · Before Android publication</span>
           <h3>Validate and prepare the app</h3>
           <ol>
+            <li>Fix the P2 permission recovery defect. Refresh observable permission state after every result.
+              Add a device test for two denials, recovery through app settings, and restored GPS access.</li>
             <li>Test GPS outdoors on physical devices. Include stationary use, movement, weak signal, and signal recovery.</li>
             <li>Measure battery use against an idle baseline. Measure cold start and frame timing in a release build.</li>
             <li>Test TalkBack, denied and approximate permission, permission revocation, and screen lock.
@@ -410,6 +421,15 @@ const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+        <li>
+          <time datetime="2026-10-20">20 October 2026</time>
+          <div><h3>Code review completed · One P2 defect open</h3><p>A review agent checked the app and test evidence.
+            A focused device check confirmed a failure to recover after two permission denials.
+            No separate layout defect was confirmed. App code remains unchanged.</p>
+            <p>Further test gaps include approximate permission, permission removal, old or future timestamps,
+              speed uncertainty, the minimum supported Android version, and TalkBack.
+              Existing build and lint results were inspected, not repeated.</p></div>
+        </li>
         <li>
           <time datetime="2026-10-20">20 October 2026</time>
           <div><h3>Progress report added</h3><p>Added this HTML report, versioned screenshots, source excerpts,
