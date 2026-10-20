@@ -7,21 +7,19 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -36,7 +34,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -46,6 +43,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.TextUnit
 import com.example.cvkegps.R
 import com.example.cvkegps.location.GpsReading
 import com.example.cvkegps.ui.theme.CvkeGpsTheme
@@ -75,67 +73,44 @@ fun SpeedometerScreen(
 
     Scaffold(modifier = modifier.fillMaxSize()) { insets ->
         BoxWithConstraints(
-            Modifier.padding(insets).fillMaxSize().padding(horizontal = 24.dp),
+            Modifier.padding(insets).fillMaxSize().padding(16.dp).testTag("home_content"),
         ) {
-            val wide = maxWidth >= 600.dp && LocalDensity.current.fontScale <= 1.3f
-            val landscapeDialSize = (maxHeight - 128.dp).coerceIn(224.dp, 260.dp)
-            Column(
-                modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-                    .padding(vertical = if (wide) 12.dp else 20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(if (wide) 12.dp else 24.dp),
-            ) {
-                if (wide) {
-                    Row(
-                        modifier = Modifier.widthIn(max = 840.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(32.dp),
-                    ) {
-                        Column(
-                            Modifier.weight(1f),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            ScreenHeader()
-                            SpeedDial(
-                                speed,
-                                state.reading?.speedMetersPerSecond != null,
-                                Modifier.widthIn(max = landscapeDialSize),
-                            )
-                        }
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Metrics(altitude, maximum)
-                            GpsControls(state, permissionNeedsSettings, wholeFormat, onAction)
-                            PrivacyNote()
-                        }
-                    }
-                } else {
-                    ScreenHeader()
-                    SpeedDial(speed, state.reading?.speedMetersPerSecond != null)
+            val wide = maxWidth > maxHeight
+            if (wide) {
+                Row(
+                    modifier = Modifier.widthIn(max = 1000.dp).fillMaxSize().align(Alignment.Center),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(24.dp),
+                ) {
                     Column(
-                        Modifier.widthIn(max = 480.dp),
-                        verticalArrangement = Arrangement.spacedBy(20.dp),
+                        Modifier.weight(1f).fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
+                        SpeedDial(speed, state.reading?.speedMetersPerSecond != null, Modifier.weight(1f))
                         Metrics(altitude, maximum)
-                        GpsControls(state, permissionNeedsSettings, wholeFormat, onAction)
                     }
+                    Column(
+                        Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        GpsControls(state, permissionNeedsSettings, wholeFormat, onAction)
+                        PrivacyNote()
+                    }
+                }
+            } else {
+                Column(
+                    Modifier.widthIn(max = 480.dp).fillMaxSize().align(Alignment.Center),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    SpeedDial(speed, state.reading?.speedMetersPerSecond != null, Modifier.weight(1f))
+                    Metrics(altitude, maximum)
+                    GpsControls(state, permissionNeedsSettings, wholeFormat, onAction)
                     PrivacyNote()
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun ScreenHeader() {
-    Column(Modifier.fillMaxWidth()) {
-        Text(
-            stringResource(R.string.app_name),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        Spacer(Modifier.height(4.dp))
-        Text(stringResource(R.string.screen_title), style = MaterialTheme.typography.headlineLarge)
     }
 }
 
@@ -155,57 +130,85 @@ private fun SpeedDial(speed: String, available: Boolean, modifier: Modifier = Mo
     val ring = MaterialTheme.colorScheme.outlineVariant
     val description = if (available) stringResource(R.string.speed_accessibility, speed)
     else stringResource(R.string.speed_unavailable_accessibility)
-    Box(
-        modifier.widthIn(max = 320.dp).fillMaxWidth().aspectRatio(1f)
-            .drawBehind { drawCircle(ring, style = Stroke(2.dp.toPx())) }
-            .padding(28.dp),
+    BoxWithConstraints(
+        modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center,
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(
-                stringResource(R.string.current_speed),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-            BasicText(
-                text = speed,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp, max = 130.dp)
-                    .testTag("current_speed")
-                    .clearAndSetSemantics { contentDescription = description },
-                style = MaterialTheme.typography.displayLarge.copy(
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Medium,
-                    textAlign = TextAlign.Center,
-                    fontFeatureSettings = "tnum",
-                ),
-                maxLines = 1,
-                autoSize = TextAutoSize.StepBased(minFontSize = 36.sp, maxFontSize = 104.sp),
-            )
-            Text(
-                stringResource(R.string.speed_unit),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        // The controls and measurements take their natural height. Speed uses the remaining space.
+        if (maxHeight < 200.dp) {
+            // A short window needs the full width for speed, without a circle or stacked unit.
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SpeedValue(speed, description, Modifier.weight(1f).alignByBaseline(), minFontSize = 16.sp)
+                Text(
+                    stringResource(R.string.speed_unit),
+                    Modifier.alignByBaseline(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        } else {
+            val diameter = minOf(maxWidth, maxHeight, 320.dp)
+            val showLabel = diameter >= 240.dp
+            Column(
+                Modifier.size(diameter)
+                    .drawBehind { drawCircle(ring, style = Stroke(2.dp.toPx())) }
+                    .padding(if (showLabel) 24.dp else 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                if (showLabel) {
+                    Text(
+                        stringResource(R.string.current_speed),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+                Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                    SpeedValue(speed, description, Modifier.fillMaxWidth())
+                }
+                Text(
+                    stringResource(R.string.speed_unit),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
 
 @Composable
+private fun SpeedValue(
+    speed: String,
+    description: String,
+    modifier: Modifier,
+    minFontSize: TextUnit = 24.sp,
+) {
+    BasicText(
+        text = speed,
+        modifier = modifier.testTag("current_speed")
+            .clearAndSetSemantics { contentDescription = description },
+        style = MaterialTheme.typography.displayLarge.copy(
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.Center,
+            fontFeatureSettings = "tnum",
+            lineHeight = TextUnit.Unspecified,
+        ),
+        maxLines = 1,
+        autoSize = TextAutoSize.StepBased(minFontSize = minFontSize, maxFontSize = 104.sp),
+    )
+}
+
+@Composable
 private fun Metrics(altitude: String, maximum: String) {
-    if (LocalDensity.current.fontScale > 1.3f) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            MetricCard(R.string.altitude, altitude, R.string.altitude_unit, "altitude", Modifier.fillMaxWidth())
-            MetricCard(R.string.maximum_speed, maximum, R.string.speed_unit, "maximum_speed", Modifier.fillMaxWidth(), R.string.since_open)
-        }
-    } else {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            MetricCard(R.string.altitude, altitude, R.string.altitude_unit, "altitude", Modifier.weight(1f))
-            MetricCard(R.string.maximum_speed, maximum, R.string.speed_unit, "maximum_speed", Modifier.weight(1f), R.string.since_open)
-        }
+    Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        MetricCard(R.string.altitude, altitude, R.string.altitude_unit, "altitude", Modifier.weight(1f).fillMaxHeight())
+        MetricCard(R.string.maximum_speed, maximum, R.string.speed_unit, "maximum_speed", Modifier.weight(1f).fillMaxHeight(), R.string.since_open)
     }
 }
 
@@ -222,14 +225,20 @@ private fun MetricCard(
         modifier = modifier,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(stringResource(title), style = MaterialTheme.typography.labelLarge)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    value,
-                    modifier = Modifier.testTag(tag).alignByBaseline(),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Medium,
+                BasicText(
+                    text = value,
+                    modifier = Modifier.weight(1f, fill = false).testTag(tag).alignByBaseline(),
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Medium,
+                        fontFeatureSettings = "tnum",
+                        lineHeight = TextUnit.Unspecified,
+                    ),
+                    maxLines = 1,
+                    autoSize = TextAutoSize.StepBased(minFontSize = 18.sp, maxFontSize = 28.sp),
                 )
                 Text(
                     stringResource(unit),
@@ -238,11 +247,13 @@ private fun MetricCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Text(
-                subtitle?.let { stringResource(it) } ?: "",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            if (subtitle != null) {
+                Text(
+                    stringResource(subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

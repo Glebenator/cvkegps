@@ -1,6 +1,5 @@
 <resources>
     <string name="app_name">CVKE GPS</string>
-    <string name="screen_title">Speedometer</string>
     <string name="current_speed">Current speed</string>
     <string name="speed_unit">km/h</string>
     <string name="altitude">GPS altitude</string>
@@ -15,14 +14,14 @@
     <string name="gps_unavailable">GPS is not available</string>
     <string name="gps_paused">GPS paused</string>
     <string name="gps_error">GPS could not start</string>
-    <string name="permission_body">Allow precise location to see your speed and altitude. GPS stops when you leave this screen.</string>
-    <string name="disabled_body">Turn on location in Android settings to use the speedometer.</string>
-    <string name="searching_body">Move to an open area for a better signal. The first reading can take a moment.</string>
-    <string name="stale_body">The last reading is too old. New readings will appear when the signal returns.</string>
+    <string name="permission_body">Use precise location for speed and altitude. GPS stops when you leave.</string>
+    <string name="disabled_body">Turn on location in Android settings.</string>
+    <string name="searching_body">Move to an open area for a GPS signal.</string>
+    <string name="stale_body">No current reading. Wait for a new GPS signal.</string>
     <string name="unavailable_body">This device does not have an available GPS provider.</string>
-    <string name="paused_body">Location updates are off. Resume GPS when you need a reading.</string>
+    <string name="paused_body">GPS is off. Resume GPS for new readings.</string>
     <string name="error_body">Try again to start location updates.</string>
-    <string name="live_body">GPS runs only while this screen is active.</string>
+    <string name="live_body">GPS stops when you leave this screen.</string>
     <string name="accuracy_value">Accuracy ±%1$s m</string>
     <string name="accuracy_unknown">Accuracy unavailable</string>
     <string name="allow_location">Allow precise location</string>
@@ -31,7 +30,7 @@
     <string name="pause_gps">Pause GPS</string>
     <string name="resume_gps">Resume GPS</string>
     <string name="retry_gps">Try again</string>
-    <string name="privacy_note">Your location stays on this device.</string>
+    <string name="privacy_note">Location stays on this device.</string>
     <string name="no_value">—</string>
     <string name="speed_accessibility">Current speed: %1$s kilometres per hour</string>
     <string name="speed_unavailable_accessibility">Current speed unavailable</string>

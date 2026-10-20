@@ -160,21 +160,21 @@
       <div>
         <div class="eyebrow">Milestone 01 · Complete</div>
         <h1>Main screen<br>and live GPS.</h1>
-        <p>The first native Android version is built. It shows GPS readings in a Material 3 screen.
+        <p>The first native Android version is built. The home screen fits the tested Pixel 7 Pro screen size without scrolling.
           Permission recovery after repeated denial is fixed and verified. Route recording and publication work remain open.</p>
       </div>
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-10-20">20 October 2026</time></dd></div>
-          <div><dt>Permission fix baseline</dt><dd><code>c934f5e</code></dd></div>
+          <div><dt>App code baseline</dt><dd><code>c934f5e</code> + home layout fix</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
       </aside>
     </div>
     <div class="metrics" aria-label="Last verified results">
-      <div class="metric"><strong>7 / 7</strong><span>GPS and permission tests passed</span><span class="small">Android 16 emulator</span></div>
-      <div class="metric"><strong>2 builds</strong><span>Debug and release passed</span><span class="small">Release APK is unsigned</span></div>
+      <div class="metric"><strong>8 / 8</strong><span>Device tests passed</span><span class="small">7 core tests + 1 layout test</span></div>
+      <div class="metric"><strong>Debug</strong><span>Final app and test APKs built</span><span class="small">Release checks remain open</span></div>
       <div class="metric"><strong>0 findings</strong><span>Debug lint</span><span class="small">Release lint needs a repeat</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
@@ -197,6 +197,7 @@
             <li>System light and dark themes, with dynamic colour on Android 12 and later.</li>
             <li>Current speed in km/h, GPS altitude, accuracy, and maximum speed.</li>
             <li>Portrait and landscape layouts, large text, and screen-reader labels.</li>
+            <li>No home-screen scroll area. The speed display uses the space left by the readings and GPS controls.</li>
             <li>Precise-location permission, pause and resume, and recovery messages.</li>
           </ul>
         </article>
@@ -222,32 +223,38 @@
     <section id="screens" aria-labelledby="screens-heading">
       <div class="section-head"><h2 id="screens-heading"><span class="number">02</span>Screen evidence</h2><span class="small">Captured 20 October 2026</span></div>
       <p class="section-intro">These are app screenshots from an Android 16 emulator.
-        The location data is simulated. Select an image to open the full capture.</p>
+        The new home captures use the same logical screen size as the connected Pixel 7 Pro.
+        Their baseline is <code>c934f5e</code> plus the home layout fix; debug APK hash starts with <code>1a12d63f</code>.
+        The location data is simulated. Select an image to open the full capture.
+        A <a href="docs/progress/images/2026-10-20-home-large-text.png">200% portrait capture</a>
+        also shows all readings and controls on one screen. It has the same baseline and capture date.</p>
       <div class="screens">
         <figure class="shot">
-          <a href="docs/progress/images/2026-10-20-main-light.png" target="_blank" rel="noopener" aria-label="Open full light-theme screenshot">
-            <img src="docs/progress/images/2026-10-20-main-light.png" width="1080" height="2400"
-              alt="Light theme with speed 36 km/h, GPS altitude 451 m, accuracy 5 m, and a Pause GPS button.">
+          <a href="docs/progress/images/2026-10-20-home-light.png" target="_blank" rel="noopener" aria-label="Open full light-theme screenshot">
+            <img src="docs/progress/images/2026-10-20-home-light.png" width="1080" height="2340"
+              alt="Light theme at 110% text with speed 123.5 km/h, altitude 451 m, GPS status, and Pause GPS visible together.">
           </a>
-          <figcaption><strong>Light theme · GPS connected</strong>Injected speed: 36 km/h. Altitude: 451 m.
-            The theme uses the emulator's system colours. Captured 20 October 2026. App baseline: <code>c109f66</code>.</figcaption>
+          <figcaption><strong>Light theme · 110% text</strong>Simulated speed: 123.5 km/h. Altitude: 451 m.
+            The app name and screen heading have been removed. Captured 20 October 2026.
+            Baseline: <code>c934f5e</code> + home layout fix.</figcaption>
         </figure>
         <figure class="shot">
-          <a href="docs/progress/images/2026-10-20-main-dark.png" target="_blank" rel="noopener" aria-label="Open full dark-theme screenshot">
-            <img src="docs/progress/images/2026-10-20-main-dark.png" width="1080" height="2400" loading="lazy"
-              alt="Dark theme while finding a GPS signal. Current speed, altitude, and maximum speed show unavailable values.">
+          <a href="docs/progress/images/2026-10-20-home-dark.png" target="_blank" rel="noopener" aria-label="Open full dark-theme screenshot">
+            <img src="docs/progress/images/2026-10-20-home-dark.png" width="1080" height="2340" loading="lazy"
+              alt="Dark theme at 110% text with all readings, GPS status, and Pause GPS visible without scrolling.">
           </a>
-          <figcaption><strong>Dark theme · Waiting for GPS</strong>Unavailable readings appear as a dash.
-            The screen does not present a missing reading as zero. Captured 20 October 2026. App baseline: <code>c109f66</code>.</figcaption>
+          <figcaption><strong>Dark theme · 110% text</strong>Simulated speed: 123.5 km/h. Altitude: 451 m.
+            The layout also fits with the system dark theme. Captured 20 October 2026.
+            Baseline: <code>c934f5e</code> + home layout fix.</figcaption>
         </figure>
         <figure class="shot landscape">
-          <a href="docs/progress/images/2026-10-20-main-landscape.png" target="_blank" rel="noopener" aria-label="Open full landscape screenshot">
-            <img src="docs/progress/images/2026-10-20-main-landscape.png" width="2400" height="1080" loading="lazy"
-              alt="Landscape layout with the speed display on the left and measurement cards, GPS status, and pause control on the right.">
+          <a href="docs/progress/images/2026-10-20-home-landscape.png" target="_blank" rel="noopener" aria-label="Open full landscape screenshot">
+            <img src="docs/progress/images/2026-10-20-home-landscape.png" width="2340" height="1080" loading="lazy"
+              alt="Landscape at 200% text with speed and measurements on the left and GPS status and Pause GPS on the right.">
           </a>
-          <figcaption><strong>Landscape · Layout correction verified</strong>The speed display was reduced after visual inspection.
-            The readings and pause control now fit together. This capture shows the waiting state.
-            Captured 20 October 2026. App baseline: <code>c109f66</code>.</figcaption>
+          <figcaption><strong>Landscape · 200% text</strong>A short window shows speed and its unit in one row.
+            All readings and controls fit. Simulated speed: 123.5 km/h. Altitude: 451 m.
+            Captured 20 October 2026. Baseline: <code>c934f5e</code> + home layout fix.</figcaption>
         </figure>
         <figure class="shot" style="grid-column:1 / -1">
           <a href="docs/progress/images/2026-10-20-permission-recovery.png" target="_blank" rel="noopener" aria-label="Open full permission recovery screenshot">
@@ -263,7 +270,7 @@
     </section>
 
     <section id="verification" aria-labelledby="verification-heading">
-      <div class="section-head"><h2 id="verification-heading"><span class="number">03</span>Verification</h2><span class="tag done">7 passed · 0 failed · 0 skipped</span></div>
+      <div class="section-head"><h2 id="verification-heading"><span class="number">03</span>Verification</h2><span class="tag done">7 core tests + 1 layout test passed</span></div>
       <div class="note" style="margin:0 0 24px"><strong>P2 permission recovery · Fixed and verified.</strong>
         A review agent reproduced this defect on the API 36 emulator on 20 October 2026.
         After two denials, Android marked both location permissions as <code>USER_FIXED</code>.
@@ -280,9 +287,15 @@
         Seven tests passed on the dedicated API 36 emulator. Test commands took 153.4 seconds in total.
         Each test ran in a separate AndroidJUnitRunner invocation, with app data cleared before each test.
         This run did not use Orchestrator. Tests use the production location source and Android test locations.
-        The tested APK also contains concurrent layout edits. It predates the final short-window layout correction.
-        The layout chat will build and verify that correction separately.
+        The tested APK contains earlier layout edits. It predates the final short-window layout correction.
         The local evidence records APK hashes and the tested source hashes.</p>
+      <p class="section-intro">Final layout run: 20 October 2026. The separate layout test passed on the final debug APK.
+        It checked 100%, 110%, and 200% text in portrait and landscape, with permission, live, paused, and location-off states.
+        It also checked dark mode. No scroll area, clipped text, or controls outside the home content were found.
+        The emulator used 1080 × 2340 pixels at 420 dpi, about 411 × 891 dp.
+        This matches the connected Pixel 7 Pro's logical size at 1440 × 3120 pixels and 560 dpi.
+        The first final run passed in 57.9 seconds. A repeat with system animations off passed in 39.6 seconds and produced stable captures.
+        Display and animation settings were restored. The test removed its GPS provider.</p>
       <div class="table-wrap">
         <table>
           <caption>End-to-end device tests · Android 16, API 36</caption>
@@ -295,6 +308,7 @@
             <tr><td>Signal loss and recovery</td><td>An old reading clears. A new fix restores the displayed speed.</td><td><span class="tag done">Passed</span></td></tr>
             <tr><td>Pause and background</td><td>Current Android GPS listener registrations are removed, then restored on resume.</td><td><span class="tag done">Passed</span></td></tr>
             <tr><td>GPS disabled and enabled</td><td>The screen shows that location is off and recovers after GPS is enabled.</td><td><span class="tag done">Passed</span></td></tr>
+            <tr><td>Home layout and large text</td><td>All checked text and controls fit without scrolling at 100%, 110%, and 200% text in both orientations. Dark mode also fits.</td><td><span class="tag done">Passed</span></td></tr>
           </tbody>
         </table>
       </div>
@@ -302,20 +316,22 @@
         <article class="panel">
           <h3>Build and visual checks</h3>
           <ul>
-            <li>The latest debug app and test APKs built successfully. An unsigned release APK also built earlier in this fix.</li>
-            <li>Debug lint passed before the final concurrent layout edits. Final layout lint is assigned to the layout chat.
+            <li>The final debug app and test APKs built successfully. Debug lint reported no issues.</li>
+            <li>An unsigned release APK built before the final layout changes.
               The latest release lint run was stopped because the host was low on memory.</li>
-            <li>Light mode, dark mode, landscape, and 200% text were inspected for baseline <code>c109f66</code>.</li>
-            <li>Emulator display settings were restored after inspection.</li>
+            <li>Light mode, dark mode, landscape, and 200% text were inspected on the final debug APK.</li>
+            <li>Selected screenshots are stored with this report. Raw test output remains in the ignored artifacts folder.</li>
           </ul>
-          <p class="test-note">Release lint passed for the initial baseline. Repeat it before publication.
+          <p class="test-note">Repeat the release build and release lint before publication.
             Lint treats warnings as errors. Dependency update notices are excluded.
-            Layout changes in another chat have a separate acceptance check.</p>
+            An initial layout assertion reported unused paragraph width as overflow.
+            The corrected assertion checks rendered line width and text height. Both final runs passed.</p>
         </article>
         <article class="panel">
           <span class="tag pending">Not yet verified</span>
           <h3>Checks that need more evidence</h3>
           <ul>
+            <li>Install and inspect this update on the physical Pixel 7 Pro. Check other window sizes, display-size settings, and languages.</li>
             <li>Outdoor GPS accuracy and time to the first fix on physical devices.</li>
             <li>Battery use, cold start, and frame timing in a release build.</li>
             <li>TalkBack use and a broader Android device and API range.</li>
@@ -328,6 +344,9 @@
         Local output: <a href="artifacts/permission-device-results.json">seven-test result and APK hashes</a>,
         <a href="artifacts/permission-verified-source-hashes.json">tested source hashes</a>, and
         <a href="artifacts/permission-manual-result.json">direct Settings check</a>.
+        Layout output: <a href="artifacts/layout-final-build.log">final build and lint</a>,
+        <a href="artifacts/layout-device-final.log">layout test</a>, and
+        <a href="artifacts/layout-final-evidence.json">final APK and source hashes</a>.
         These generated files are not stored in Git. The table records their results for this milestone.</p>
     </section>
 
@@ -479,6 +498,17 @@ const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+        <li>
+          <time datetime="2026-10-20">20 October 2026</time>
+          <div><h3>Home screen fits without scrolling</h3>
+            <p>Removed the app name and screen heading. Reserve space for readings and GPS controls.
+              Fit the speed display to the remaining space. Use a single row for speed in short windows.
+              Keep measurement values on one line and shorten the status messages.</p>
+            <p>Final debug build and lint passed. The new layout test passed at the Pixel 7 Pro's logical screen size,
+              with 100%, 110%, and 200% text in both orientations. Light, dark, and large-text captures were inspected.
+              The physical phone was not updated. Release checks and other screen sizes remain open.</p>
+            <p>App baseline: <code>c934f5e</code> + home layout fix. Debug APK hash starts with <code>1a12d63f</code>.</p></div>
+        </li>
         <li>
           <time datetime="2026-10-20">20 October 2026</time>
           <div><h3>Permission recovery fixed <code>c934f5e</code></h3>

@@ -25,6 +25,13 @@ Design 2a supplies the main concept: a large speed display, altitude, and maximu
 The implementation uses native Material components and system typography.
 It does not include controls for features that are not implemented.
 
+The home screen does not scroll. The readings and GPS controls use their required
+height. The speed dial uses the space that remains inside the system bars.
+Landscape mode puts the readings beside the GPS controls. The app name and screen
+heading are not repeated above the dial. Short windows show the speed and unit in
+one row. Small dials omit the visible speed label. The screen-reader description
+still identifies current speed and its unit. Measurement values fit on one line.
+
 ## Open and run
 
 1. Open this folder in Android Studio.
@@ -115,6 +122,10 @@ The tests cover:
 5. Clear an old reading and recover when a new fix arrives.
 6. Remove GPS requests during pause and in the background; resume correctly.
 7. Recover after GPS is disabled and enabled.
+8. Keep readings, GPS controls, and text inside the home screen at 100%, 110%, and 200%
+   text size in portrait and landscape. Check permission, live, paused, and
+   disabled-location states, and check dark mode. Restore the display settings after
+   the check.
 
 The tests inject locations into the Android location service. They do not replace the
 production source or ViewModel. Listener checks inspect current Android registrations.
@@ -137,8 +148,9 @@ build. The Compose compiler version matches the Kotlin version supplied by AGP.
 
 ## Verification on 2026-10-20
 
-- The debug app and test APK builds passed. An unsigned release APK also built during this fix.
-- Debug lint passed before the final concurrent layout edits. Final layout lint needs a repeat.
+- The final home-layout debug app and test APK builds passed. Debug lint reported no issues.
+- An unsigned release APK built before the final home-layout changes. Repeat the release
+  build before publication.
 - The latest release lint run was stopped because the host was low on memory.
   Release lint passed for the initial baseline; repeat it before publication.
 - Seven GPS and permission tests passed on an Android 16 (API 36) emulator.
@@ -147,9 +159,22 @@ build. The Compose compiler version matches the Kotlin version supplied by AGP.
 - The repeated-denial test opens Android App info, grants permission through
   `UiAutomation`, and checks GPS after return. A separate direct device check
   passed through the actual Settings permission controls.
-- The tested APK includes concurrent layout edits but predates the final short-window correction.
-  The layout chat will build and verify that correction separately.
-  Light mode, dark mode, landscape, and 200% text passed inspection for the initial baseline.
+- The seven core tests used the APK before the final short-window correction.
+  The separate home-layout test passed on the final APK. It checked 100%, 110%, and 200%
+  text in portrait and landscape, permission and live states, pause and resume,
+  location-off recovery, and dark mode.
+- The layout emulator used 1080 × 2340 pixels at 420 dpi. This gives the same logical
+  size as the connected Pixel 7 Pro at 1440 × 3120 pixels and 560 dpi: about 411 × 891 dp.
+  The test found no scroll area, clipped text, or controls outside the home content.
+- Light mode, dark mode, and large text were inspected on the final APK.
+  The selected captures are in `docs/progress/images/`. Location data is simulated.
+  The emulator settings were restored and the GPS test provider was removed.
+- The final debug APK has SHA-256
+  `1a12d63fdb144626fb5e75c607990a7d840ce4b934f94844d258f7c02334877d`.
+  Local build, layout-test, and hash records are in `artifacts/layout-final-build.log`,
+  `artifacts/layout-device-final.log`, and `artifacts/layout-final-evidence.json`.
+- The update was not installed on the physical Pixel 7 Pro. Other window sizes,
+  display-size settings, and languages still need checks.
 - Real-device GPS accuracy, TalkBack, frame timing, and battery use remain unmeasured.
 
 See [the progress report](PROGRESS.html#verification) for the dated evidence and
