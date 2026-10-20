@@ -1,0 +1,24 @@
+# Local tools and generated files.
+.idea/
+.gradle/
+.kotlin/
+**/build/
+*.iml
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+.DS_Store
+Thumbs.db
+
+# Local design exports are reference material, not app source.
+/GPS tracker app prototype/
+
+# Test output and local credentials.
+/artifacts/
+*.jks
+*.keystore
+keystore.properties
+.env
+.env.*
+!.env.example
