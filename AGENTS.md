@@ -52,3 +52,16 @@
 - Report what was tested, what failed, and what still needs a real device.
 - Keep generated output, local SDK paths, signing keys, IDE state, and design exports out of Git.
 - Before publication, replace the development application ID, add release signing, and complete store and privacy requirements.
+
+## Progress report
+
+- Keep `PROGRESS.html` current after each completed feature, fix, milestone, or change to verification results.
+- Update it in the same change as the work it describes. Do not mark planned or untested work as complete.
+- Record the update date, app code baseline, completed scope, test evidence, known limits, and required and optional future work.
+- Add a dated change-history entry for meaningful progress. Preserve earlier milestone entries.
+- Use real app screenshots for UI changes. Store selected captures in `docs/progress/images/` with dated names.
+- Track these selected report images in Git. Keep raw captures and other generated output in the ignored `artifacts/` folder.
+- Caption each image with its date, app baseline, and relevant state. Identify simulated location data.
+- Keep code excerpts short and accurate. Link each excerpt to its source and update it when that code changes.
+- Keep the report usable without a network connection or build step. Use relative links to local assets.
+- Check the report layout and local links after report changes. Check narrow screens after layout changes.

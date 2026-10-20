@@ -3,6 +3,10 @@
 A native Android speedometer built with Kotlin, Jetpack Compose, and Material 3.
 This repository is for local development. No remote is configured.
 
+Open [PROGRESS.html](PROGRESS.html) in a browser for the current status, screenshots,
+code excerpts, verification results, and required and optional future work.
+Update the report with each completed change, as specified in `AGENTS.md`.
+
 ## Current scope
 
 - Show current GPS speed in km/h.
