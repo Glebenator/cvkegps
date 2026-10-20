@@ -2,6 +2,7 @@ package com.example.cvkegps.ui
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.LocalActivity
@@ -13,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -22,28 +24,36 @@ fun SpeedometerRoute(viewModel: SpeedometerViewModel) {
     val activity = LocalActivity.current ?: return
     val state by viewModel.uiState.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
     var permissionRequested by rememberSaveable { mutableStateOf(false) }
+    var permissionNeedsSettings by rememberSaveable { mutableStateOf(false) }
+
+    fun refreshAccess() {
+        // Permission results can change the recovery action without changing GPS status.
+        permissionNeedsSettings = permissionRequested &&
+            ContextCompat.checkSelfPermission(activity, Manifest.permission.ACCESS_FINE_LOCATION) !=
+            PackageManager.PERMISSION_GRANTED &&
+            !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.ACCESS_FINE_LOCATION)
+        viewModel.refreshAccess()
+    }
+
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) {
         permissionRequested = true
-        viewModel.refreshAccess()
+        refreshAccess()
     }
 
-    LifecycleResumeEffect(viewModel) {
-        viewModel.refreshAccess()
+    LifecycleResumeEffect(activity, viewModel) {
+        refreshAccess()
         onPauseOrDispose { }
     }
 
-    val openAppSettings = permissionRequested &&
-        !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.ACCESS_FINE_LOCATION)
-
     SpeedometerScreen(
         state = state,
-        permissionNeedsSettings = openAppSettings,
+        permissionNeedsSettings = permissionNeedsSettings,
         onAction = {
             when (state.status) {
                 GpsStatus.PermissionRequired -> {
-                    if (openAppSettings) {
+                    if (permissionNeedsSettings) {
                         activity.startActivity(
                             Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
                                 .setData(Uri.fromParts("package", activity.packageName, null)),

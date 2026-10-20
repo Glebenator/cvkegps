@@ -22,10 +22,12 @@ import androidx.test.uiautomator.Until
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.regex.Pattern
 
 /**
  * Full app tests through the Android location service. Run on a dedicated emulator.
@@ -81,6 +83,35 @@ class SpeedometerDeviceTest {
         clickSystemPermission("permission_allow_foreground_only_button")
         awaitSpeed(10f, "36")
         compose.onNodeWithTag("altitude").assertTextEquals("451")
+    }
+
+    @Test
+    fun repeatedPermissionDenialCanRecoverThroughAppSettings() {
+        launch(grantPermission = false)
+        for (denyControl in listOf("permission_deny_button", "permission_deny_and_dont_ask_again_button")) {
+            awaitText("Allow precise location")
+            compose.onNodeWithTag("gps_action").performScrollTo().performClick()
+            clickSystemPermission(denyControl)
+        }
+        awaitText("Open app settings")
+        assertFalse(hasGpsRequest())
+
+        scenario!!.recreate()
+        awaitText("Open app settings")
+        compose.onNodeWithTag("gps_action").performScrollTo().performClick()
+        assertTrue(
+            "The app details page must open",
+            device.wait(Until.hasObject(By.text("App info").pkg("com.android.settings")), 10_000),
+        )
+        // Use Android's test API: Settings restricts permission editing for test location providers.
+        instrumentation.uiAutomation.grantRuntimePermission(packageName, Manifest.permission.ACCESS_COARSE_LOCATION)
+        instrumentation.uiAutomation.grantRuntimePermission(packageName, Manifest.permission.ACCESS_FINE_LOCATION)
+        assertFalse(hasGpsRequest())
+        device.pressBack()
+
+        awaitSpeed(10f, "36")
+        compose.onNodeWithTag("altitude").assertTextEquals("451")
+        compose.onNodeWithTag("gps_action").assertTextEquals("Pause GPS")
     }
 
     @Test
@@ -189,9 +220,12 @@ class SpeedometerDeviceTest {
     }
 
     private fun clickSystemPermission(id: String) {
-        val button = device.wait(Until.findObject(By.res("com.android.permissioncontroller", id)), 5_000)
+        // Android and Google system images use different permission-controller packages.
+        val selector = By.res(Pattern.compile("[^:]+:id/${Pattern.quote(id)}"))
+        val button = device.wait(Until.findObject(selector), 5_000)
         assertNotNull("Expected the Android permission control: $id", button)
         button.click()
+        assertTrue("The Android permission dialog must close", device.wait(Until.gone(selector), 5_000))
     }
 
     private fun hasGpsRequest(): Boolean {
