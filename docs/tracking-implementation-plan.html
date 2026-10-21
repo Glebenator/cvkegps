@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CVKE GPS · Tracking implementation plan</title>
+  <style>
+    :root { color-scheme: light dark; font: 16px/1.65 system-ui, sans-serif; color: #243023; background: #f6f5f0; }
+    * { box-sizing: border-box; }
+    body { max-width: 1080px; margin: auto; padding: 32px 24px 64px; }
+    h1, h2, h3 { line-height: 1.25; }
+    h1 { font-size: clamp(2rem, 5vw, 3.4rem); margin: 16px 0; }
+    h2 { margin-top: 36px; }
+    p { margin: 12px 0; }
+    a { color: #345e27; text-underline-offset: 3px; overflow-wrap: anywhere; }
+    code { overflow-wrap: anywhere; }
+    li + li { margin-top: 8px; }
+    nav { display: flex; flex-wrap: wrap; gap: 10px 22px; margin: 22px 0; }
+    nav a { padding-block: 10px; }
+    .label { font-size: .85rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+    .note, article { border: 1px solid #dce0d4; border-radius: 16px; padding: 20px 24px; margin: 18px 0; background: #fff; }
+    .note { background: #fff4d9; border-color: #d6bd87; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .grid article { margin: 0; }
+    .grid article h3 { margin-top: 0; }
+    .table { overflow-x: auto; border: 1px solid #dce0d4; border-radius: 12px; }
+    table { width: 100%; border-collapse: collapse; background: #fff; text-align: left; }
+    caption { padding: 16px; font-weight: 700; text-align: left; }
+    th, td { padding: 14px 16px; border-top: 1px solid #dce0d4; vertical-align: top; }
+    th { background: #eaf1e3; }
+    .small { font-size: .9rem; }
+    .flow { border-left: 4px solid #507a40; padding: 12px 20px; background: #eaf1e3; }
+    :focus-visible { outline: 3px solid #507a40; outline-offset: 4px; }
+    @media (max-width: 640px) { body { padding: 20px 16px 40px; } .grid { grid-template-columns: 1fr; } .note, article { padding: 18px; } th, td { padding: 12px; } }
+    @media (prefers-color-scheme: dark) {
+      :root { color: #e6ebdf; background: #1d241c; }
+      a { color: #b6d5a5; }
+      article, table { background: #283126; }
+      article, .table, th, td { border-color: #465241; }
+      th, .flow { background: #35452e; }
+      .note { background: #40351f; border-color: #8b7342; }
+    }
+    @media print { :root { color: #000; background: #fff; } body { max-width: none; padding: 0; } nav { display: none; } article { break-inside: avoid; } }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="../PROGRESS.html#tracking-plan">Return to the progress report</a>
+    <p class="label">Implementation plan · 21 October 2026</p>
+    <h1>Record a trip.<br>Keep the measurements.</h1>
+    <p>Support car, transit, plane, bike, and ski trips. Use one recording system.
+      Select the useful readings and map style for each activity.</p>
+    <div class="note"><strong>Plan only. Tracking is not implemented.</strong>
+      The user selected online maps in the first release, personal flight records, and one mode per trip.
+      The user selected MapLibre with standard OpenStreetMap tiles. No new app test result is claimed.</div>
+    <p class="small">App reference: <code>8b5ea06</code>, plus the existing uncommitted GPS details,
+      constellation, and accuracy-scale changes inspected on 21 October 2026.
+      Those changes are outside this planning commit.</p>
+  </header>
+  <nav aria-label="Plan sections">
+    <a href="#scope">First delivery</a><a href="#modes">Activity modes</a><a href="#maps">Maps</a>
+    <a href="#design">Recording design</a><a href="#steps">Commit sequence</a>
+    <a href="#tests">Small test set</a><a href="#decisions">Open decisions</a>
+  </nav>
+  <main>
+    <section id="scope">
+      <h2>1. First delivery</h2>
+      <p><strong>Agreed scope:</strong> include online maps in the first release. Implement local recording before map integration.
+        A map failure must not stop a recording. The recorder must work without a network connection.</p>
+      <ul>
+        <li>Select Car, Transit, Plane, Bike, or Ski before Start. Use one mode per trip initially.</li>
+        <li>Start from the visible app. Continue after Home or screen lock through a location foreground service.</li>
+        <li>Provide manual Pause, Resume, and Stop. Save points during the trip. Stop saves the final state.</li>
+        <li>Show recording state, elapsed recording time, current speed, recorded distance estimate, and signal quality.</li>
+        <li>List saved trips. Open a trip to see its mode, times, distance estimate, readings, and interruption periods.
+          Allow the user to delete a trip with confirmation.</li>
+        <li>Recover the last saved data after process loss. Mark the trip Interrupted. Offer Resume or Finish when the app is visible.</li>
+      </ul>
+      <p>Online route review is required before the first delivery is complete.
+        Keep the trip summary available when the map cannot load. Do not add an inactive map control.</p>
+      <p>Defer automatic pause, activity detection, navigation, cloud sync, accounts, GPX export, and ski-run detection.
+        Add these features only after the user selects them.</p>
+    </section>
+    <section id="modes">
+      <h2>2. Activity modes</h2>
+      <p>Modes select presentation first. Keep measured values and quality fields in the saved record.
+        Do not infer better accuracy from an activity label.</p>
+      <div class="table" tabindex="0" role="region" aria-label="Activity comparison; scroll horizontally if needed">
+        <table>
+          <caption>Proposed information and map needs</caption>
+          <thead><tr><th scope="col">Mode</th><th scope="col">Useful information</th><th scope="col">Map candidate</th><th scope="col">Measurement limit</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Car</th><td>Speed, recorded distance, duration, maximum valid speed.</td><td>Road map.</td><td>Buildings and tunnels can interrupt GPS. Do not snap the saved points to roads.</td></tr>
+            <tr><th scope="row">Transit</th><td>Speed, duration, distance, stop periods visible in the history.</td><td>Road and rail map; transit detail if available.</td><td>Underground sections remain gaps. No inferred station visits or timetable data.</td></tr>
+            <tr><th scope="row">Plane</th><td>Ground speed, GPS altitude, track from true north, duration, horizontal and vertical uncertainty.</td><td>General terrain map first. Aviation charts require a separate decision.</td><td>Reception can fail in the cabin. Ground speed is not airspeed. GPS altitude is not a pressure-altimeter reading.</td></tr>
+            <tr><th scope="row">Bike</th><td>Speed, distance, duration, altitude, quality.</td><td>Cycle and terrain map.</td><td>Test curves, slow movement, and tree cover. Defer ascent totals until elevation filtering is validated.</td></tr>
+            <tr><th scope="row">Ski</th><td>Speed, maximum valid speed, altitude, duration, quality.</td><td>Terrain and ski-route map, if licensed data is available.</td><td>Lifts, stops, and descents stay in the trip. Defer run counts and vertical totals.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Store linear measurements in SI units and angles in radians. Convert only at platform boundaries and for display.
+        Keep missing measurements nullable. Format display values for the user's locale.
+        Keep km/h and metres initially; knots and feet can follow the flight-unit decision.</p>
+      <p>Identify the altitude reference. Android GPS altitude is normally relative to the WGS84 ellipsoid.
+        Store mean-sea-level altitude separately only when the platform supplies it with a known reference.
+        Do not silently label one as the other. A personal flight record is not a navigation instrument.</p>
+    </section>
+    <section id="maps">
+      <h2>3. Maps</h2>
+      <p>Separate the map renderer, map data, and saved route. One renderer can show different styles.
+        A map style does not change GPS accuracy. Do not add a separate SDK for each activity.</p>
+      <div class="grid">
+        <article><h3>First map milestone</h3><p>Show the measured route, start and end points, and separate segments at gaps.
+          Let the user pan and zoom. Keep the trip summary available if map data cannot load.</p>
+          <p>Use MapLibre Native with standard OpenStreetMap tiles, as selected by the user.
+            Check attribution, an identifying User-Agent, caching, request limits, and the tile-use policy before release.</p></article>
+        <article><h3>Offline and specialist maps</h3><p>If offline maps are required, define download areas, size limits,
+          deletion, and map-data updates before SDK selection. Cached online tiles are not an offline-download promise.</p>
+          <p>Aviation and ski layers need suitable source coverage and permission to display and store the data.
+            Do not assume public map tile servers permit bulk downloads.</p></article>
+      </div>
+      <p>Map requests can disclose the viewed area to a provider. Document that behaviour before adding network access.
+        Keep trip points out of analytics, logs, and crash reports. Keep local storage excluded from backup.
+        Do not upload routes or add cloud sync.</p>
+      <p class="small">The first renderer and tile source are selected. Specialist map sources and offline downloads remain deferred.
+        No provider benchmark or licence review has been completed for this plan.</p>
+    </section>
+    <section id="design">
+      <h2>4. Recording design</h2>
+      <p class="flow">One Android location request → recording coordinator → local database.<br>
+        The same coordinator supplies the latest reading to the screen.</p>
+      <h3>Location ownership</h3>
+      <p>Keep <code>LocationManager.GPS_PROVIDER</code> as the first provider. Introduce a small batch-capable source interface.
+        Android types stay in its adapter. Preserve every delivered point before producing the latest display state.</p>
+      <p>The current <a href="../app/src/main/java/com/example/cvkegps/location/AndroidGpsSource.kt">AndroidGpsSource</a>
+        uses <code>conflate()</code>. Its reading model has no coordinates or UTC time.
+        The <a href="../app/src/main/java/com/example/cvkegps/ui/SpeedometerViewModel.kt">ViewModel</a>
+        rejects readings at least ten seconds old. Keep this display rule separate from valid historical samples.</p>
+      <ul>
+        <li>Use one coordinator with a defined coroutine scope and constructor injection.
+          It owns the source while recording or while the live screen needs GPS.</li>
+        <li>During recording, the service owns the session lifetime. Screen recreation must not add a request.
+          When no trip is active, preserve the current screen-only lifetime.</li>
+        <li>Trip Pause stops measurement collection, including the live speed request. Resume starts a new segment.
+          Stop removes the recording request. A visible speedometer can then resume its own explicitly active display request.</li>
+        <li>Keep GNSS satellite status separate. It is needed only for the visible satellite display, not for route storage.</li>
+        <li>Start with high accuracy, a one-second interval, immediate delivery, and a zero-metre distance filter for all modes.
+          These are test settings, not measured optimum settings.</li>
+        <li>Use a bounded queue. Check enqueue results. On overflow or a storage error, stop collection and show an error.
+          Preserve the committed route. Record a gap when storage permits. Never report an uninterrupted saved route after loss.</li>
+      </ul>
+      <h3>Local records and calculations</h3>
+      <p>Use Room for durable sessions, transactions, and queries. Select current stable, compatible Room and KSP versions
+        in the version catalog during implementation. Do not add a dependency before it is used.</p>
+      <ul>
+        <li><strong>Trip:</strong> ID, mode, state, start and end UTC time, and calculation-policy version.</li>
+        <li><strong>Segment:</strong> trip ID, recording-run ID, order, start and end time, and interruption reason.
+          Distinguish manual pause, signal loss, access loss, and process interruption.</li>
+        <li><strong>Point:</strong> coordinates, UTC and elapsed-realtime timestamps, arrival time, provider,
+          speed, altitude reference, track, available uncertainty, and test-location flag.</li>
+        <li>Use elapsed realtime for duration and order within one recording run. Create a new run after a restart.
+          Never compare monotonic timestamps across a reboot. UTC clock changes must not produce negative duration.</li>
+        <li>Deduplicate by run and measurement identity. Handle late and reordered batch points without dropping valid history.
+          Use command boundaries to keep points measured during a pause out of the active segment.</li>
+        <li>Write points and session state together off the main thread. Proposed initial limit: commit at least once per second
+          while points arrive. Measure actual commit delay; the limit cannot guarantee survival of abrupt device power loss.</li>
+        <li>Keep raw valid measurements separate from summary eligibility. Invalid coordinates or times must not enter a route.
+          Poor accuracy can remain in history with its quality flag.</li>
+        <li>Calculate geodesic distance only within accepted continuous segments. Do not count a straight line across a gap.
+          Test stationary drift, poor fixes, the date line, and polar routes. Report a recorded-distance estimate with missing-time information.</li>
+        <li>Use reported speed for current and maximum speed only when its quality is acceptable.
+          The current 50 m position and 3 m/s speed thresholds are provisional. Do not impose a car speed limit on plane data.</li>
+        <li>Exclude manual pauses from recording duration. Show signal-gap duration separately.
+          Defer moving time and moving-average speed until stop detection has an agreed definition.</li>
+      </ul>
+      <h3>Service, permission, and recovery</h3>
+      <p>Use these states: Idle → Recording → Paused → Recording → Finished.
+        Recording can also enter Interrupted or Error. Process all commands in one ordered path.
+        Repeated Start and Stop commands must be safe.</p>
+      <ul>
+        <li>Explain precise location and notification use before requesting access. Start only from an explicit action in the visible app.</li>
+        <li>Declare <code>FOREGROUND_SERVICE</code>, <code>FOREGROUND_SERVICE_LOCATION</code>,
+          <code>POST_NOTIFICATIONS</code>, and service type <code>location</code> where required.
+          Do not request <code>ACCESS_BACKGROUND_LOCATION</code> for this user-started flow.</li>
+        <li>Show a visible recording notification with Pause or Resume and Stop. Update it at a limited rate.
+          Proposed denial rule: explain the missing notification and offer Settings before screen-off recording.</li>
+        <li>Verify current foreground-service rules for each supported Android version.
+          Start from the visible activity; if a paused service cannot resume from a notification action, open the activity to resume.</li>
+        <li>On GPS loss or disabled location, mark the gap and show the cause. On permission loss, release the request and require access recovery.</li>
+        <li>On reopen, detect unfinished saved sessions and mark them Interrupted. Do not silently restart after force-stop,
+          Task Manager Stop, or reboot. Resume creates a new segment and preserves the earlier data.</li>
+        <li>On Stop, use a bounded provider flush if supported, commit received points, remove callbacks, then finish the service.
+          Do not rely on <code>onDestroy()</code> to save a trip.</li>
+        <li>Do not add wake locks, an always-on screen, scheduled GPS polling, or battery-exemption requests.</li>
+      </ul>
+    </section>
+    <section id="steps">
+      <h2>5. Commit sequence</h2>
+      <p>Each implementation commit must build and update <a href="../PROGRESS.html">PROGRESS.html</a>.
+        Mark work as complete only after its stated checks pass. Keep Git local.</p>
+      <ol>
+        <li><strong>Plan and scope:</strong> save this plan and the product answers. Keep existing workspace changes separate.
+          Status now: first-release scope and map provider agreed.</li>
+        <li><strong>Durable trip records:</strong> add the models, Room storage, segment rules, and minimal calculation tests.
+          Verify transactions and reopen behaviour. No new inactive UI controls.</li>
+        <li><strong>Shared location source:</strong> add raw batches and the coordinator. Keep the current speedometer working.
+          Verify one request, cleanup, valid late samples, and explicit queue failure.</li>
+        <li><strong>Recording flow:</strong> add the foreground service, notification, mode selector, and working Start/Pause/Resume/Stop controls together.
+          Update the screen-only rule in AGENTS.md for an explicitly started recording. Verify lock, Home, pause, and permission recovery.</li>
+        <li><strong>Saved trips and recovery:</strong> add history, summary, deletion, and interrupted-trip recovery.
+          Verify force-stop/reopen and low-storage behaviour. Capture light, dark, and large-text app screens.</li>
+        <li><strong>Online maps:</strong> add one renderer and the chosen data source. Preserve visible gaps.
+          Test map failure and the agreed offline behaviour. Add mode styles only when their data is available.</li>
+        <li><strong>Field validation:</strong> check the release build and measure GPS quality, power use, and save delay on physical devices.
+          Then decide whether fused location, batching, or mode-specific intervals improve the result.</li>
+      </ol>
+      <p>Steps 2 and 3 depend on step 1. Step 4 depends on steps 2 and 3. Step 5 completes the first recorder delivery.
+        Map selection can proceed after the map decision; it must not block the recorder's storage design.</p>
+    </section>
+    <section id="tests">
+      <h2>6. Small test set</h2>
+      <p>Use the production Android location path with Android test locations. Extend the existing device-test setup.
+        Always restore permission, notification, location, display, and power settings. Remove test providers in cleanup.</p>
+      <ol>
+        <li><strong>Record and save:</strong> choose a mode, Start, deliver points, rotate, press Home, lock, unlock, Pause,
+          Resume, then Stop. Check saved points, separate segments, notification actions, and one active location request.</li>
+        <li><strong>Access and signal recovery:</strong> deny precise or notification access, recover through Settings,
+          disable and restore GPS, then remove location permission. Verify unavailable readings, visible gaps, and cleanup.</li>
+        <li><strong>Interrupted trip:</strong> save points, force-stop from an external device driver, reopen,
+          then Resume or Finish. Check committed data and no silent restart. Include one injected storage-write failure.</li>
+        <li><strong>Saved-trip UI:</strong> open and delete a trip. Check large text, light and dark themes, rotation,
+          and screen-reader labels. If maps are added, check a map-loading failure and the selected offline behaviour.</li>
+      </ol>
+      <p>Add only focused unit tests for distance and time rules, duplicate or reordered points, pause boundaries,
+        and queue overflow. These cases are hard to reproduce reliably through device GPS.
+        Use a small parameterized set, not a test for every getter or state assignment.</p>
+      <p>For functional changes, run <code>assembleDebug</code>, Android lint, and the relevant device tests.
+        Test API 29 and the current target API 37; existing API 36 evidence does not prove either boundary.
+        Before release, run the release build and release lint.</p>
+      <p>Physical tests must cover car, transit signal gaps, plane reception, bike curves and tree cover, and ski movement.
+        Include long screen-off use, Doze, Battery Saver, another phone manufacturer, and a stationary control.
+        Simulated GPS proves flow behaviour only. It does not prove battery use or accuracy.</p>
+    </section>
+    <section id="decisions">
+      <h2>7. Open decisions and completion limits</h2>
+      <ul>
+        <li><strong>Agreed first delivery:</strong> recorder, saved trips, trip review, and online maps. Offline downloads are deferred.</li>
+        <li><strong>Agreed flight use:</strong> personal record. Use km/h and metres initially. Knots and feet remain optional future work.</li>
+        <li><strong>Agreed trip modes:</strong> one manually selected mode per trip. No automatic detection.</li>
+        <li><strong>Before map work:</strong> required countries, offline regions, acceptable provider cost, and use without Google Play services.</li>
+        <li><strong>Before field acceptance:</strong> acceptable route error, speed uncertainty, battery use per hour,
+          and maximum unsaved time. Set these limits with device measurements; do not invent accuracy claims.</li>
+      </ul>
+      <p>Use local-only trip storage, no automatic resume, and the current GPS provider.
+        Selected map provider: MapLibre with standard OpenStreetMap tiles. Check tile policy and attribution during integration.</p>
+      <p>Planning verification: source and research inspection complete. App build, lint, device tests, and field tests
+        were not run for this document-only change. Record report-layout and local-link checks in the progress report after they run.</p>
+    </section>
+    <section id="sources">
+      <h2>8. Evidence used</h2>
+      <p>Read the <a href="location-power-research.md">20 October location power research</a> for the Android source links,
+        request-policy experiments, and power measurement procedure. This plan uses that research and the current local source.
+        It does not claim a fresh provider benchmark or policy review.</p>
+      <p>Recheck the linked Android foreground-service and permission rules during implementation.
+        Confirm the API 37 location-button and store policy requirements before publication.</p>
+      <p>Source references:
+        <a href="../app/src/main/java/com/example/cvkegps/location/GpsSource.kt">measurement interface</a>,
+        <a href="../app/src/main/java/com/example/cvkegps/ui/SpeedometerRoute.kt">screen lifecycle</a>,
+        <a href="../app/src/main/AndroidManifest.xml">manifest</a>,
+        <a href="../app/src/androidTest/java/com/example/cvkegps/SpeedometerDeviceTest.kt">existing device tests</a>,
+        <a href="../AGENTS.md">project rules</a>.</p>
+    </section>
+  </main>
+</body>
+</html>

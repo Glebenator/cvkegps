@@ -182,6 +182,7 @@
       <a href="#screens">Screenshots</a>
       <a href="#verification">Verification</a>
       <a href="#implementation">Code and structure</a>
+      <a href="#tracking-plan">Tracking plan</a>
       <a href="#future">Future work</a>
       <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
@@ -412,6 +413,21 @@ const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
 
     <section id="future" aria-labelledby="future-heading">
       <div class="section-head"><h2 id="future-heading"><span class="number">05</span>Future work</h2><span class="small">Proposed order · No dates assigned</span></div>
+      <article id="tracking-plan" class="panel" style="margin-bottom:18px">
+        <span class="tag pending">Tracking plan · 21 October 2026</span>
+        <h3>Record car, transit, plane, bike, and ski trips</h3>
+        <p>The first release will include manual Start, Pause, Resume, and Stop; screen-lock recording;
+          saved trips; trip review; and online maps. Select one mode per trip.
+          Plane mode is a personal trip record. Use MapLibre with standard OpenStreetMap tiles.</p>
+        <p>Implementation order: durable records, one shared location request, a location foreground service,
+          recording controls, saved-trip recovery, and online route maps. Keep valid history separate from live-reading freshness.
+          Preserve signal gaps. Measure power and accuracy before changing recording intervals by activity.</p>
+        <p><a href="docs/tracking-implementation-plan.html">Open the implementation plan, activity comparison, commit sequence, and small test set</a>.</p>
+        <p class="test-note"><strong>Plan complete; implementation pending.</strong>
+          App reference: <code>8b5ea06</code> plus the existing uncommitted GPS display changes.
+          Read the local power research and inspected the current source. No app build or device tests ran for this planning change.
+          Verified 71 report links and anchors. Checked the report addition at 1280 px and 360 px. Checked the activity table at 728 px and 360 px. It scrolls horizontally on narrow screens. The full report had no page overflow at 360 px. Live snapshot capture timed out twice; HTML rendering supplied the visual check.</p>
+      </article>
       <p class="section-intro">The current main-screen milestone is complete.
         The items below remain open. They are a plan for later work, not implemented features.</p>
       <article class="panel" style="margin-bottom:18px">
@@ -498,6 +514,14 @@ const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+        <li>
+          <time datetime="2026-10-21">21 October 2026</time>
+          <div><h3>Tracking release planned</h3>
+            <p>Defined the five activity modes, recording lifecycle, local records, gaps, recovery, maps, commit sequence,
+              and minimal tests. The user selected online OpenStreetMap maps through MapLibre, personal flight records,
+              and one mode per trip. App implementation and field measurements remain open.</p>
+            <p><a href="docs/tracking-implementation-plan.html">Read the implementation plan</a>.</p></div>
+        </li>
         <li>
           <time datetime="2026-10-20">20 October 2026</time>
           <div><h3>Home screen fits without scrolling</h3>
