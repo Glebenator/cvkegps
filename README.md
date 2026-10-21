@@ -112,7 +112,16 @@ The measurement contract contains no Android location objects. Use the same unit
 freshness rules for the future iOS app, with native location and UI implementations.
 Do not add shared platform code until both apps have a clear need.
 
-## Tracking verification on 2026-10-21
+## Tracker correction on 2026-10-21
+
+App code baseline: `dd886b5`. The tested working app also includes the earlier GPS display work.
+Debug and unsigned release builds, both lint checks, five calculation tests, and ten distinct emulator
+checks passed during this correction. Four relevant checks passed again after the final map change.
+Migration preserved the saved trip, two segments, and six positions. External checks confirmed
+notification recovery and saved points after force-stop. See the HTML report for captures and limits.
+Activity classification, GPS accuracy, battery use, and long trips still need physical-device tests.
+
+## Earlier tracking verification on 2026-10-21
 
 Debug and unsigned release builds, debug and release lint, three calculation tests, and eight API 36 emulator tests passed.
 The emulator run used the working-tree APK, which includes the earlier GPS display changes. A separate selected-tree build
