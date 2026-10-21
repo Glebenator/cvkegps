@@ -516,6 +516,15 @@ const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
       <ol class="history">
         <li>
           <time datetime="2026-10-21">21 October 2026</time>
+          <div><h3>Trip storage models and route calculations added</h3>
+            <p>Added Room tables for trips, recording segments, and measured points. Added distance and gap calculations.
+              Three focused unit tests passed for date-line distance, stationary noise, late and duplicate points,
+              signal gaps, invalid readings, and plane speed. The debug build passed.</p>
+            <p>App reference: tracking storage work after <code>c5d70cb</code>, with the existing GPS display changes.
+              The recorder is not connected to the app yet. Device tests and lint remain pending for the functional integration.</p></div>
+        </li>
+        <li>
+          <time datetime="2026-10-21">21 October 2026</time>
           <div><h3>Tracking release planned</h3>
             <p>Defined the five activity modes, recording lifecycle, local records, gaps, recovery, maps, commit sequence,
               and minimal tests. The user selected online OpenStreetMap maps through MapLibre, personal flight records,
