@@ -63,6 +63,25 @@
     <a href="#tests">Small test set</a><a href="#decisions">Open decisions</a>
   </nav>
   <main>
+    <section id="design-correction">
+      <h2>21 October correction: follow Design 2a</h2>
+      <p>The local Android prototype specifies speed on launch, one Start map tracking action,
+        an automatic activity estimate, and a map above the recording controls. The earlier implementation
+        added a separate GPS pause button and a required mode picker. Those controls do not follow Design 2a.</p>
+      <ol>
+        <li>Remove the GPS pause control. Keep permission and location recovery actions. Use screen visibility to control the live display.</li>
+        <li>Start route recording from the home screen. Explain screen-lock recording and map privacy before the first start.
+          Show the live route, measurements, Pause, Resume, and Stop on the tracker. Keep saved trips in a separate view.</li>
+        <li>Use a bounded window of recent, valid speed readings for an activity estimate. Require sustained evidence.
+          Show Unknown when evidence is missing. Show Car or transit and Bike or ski when GPS cannot separate the modes.
+          Allow an optional correction. Save the activity and whether it was automatic. Preserve existing trips during the database upgrade.</li>
+        <li>Check detection limits with a small calculation test set. Update the device flows for automatic GPS,
+          recording, correction, signal loss, and access recovery. Inspect both themes, rotation, and large text.</li>
+      </ol>
+      <p>This is a planned correction. It is not yet verified. The prototype uses simulated scenarios; it contains no
+        production activity classifier. GPS estimates need field validation. Small planes and fast trains can overlap.
+        Do not add sensor permissions, background detection, or automatic recording starts in this change.</p>
+    </section>
     <section id="scope">
       <h2>1. First delivery</h2>
       <p><strong>Agreed scope:</strong> include online maps in the first release. Implement local recording before map integration.
