@@ -29,14 +29,37 @@ class TrackingViewModel(private val dao: TripDao, val recorder: TripRecorder, so
     val trips = dao.trips().stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), emptyList())
     private val selection = MutableStateFlow<String?>(null)
     val selectedId = selection.asStateFlow()
-    private val selectedMode = MutableStateFlow(TripMode.Car)
+    private val selectedMode = MutableStateFlow<TripMode?>(null)
     val mode = selectedMode.asStateFlow()
+    val estimate = source.activityEstimate.transformLatest { estimate ->
+        val now = SystemClock.elapsedRealtimeNanos()
+        emit(estimate.fresh(now))
+        val remaining = 10_000_000_000L - (now - estimate.elapsedNanos)
+        if (remaining in 1..10_000_000_000L) {
+            delay((remaining + 999_999) / 1_000_000)
+            emit(TripMode.Unknown)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(0, 0), TripMode.Unknown)
     private val mutationError = MutableStateFlow(false)
     val storageError = mutationError.asStateFlow()
 
     val detail = selection.flatMapLatest { id ->
         if (id == null) flowOf(null)
         else combine(dao.trips(), dao.points(id)) { rows, points -> rows.find { it.id == id } to points }
+            .mapLatest { (trip, points) ->
+                if (trip == null) null else {
+                    val segments = dao.segments(id)
+                    withContext(Dispatchers.Default) {
+                        val grouped = points.groupBy { it.segmentId }
+                        TripDetail(trip, points.size, segments.size,
+                            RouteMath.summarize(segments.map { grouped[it.id].orEmpty().map(TripPoint::sample) }))
+                    }
+                }
+            }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), null)
+
+    val activeDetail = recorder.state.map { it.trip?.id }.distinctUntilChanged().flatMapLatest { id ->
+        if (id == null) flowOf(null) else combine(dao.trips(), dao.points(id)) { rows, points -> rows.find { it.id == id } to points }
             .mapLatest { (trip, points) ->
                 if (trip == null) null else {
                     val segments = dao.segments(id)
@@ -62,7 +85,9 @@ class TrackingViewModel(private val dao: TripDao, val recorder: TripRecorder, so
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(0, 0), null as GpsReading?)
 
     fun select(id: String?) { selection.value = id }
-    fun selectMode(mode: TripMode) { selectedMode.value = mode }
+    fun selectMode(mode: TripMode?) { selectedMode.value = mode }
+    fun correctMode(id: String, mode: TripMode?) = recorder.send(
+        RecordingCommand.SetMode(id, mode ?: TripMode.Unknown, mode == null))
     fun finishInterrupted(id: String) = recorder.send(RecordingCommand.Finish(id))
     fun delete(id: String) = viewModelScope.launch {
         try { dao.delete(id); selection.value = null }

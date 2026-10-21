@@ -20,7 +20,11 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
-fun SpeedometerRoute(viewModel: SpeedometerViewModel, onPause: ((Boolean) -> Unit)? = null) {
+fun SpeedometerRoute(
+    viewModel: SpeedometerViewModel,
+    trackerControls: @Composable () -> Unit = {},
+    onTrips: (() -> Unit)? = null,
+) {
     val activity = LocalActivity.current ?: return
     val state by viewModel.uiState.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
     var permissionRequested by rememberSaveable { mutableStateOf(false) }
@@ -50,6 +54,8 @@ fun SpeedometerRoute(viewModel: SpeedometerViewModel, onPause: ((Boolean) -> Uni
     SpeedometerScreen(
         state = state,
         permissionNeedsSettings = permissionNeedsSettings,
+        trackerControls = trackerControls,
+        onTrips = onTrips,
         onAction = {
             when (state.status) {
                 GpsStatus.PermissionRequired -> {
@@ -65,10 +71,10 @@ fun SpeedometerRoute(viewModel: SpeedometerViewModel, onPause: ((Boolean) -> Uni
                     }
                 }
                 GpsStatus.Disabled -> activity.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
-                GpsStatus.Paused -> if (onPause != null) onPause(false) else viewModel.setPaused(false)
+                GpsStatus.Paused -> Unit
                 GpsStatus.Error -> viewModel.refreshAccess()
                 GpsStatus.Unavailable -> Unit
-                else -> if (onPause != null) onPause(true) else viewModel.setPaused(true)
+                else -> Unit
             }
         },
     )

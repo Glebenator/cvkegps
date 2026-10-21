@@ -17,6 +17,7 @@ import com.example.cvkegps.location.GpsEvent
 import com.example.cvkegps.location.GpsSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emitAll
@@ -29,6 +30,9 @@ class SharedLocationSource(context: Context) : GpsSource {
     private val manager = context.getSystemService(LocationManager::class.java)
     private val converter = AndroidGpsSource(context)
     private val latest = MutableStateFlow<GpsEvent>(GpsEvent.Searching)
+    private val estimator = ActivityEstimator()
+    private val estimate = MutableStateFlow(ActivityEstimate())
+    val activityEstimate = estimate.asStateFlow()
     private var displayCount = 0
     private var recordingOwned = false
     private var paused = false
@@ -41,7 +45,7 @@ class SharedLocationSource(context: Context) : GpsSource {
     private val listener = object : LocationListenerCompat {
         override fun onLocationChanged(location: Location) = deliver(listOf(location))
         override fun onLocationChanged(locations: List<Location>) = deliver(locations)
-        override fun onProviderDisabled(provider: String) { latest.value = GpsEvent.Disabled }
+        override fun onProviderDisabled(provider: String) { clearEstimate(); latest.value = GpsEvent.Disabled }
         override fun onProviderEnabled(provider: String) { latest.value = GpsEvent.Searching }
     }
 
@@ -79,6 +83,7 @@ class SharedLocationSource(context: Context) : GpsSource {
         val wanted = !paused && (recordingOwned || displayCount > 0)
         val permitted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         if (!wanted || !permitted) {
+            clearEstimate()
             if (registered) manager?.removeUpdates(listener)
             registered = false
             latest.value = if (paused) GpsEvent.Paused else if (!permitted) GpsEvent.PermissionRequired else GpsEvent.Searching
@@ -113,6 +118,7 @@ class SharedLocationSource(context: Context) : GpsSource {
         if (!registered) return
         val now = SystemClock.elapsedRealtimeNanos()
         val samples = locations.map { it.sample(now) }
+        samples.sortedBy { it.elapsedNanos }.forEach { estimator.accept(it)?.let { value -> estimate.value = value } }
         sink?.invoke(samples)
         received += locations.size
         locations.maxByOrNull { it.elapsedRealtimeNanos }?.let { location ->
@@ -121,6 +127,11 @@ class SharedLocationSource(context: Context) : GpsSource {
                 latest.value = GpsEvent.Fix(converter.run { location.toReading() }, received)
             }
         }
+    }
+
+    private fun clearEstimate() {
+        estimator.reset()
+        estimate.value = ActivityEstimate()
     }
 
     private fun Location.sample(now: Long) = TrackSample(

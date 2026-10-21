@@ -1,5 +1,8 @@
 package com.example.cvkegps.tracking
 
+import androidx.room.ColumnInfo
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Embedded
@@ -25,6 +28,7 @@ data class TripRecord(
     val durationNanos: Long = 0,
     val lastSavedMillis: Long = startedMillis,
     val policyVersion: Int = 1,
+    @ColumnInfo(defaultValue = "0") val automaticMode: Boolean = false,
 )
 
 @Entity(tableName = "segments", foreignKeys = [ForeignKey(
@@ -105,7 +109,15 @@ abstract class TripDao {
     }
 }
 
-@Database(entities = [TripRecord::class, TripSegment::class, TripPoint::class], version = 1, exportSchema = false)
+@Database(entities = [TripRecord::class, TripSegment::class, TripPoint::class], version = 2, exportSchema = false)
 abstract class TripDatabase : RoomDatabase() {
     abstract fun trips(): TripDao
+
+    companion object {
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE trips ADD COLUMN automaticMode INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+    }
 }

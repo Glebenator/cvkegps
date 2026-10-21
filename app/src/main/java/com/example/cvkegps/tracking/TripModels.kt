@@ -5,7 +5,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-enum class TripMode { Car, Transit, Plane, Bike, Ski }
+enum class TripMode { Car, Transit, Plane, Bike, Ski, Unknown, CarOrTransit, BikeOrSki }
 enum class TripStatus { Recording, Paused, Interrupted, Finished }
 enum class BreakReason { Start, Resume, ManualPause, Stop, SignalLoss, AccessLost, ProcessLost, StorageError }
 

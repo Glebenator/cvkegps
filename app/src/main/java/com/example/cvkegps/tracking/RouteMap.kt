@@ -87,7 +87,7 @@ fun RouteMap(lines: List<List<TrackSample>>) {
         if (lines.all { it.isEmpty() }) {
             Text(stringResource(R.string.map_no_points))
         } else {
-            key(retry) { MapSurface(lines) }
+            key(retry) { MapSurface(lines, Modifier.fillMaxWidth().height(320.dp)) }
             Text(stringResource(R.string.map_start_end), style = MaterialTheme.typography.bodySmall)
             TextButton(onClick = { retry++ }, modifier = Modifier.testTag("map_retry")) { Text(stringResource(R.string.map_retry)) }
         }
@@ -95,7 +95,7 @@ fun RouteMap(lines: List<List<TrackSample>>) {
 }
 
 @Composable
-private fun MapSurface(lines: List<List<TrackSample>>) {
+internal fun MapSurface(lines: List<List<TrackSample>>, modifier: Modifier = Modifier, live: Boolean = false) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val description = stringResource(R.string.map_accessibility)
@@ -136,10 +136,48 @@ private fun MapSurface(lines: List<List<TrackSample>>) {
         delay(15_000)
         if (!loaded) unavailable = true
     }
-    LaunchedEffect(mapView, lines) {
+    var mapStyle by remember { mutableStateOf<Style?>(null) }
+    var nativeMap by remember { mutableStateOf<org.maplibre.android.maps.MapLibreMap?>(null) }
+    var positioned by remember { mutableStateOf(false) }
+    var following by rememberSaveable { mutableStateOf(live) }
+    DisposableEffect(mapView) {
+        val failed = MapView.OnDidFailLoadingMapListener { unavailable = true }
+        val rendered = MapView.OnDidFinishRenderingMapListener { complete -> if (complete) { loaded = true; unavailable = false } }
+        mapView.addOnDidFailLoadingMapListener(failed)
+        mapView.addOnDidFinishRenderingMapListener(rendered)
+        mapView.getMapAsync { map ->
+            nativeMap = map
+            map.setPrefetchZoomDelta(0)
+            map.uiSettings.isTiltGesturesEnabled = false
+            map.addOnCameraMoveStartedListener { reason ->
+                if (reason == org.maplibre.android.maps.MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) following = false
+            }
+            map.addOnCameraIdleListener {
+                if (positioned) {
+                latitude = map.cameraPosition.target?.latitude
+                longitude = map.cameraPosition.target?.longitude
+                zoom = map.cameraPosition.zoom
+                }
+            }
+            map.setStyle(Style.Builder().fromJson(OnlineMap.style)) { style ->
+                style.addSource(GeoJsonSource("route", FeatureCollection.fromFeatures(emptyArray<Feature>())))
+                style.addLayer(LineLayer("route", "route").withProperties(lineColor("#1765c1"), lineWidth(4f)))
+                for ((name, color) in listOf("start" to "#237a3b", "end" to "#b62929")) {
+                    style.addSource(GeoJsonSource(name, FeatureCollection.fromFeatures(emptyArray<Feature>())))
+                    style.addLayer(CircleLayer(name, name).withProperties(circleColor(color), circleRadius(7f), circleStrokeWidth(2f), circleStrokeColor("#ffffff")))
+                }
+                mapStyle = style
+            }
+        }
+        onDispose {
+            mapView.removeOnDidFailLoadingMapListener(failed)
+            mapView.removeOnDidFinishRenderingMapListener(rendered)
+        }
+    }
+    LaunchedEffect(mapStyle, lines, following) {
+        val style = mapStyle ?: return@LaunchedEffect
         val geometry = withContext(Dispatchers.Default) {
             FeatureCollection.fromFeatures(lines.flatMap { line ->
-                // Split map geometry at the date line. Keep the saved measurements unchanged.
                 val pieces = mutableListOf<MutableList<TrackSample>>()
                 for (sample in line) {
                     val previous = pieces.lastOrNull()?.lastOrNull()
@@ -151,41 +189,42 @@ private fun MapSurface(lines: List<List<TrackSample>>) {
                 }
             })
         }
-        mapView.addOnDidFailLoadingMapListener { unavailable = true }
-        mapView.addOnDidFinishRenderingMapListener { complete -> if (complete) { loaded = true; unavailable = false } }
-        mapView.getMapAsync { map ->
-            map.setPrefetchZoomDelta(0)
-            map.uiSettings.isTiltGesturesEnabled = false
-            map.addOnCameraIdleListener {
-                latitude = map.cameraPosition.target?.latitude
-                longitude = map.cameraPosition.target?.longitude
-                zoom = map.cameraPosition.zoom
+        style.getSourceAs<GeoJsonSource>("route")?.setGeoJson(geometry)
+        val first = lines.firstOrNull { it.isNotEmpty() }?.first()
+        val last = lines.lastOrNull { it.isNotEmpty() }?.last()
+        for ((name, sample) in listOf("start" to first, "end" to last)) {
+            style.getSourceAs<GeoJsonSource>(name)?.setGeoJson(FeatureCollection.fromFeatures(
+                sample?.let { listOf(Feature.fromGeometry(Point.fromLngLat(Math.toDegrees(it.longitudeRadians), Math.toDegrees(it.latitudeRadians)))) }.orEmpty()))
+        }
+        if (live && following && last != null) {
+            nativeMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(
+                LatLng(Math.toDegrees(last.latitudeRadians), Math.toDegrees(last.longitudeRadians)),
+                if (positioned) zoom.coerceIn(3.0, 18.0) else 14.0))
+            positioned = true
+        }
+        // Review fits once. Route updates must not reset a user pan or reload the map style.
+        if (!positioned && first != null) {
+            val map = nativeMap ?: return@LaunchedEffect
+            if (latitude != null && longitude != null) {
+                map.moveCamera(CameraUpdateFactory.newCameraPosition(CameraPosition.Builder().target(LatLng(latitude!!, longitude!!)).zoom(zoom).build()))
+            } else {
+                val bounds = withContext(Dispatchers.Default) { lines.flatten().map { LatLng(Math.toDegrees(it.latitudeRadians), Math.toDegrees(it.longitudeRadians)) } }
+                if (bounds.distinct().size > 1) map.moveCamera(CameraUpdateFactory.newLatLngBounds(LatLngBounds.Builder().includes(bounds).build(), 48))
+                else map.moveCamera(CameraUpdateFactory.newLatLngZoom(bounds.first(), 14.0))
             }
-            map.setStyle(Style.Builder().fromJson(OnlineMap.style)) { style ->
-                val points = lines.flatten()
-                style.addSource(GeoJsonSource("route", geometry))
-                style.addLayer(LineLayer("route", "route").withProperties(lineColor("#1765c1"), lineWidth(4f)))
-                for ((name, sample, color) in listOf(Triple("start", points.first(), "#237a3b"), Triple("end", points.last(), "#b62929"))) {
-                    style.addSource(GeoJsonSource(name, Point.fromLngLat(Math.toDegrees(sample.longitudeRadians), Math.toDegrees(sample.latitudeRadians))))
-                    style.addLayer(CircleLayer(name, name).withProperties(circleColor(color), circleRadius(7f), circleStrokeWidth(2f), circleStrokeColor("#ffffff")))
-                }
-                if (latitude != null && longitude != null) {
-                    map.moveCamera(CameraUpdateFactory.newCameraPosition(CameraPosition.Builder().target(LatLng(latitude!!, longitude!!)).zoom(zoom).build()))
-                } else {
-                    val bounds = points.map { LatLng(Math.toDegrees(it.latitudeRadians), Math.toDegrees(it.longitudeRadians)) }
-                    if (bounds.distinct().size > 1) map.moveCamera(CameraUpdateFactory.newLatLngBounds(LatLngBounds.Builder().includes(bounds).build(), 48))
-                    else map.moveCamera(CameraUpdateFactory.newLatLngZoom(bounds.first(), 14.0))
-                }
-            }
+            positioned = true
         }
     }
-    Box(Modifier.fillMaxWidth().height(320.dp).testTag("route_map")) {
+    Box(modifier.testTag("route_map")) {
         AndroidView(factory = { mapView }, modifier = Modifier.matchParentSize())
         // Keep attribution on the map, including at large text sizes.
         Surface(Modifier.align(Alignment.BottomStart), color = MaterialTheme.colorScheme.surface) {
             TextButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, "https://www.openstreetmap.org/copyright".toUri())) }) {
                 Text(stringResource(R.string.map_attribution))
             }
+        }
+        if (live && !following) Surface(Modifier.align(Alignment.TopEnd).padding(8.dp), shape = MaterialTheme.shapes.small) {
+            TextButton(onClick = { following = true }, modifier = Modifier.testTag("map_follow")) { Text(stringResource(R.string.map_follow)) }
         }
         if (!loaded || unavailable) Surface(Modifier.align(Alignment.TopCenter).padding(8.dp), shape = MaterialTheme.shapes.small) {
             Text(stringResource(if (unavailable) R.string.map_unavailable else R.string.map_loading), Modifier.padding(8.dp), style = MaterialTheme.typography.bodySmall)

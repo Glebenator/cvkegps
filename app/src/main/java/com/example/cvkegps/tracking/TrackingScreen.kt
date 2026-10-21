@@ -14,6 +14,10 @@ import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -73,60 +77,43 @@ import java.text.NumberFormat
 import java.util.Date
 
 @Composable
-fun TrackingApp(app: TrackingApplication, openTripsRequest: Int, home: @Composable () -> Unit) {
+fun TrackingApp(
+    app: TrackingApplication,
+    openTripsRequest: Int,
+    home: @Composable (controls: @Composable () -> Unit, onTrips: () -> Unit) -> Unit,
+) {
     val vm: TrackingViewModel = viewModel(factory = viewModelFactory {
         initializer { TrackingViewModel(app.database.trips(), app.recorder, app.location) }
     })
-    var showTrips by rememberSaveable { mutableStateOf(openTripsRequest > 0) }
-    val window = LocalWindowInfo.current.containerSize
-    val wide = window.width > window.height
-    LaunchedEffect(openTripsRequest) { if (openTripsRequest > 0) showTrips = true }
-    Scaffold(bottomBar = {
-        if (!wide) NavigationBar {
-            NavigationBarItem(selected = !showTrips, onClick = { showTrips = false },
-                icon = { Icon(painterResource(R.drawable.ic_speed), contentDescription = null) },
-                label = { Text(stringResource(R.string.tracking_home)) }, modifier = Modifier.testTag("nav_speed"))
-            NavigationBarItem(selected = showTrips, onClick = { showTrips = true },
-                icon = { Icon(painterResource(R.drawable.ic_recording), contentDescription = null) },
-                label = { Text(stringResource(R.string.tracking_trips)) }, modifier = Modifier.testTag("nav_trips"))
-        }
-    }) { insets ->
-        Row(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets)) {
-            if (wide) NavigationRail(Modifier.fillMaxHeight()) {
-                NavigationRailItem(selected = !showTrips, onClick = { showTrips = false },
-                    icon = { Icon(painterResource(R.drawable.ic_speed), contentDescription = null) },
-                    label = { Text(stringResource(R.string.tracking_home)) }, modifier = Modifier.testTag("nav_speed"))
-                NavigationRailItem(selected = showTrips, onClick = { showTrips = true },
-                    icon = { Icon(painterResource(R.drawable.ic_recording), contentDescription = null) },
-                    label = { Text(stringResource(R.string.tracking_trips)) }, modifier = Modifier.testTag("nav_trips"))
-            }
-            Box(Modifier.weight(1f).fillMaxHeight()) {
-                if (showTrips) TrackingRoute(vm) else home()
-            }
-        }
-    }
-}
-
-@Composable
-private fun TrackingRoute(vm: TrackingViewModel) {
     val activity = LocalActivity.current ?: return
     val rows by vm.trips.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
     val recording by vm.recorder.state.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
     val selected by vm.selectedId.collectAsStateWithLifecycle()
     val detail by vm.detail.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
+    val activeDetail by vm.activeDetail.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
     val mode by vm.mode.collectAsStateWithLifecycle()
+    val estimate by vm.estimate.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
     val reading by vm.reading.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
     val storageError by vm.storageError.collectAsStateWithLifecycle()
+    var showTrips by rememberSaveable { mutableStateOf(false) }
+    var showAccess by rememberSaveable { mutableStateOf(false) }
+    var explained by rememberSaveable { mutableStateOf(false) }
+    var changeMode by rememberSaveable { mutableStateOf(false) }
+    var modeTrip by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingResume by rememberSaveable { mutableStateOf<String?>(null) }
     var precise by remember { mutableStateOf(false) }
     var notifications by remember { mutableStateOf(false) }
     var locationOn by remember { mutableStateOf(false) }
     var asked by rememberSaveable { mutableStateOf(false) }
     var deleteTrip by remember { mutableStateOf<String?>(null) }
+    val active = recording.trip
 
+    LaunchedEffect(openTripsRequest) {
+        if (openTripsRequest > 0) { showTrips = false; vm.select(null) }
+    }
     fun refresh() {
         precise = ContextCompat.checkSelfPermission(activity, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        val manager = activity.getSystemService(NotificationManager::class.java)
-        val channel = manager.getNotificationChannel("trip_recording")
+        val channel = activity.getSystemService(NotificationManager::class.java).getNotificationChannel("trip_recording")
         notifications = NotificationManagerCompat.from(activity).areNotificationsEnabled() && channel?.importance != NotificationManager.IMPORTANCE_NONE
         locationOn = activity.getSystemService(LocationManager::class.java)?.isProviderEnabled(LocationManager.GPS_PROVIDER) == true
     }
@@ -134,128 +121,142 @@ private fun TrackingRoute(vm: TrackingViewModel) {
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { asked = true; refresh() }
     fun command(action: String, id: String? = null) {
         refresh()
-        if ((action == RecordingService.START || action == RecordingService.RESUME) && (!precise || !notifications || !locationOn)) return
+        if ((action == RecordingService.START || action == RecordingService.RESUME) && (!precise || !notifications || !locationOn)) {
+            pendingResume = id; showAccess = true; return
+        }
         val intent = Intent(activity, RecordingService::class.java).setAction(action)
-            .putExtra(RecordingService.MODE, mode.name).putExtra(RecordingService.TRIP, id)
+            .putExtra(RecordingService.MODE, (mode ?: estimate).name)
+            .putExtra(RecordingService.AUTOMATIC, mode == null).putExtra(RecordingService.TRIP, id)
         try {
             if (action == RecordingService.START || action == RecordingService.RESUME) ContextCompat.startForegroundService(activity, intent)
             else activity.startService(intent)
+            showAccess = false
+            if (action == RecordingService.START || action == RecordingService.RESUME) { showTrips = false; vm.select(null) }
+            if (action == RecordingService.STOP) { vm.select(id); showTrips = true }
         } catch (_: RuntimeException) { vm.recorder.send(RecordingCommand.Interrupt(RecordingError.Service)) }
     }
-    BackHandler(selected != null) { vm.select(null) }
-    LazyColumn(Modifier.fillMaxSize().testTag("trips_content"), verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp)) {
-        item {
-            if (selected != null) TextButton(onClick = { vm.select(null) }) { Text(stringResource(R.string.trip_back)) }
-            else Text(stringResource(R.string.tracking_trips), style = MaterialTheme.typography.headlineMedium)
-        }
-        if (recording.error != null || storageError) item {
-            Text(stringResource(if (storageError) R.string.trip_storage_error else when (recording.error) {
-                RecordingError.Access -> R.string.trip_access_missing
-                RecordingError.Storage -> R.string.trip_storage_error
-                RecordingError.Queue -> R.string.trip_queue_error
-                else -> R.string.trip_service_error
-            }), color = MaterialTheme.colorScheme.error)
-        }
-        if (!precise || !notifications || !locationOn) item {
-            Card {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(stringResource(R.string.trip_access_explanation))
-                    if (!precise || !notifications) {
-                        Text(stringResource(R.string.trip_access_missing))
-                        Button(onClick = {
-                            asked = true
-                            permission.launch(buildList {
-                                add(Manifest.permission.ACCESS_COARSE_LOCATION)
-                                add(Manifest.permission.ACCESS_FINE_LOCATION)
-                                if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
-                            }.toTypedArray())
-                        }, modifier = Modifier.testTag("trip_permission")) { Text(stringResource(R.string.trip_allow_access)) }
-                        if (asked || !precise) TextButton(onClick = {
-                            activity.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:${activity.packageName}".toUri()))
-                        }) { Text(stringResource(R.string.trip_access_settings)) }
-                        if (!notifications) TextButton(onClick = {
-                            activity.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName))
-                        }) { Text(stringResource(R.string.trip_notification_settings)) }
-                    }
-                    if (!locationOn) Button(onClick = { activity.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)) }) {
-                        Text(stringResource(R.string.trip_location_settings))
-                    }
+    fun chooseMode(id: String?) { modeTrip = id; changeMode = true }
+    fun start() {
+        pendingResume = null
+        if (!explained) showAccess = true else command(RecordingService.START)
+    }
+    BackHandler(showTrips) { if (selected != null) vm.select(null) else showTrips = false }
+    val error = if (storageError) R.string.trip_storage_error else when (recording.error) {
+        RecordingError.Access -> R.string.trip_access_missing
+        RecordingError.Storage -> R.string.trip_storage_error
+        RecordingError.Queue -> R.string.trip_queue_error
+        RecordingError.Service -> R.string.trip_service_error
+        null -> null
+    }
+    if (!showTrips && active == null) {
+        home({
+            if (error != null) Text(stringResource(error), color = MaterialTheme.colorScheme.error)
+            Button(onClick = { start() }, enabled = !recording.starting,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("trip_start")) {
+                Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                    Text(stringResource(if (recording.starting) R.string.trip_starting else R.string.trip_start))
+                    Text(stringResource(R.string.mode_estimate, stringResource(estimate.title())),
+                        modifier = Modifier.testTag("activity_estimate"), style = MaterialTheme.typography.labelSmall)
                 }
             }
-        }
-        val active = recording.trip
-        if (active != null) item {
-            Card {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(stringResource(active.mode.title()), style = MaterialTheme.typography.titleLarge)
-                    Text(stringResource(active.status.title()), modifier = Modifier.testTag("recording_status"))
-                    RecordingReadings(recording, reading)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (active.status == TripStatus.Recording) OutlinedButton(onClick = { command(RecordingService.PAUSE) }, modifier = Modifier.testTag("trip_pause")) {
-                            Text(stringResource(R.string.trip_pause))
-                        } else Button(onClick = { command(RecordingService.RESUME, active.id) }, enabled = precise && notifications && locationOn,
-                            modifier = Modifier.testTag("trip_resume")) { Text(stringResource(R.string.trip_resume)) }
-                        Button(onClick = { command(RecordingService.STOP, active.id) }, modifier = Modifier.testTag("trip_stop")) {
-                            Text(stringResource(R.string.trip_stop))
+        }, { showTrips = true; vm.select(null) })
+    } else Scaffold { insets ->
+        Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets)) {
+            if (!showTrips && active != null) {
+                LiveTracker(recording, activeDetail, reading,
+                    onMode = { chooseMode(active.id) }, onTrips = { showTrips = true; vm.select(null) },
+                    onPause = { command(RecordingService.PAUSE) },
+                    onResume = { command(RecordingService.RESUME, active.id) },
+                    onStop = { command(RecordingService.STOP, active.id) })
+            } else LazyColumn(Modifier.fillMaxSize().testTag("trips_content"), verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp)) {
+                item {
+                    TextButton(onClick = { if (selected != null) vm.select(null) else showTrips = false }, modifier = Modifier.testTag("nav_speed")) {
+                        Text(stringResource(if (selected != null) R.string.trip_back else R.string.tracker_return))
+                    }
+                    Text(stringResource(R.string.tracking_trips), style = MaterialTheme.typography.headlineMedium)
+                }
+                if (error != null) item { Text(stringResource(error), color = MaterialTheme.colorScheme.error) }
+                if (selected == null) {
+                    if (rows.isEmpty()) item { Text(stringResource(R.string.trip_none)) }
+                    items(rows, key = TripRecord::id) { trip ->
+                        Card(onClick = { vm.select(trip.id) }, modifier = Modifier.fillMaxWidth().testTag("saved_trip")) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                ActivityLabel(trip)
+                                Text(DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(trip.startedMillis)))
+                                Text(stringResource(trip.status.title()))
+                            }
                         }
-                        TextButton(onClick = { vm.select(active.id) }) { Text(stringResource(R.string.trip_open)) }
                     }
-                }
-            }
-        } else if (recording.starting) item { Text(stringResource(R.string.trip_starting)) }
-        else if (selected == null) item {
-            Card {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(stringResource(R.string.trip_new), style = MaterialTheme.typography.titleLarge)
-                    if (precise && notifications && locationOn) Text(stringResource(R.string.trip_access_explanation))
-                    Text(stringResource(R.string.trip_mode), style = MaterialTheme.typography.labelLarge)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TripMode.entries.forEach { choice -> FilterChip(selected = mode == choice, onClick = { vm.selectMode(choice) },
-                            label = { Text(stringResource(choice.title())) }, modifier = Modifier.testTag("mode_${choice.name}")) }
-                    }
-                    if (mode == TripMode.Plane) Text(stringResource(R.string.trip_plane_note))
-                    Button(onClick = { command(RecordingService.START) }, enabled = precise && notifications && locationOn,
-                        modifier = Modifier.testTag("trip_start")) { Text(stringResource(R.string.trip_start)) }
-                }
-            }
-        }
-        if (selected == null) {
-            if (rows.isEmpty()) item { Text(stringResource(R.string.trip_none)) }
-            items(rows, key = TripRecord::id) { trip ->
-                Card(onClick = { vm.select(trip.id) }, modifier = Modifier.fillMaxWidth().testTag("saved_trip")) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(stringResource(trip.mode.title()), style = MaterialTheme.typography.titleMedium)
-                        Text(DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(trip.startedMillis)))
-                        Text(stringResource(trip.status.title()))
-                    }
-                }
-            }
-        } else {
-            val shown = detail?.takeIf { it.trip.id == selected }
-            if (shown == null) item { Text(stringResource(R.string.trip_loading)) }
-            else {
-                item { TripSummary(shown) }
-                if (shown.trip.status == TripStatus.Finished || shown.trip.status == TripStatus.Interrupted) item {
-                    RouteMap(shown.summary.lines)
-                }
-                if (shown.trip.status == TripStatus.Interrupted) item {
-                    Text(stringResource(R.string.trip_interrupted_note))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { command(RecordingService.RESUME, shown.trip.id) }, enabled = precise && notifications && locationOn && active == null) {
-                            Text(stringResource(R.string.trip_resume))
+                } else {
+                    val shown = detail?.takeIf { it.trip.id == selected }
+                    if (shown == null) item { Text(stringResource(R.string.trip_loading)) }
+                    else {
+                        item {
+                            TripSummary(shown)
+                            TextButton(onClick = { chooseMode(shown.trip.id) }, modifier = Modifier.testTag("change_activity")) { Text(stringResource(R.string.mode_change)) }
                         }
-                        OutlinedButton(onClick = { vm.finishInterrupted(shown.trip.id) }) { Text(stringResource(R.string.trip_finish)) }
-                    }
-                }
-                if (shown.trip.status == TripStatus.Finished || shown.trip.status == TripStatus.Interrupted) item {
-                    TextButton(onClick = { deleteTrip = shown.trip.id }, modifier = Modifier.testTag("trip_delete")) {
-                        Text(stringResource(R.string.trip_delete))
+                        item { RouteMap(shown.summary.lines) }
+                        if (shown.trip.status == TripStatus.Interrupted) item {
+                            Text(stringResource(R.string.trip_interrupted_note))
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(onClick = { command(RecordingService.RESUME, shown.trip.id) }, enabled = active == null) { Text(stringResource(R.string.trip_resume)) }
+                                OutlinedButton(onClick = { vm.finishInterrupted(shown.trip.id) }) { Text(stringResource(R.string.trip_finish)) }
+                            }
+                        }
+                        if (shown.trip.status == TripStatus.Recording || shown.trip.status == TripStatus.Paused) item {
+                            Button(onClick = { showTrips = false }) { Text(stringResource(R.string.tracker_return)) }
+                        } else item {
+                            TextButton(onClick = { deleteTrip = shown.trip.id }, modifier = Modifier.testTag("trip_delete")) { Text(stringResource(R.string.trip_delete)) }
+                        }
                     }
                 }
             }
         }
     }
+    if (showAccess) AlertDialog(onDismissRequest = { showAccess = false }, title = { Text(stringResource(R.string.tracker_access_title)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(R.string.trip_access_explanation))
+                Text(stringResource(R.string.map_privacy))
+                if (!precise || !notifications) {
+                    Text(stringResource(R.string.trip_access_missing))
+                    Button(onClick = {
+                        asked = true
+                        permission.launch(buildList {
+                            add(Manifest.permission.ACCESS_COARSE_LOCATION); add(Manifest.permission.ACCESS_FINE_LOCATION)
+                            if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
+                        }.toTypedArray())
+                    }, modifier = Modifier.testTag("trip_permission")) { Text(stringResource(R.string.trip_allow_access)) }
+                    if (asked) TextButton(onClick = { activity.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:${activity.packageName}".toUri())) }) {
+                        Text(stringResource(R.string.trip_access_settings))
+                    }
+                    if (!notifications) TextButton(onClick = { activity.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName)) }) {
+                        Text(stringResource(R.string.trip_notification_settings))
+                    }
+                }
+                if (!locationOn) Button(onClick = { activity.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)) }) { Text(stringResource(R.string.trip_location_settings)) }
+            }
+        }, confirmButton = {
+            TextButton(onClick = { explained = true; command(if (pendingResume == null) RecordingService.START else RecordingService.RESUME, pendingResume) },
+                enabled = precise && notifications && locationOn, modifier = Modifier.testTag("confirm_start")) {
+                Text(stringResource(if (pendingResume == null) R.string.trip_start else R.string.trip_resume))
+            }
+        }, dismissButton = { TextButton(onClick = { showAccess = false }) { Text(stringResource(R.string.trip_cancel)) } })
+    if (changeMode) AlertDialog(onDismissRequest = { changeMode = false }, title = { Text(stringResource(R.string.mode_change)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text(stringResource(R.string.mode_explanation))
+                for (choice in listOf(null, TripMode.Car, TripMode.Transit, TripMode.Plane, TripMode.Bike, TripMode.Ski)) {
+                    TextButton(onClick = {
+                        if (modeTrip == null) vm.selectMode(choice) else vm.correctMode(modeTrip!!, choice)
+                        changeMode = false
+                    }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("mode_${choice?.name ?: "Auto"}")) {
+                        Text(stringResource(choice?.title() ?: R.string.mode_auto))
+                    }
+                }
+            }
+        }, confirmButton = { TextButton(onClick = { changeMode = false }) { Text(stringResource(R.string.trip_cancel)) } })
     deleteTrip?.let { id ->
         AlertDialog(onDismissRequest = { deleteTrip = null }, title = { Text(stringResource(R.string.trip_delete_title)) },
             text = { Text(stringResource(R.string.trip_delete_message)) },
@@ -265,34 +266,72 @@ private fun TrackingRoute(vm: TrackingViewModel) {
 }
 
 @Composable
-private fun RecordingReadings(state: RecordingState, reading: GpsReading?) {
+private fun ActivityLabel(trip: TripRecord) {
+    Text(if (trip.automaticMode) stringResource(R.string.mode_estimate, stringResource(trip.mode.title())) else stringResource(trip.mode.title()))
+}
+
+@Composable
+private fun LiveTracker(state: RecordingState, detail: TripDetail?, reading: GpsReading?, onMode: () -> Unit,
+    onTrips: () -> Unit, onPause: () -> Unit, onResume: () -> Unit, onStop: () -> Unit) {
+    val trip = state.trip ?: return
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    val elapsed by produceState(state.trip?.durationNanos ?: 0L, state.segmentStartNanos, state.trip?.status, lifecycle) {
-        value = state.trip?.durationNanos ?: 0L
+    val elapsed by produceState(trip.durationNanos, state.segmentStartNanos, trip.status, lifecycle) {
+        value = trip.durationNanos
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            while (state.trip?.status == TripStatus.Recording) {
+            while (trip.status == TripStatus.Recording) {
                 value = state.segmentBaseDurationNanos + (SystemClock.elapsedRealtimeNanos() - (state.segmentStartNanos ?: SystemClock.elapsedRealtimeNanos())).coerceAtLeast(0)
                 delay(1_000)
             }
         }
     }
-    Metric(R.string.trip_duration, stringResource(R.string.trip_duration_value, number(elapsed / 60_000_000_000.0)))
-    Metric(R.string.trip_ground_speed, reading?.speedMetersPerSecond?.let { stringResource(R.string.trip_speed_value, number(it * 3.6)) })
-    Metric(R.string.trip_altitude, reading?.altitudeMeters?.let { stringResource(R.string.trip_altitude_value, number(it)) })
-    Metric(R.string.trip_quality, reading?.accuracyMeters?.let { stringResource(R.string.trip_altitude_value, number(it.toDouble())) })
-    if (state.trip?.mode == TripMode.Plane) {
-        Metric(R.string.trip_track, reading?.bearingRadians?.let { stringResource(R.string.trip_track_value, number(Math.toDegrees(it))) })
-        Metric(R.string.trip_vertical_quality, reading?.verticalAccuracyMeters?.let { stringResource(R.string.trip_altitude_value, number(it.toDouble())) })
-        Text(stringResource(R.string.trip_plane_note), style = MaterialTheme.typography.bodySmall)
+    val controls: @Composable () -> Unit = {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp).testTag("tracker_controls"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = onMode, modifier = Modifier.testTag("change_activity")) { ActivityLabel(trip) }
+                TextButton(onClick = onTrips, modifier = Modifier.testTag("nav_trips")) { Text(stringResource(R.string.tracking_trips)) }
+            }
+            Text(stringResource(trip.status.title()), modifier = Modifier.testTag("recording_status"), style = MaterialTheme.typography.labelLarge)
+            Text(stringResource(R.string.trip_ground_speed), style = MaterialTheme.typography.labelMedium)
+            Text(reading?.speedMetersPerSecond?.let { stringResource(R.string.trip_speed_value, number(it * 3.6)) } ?: stringResource(R.string.no_value),
+                modifier = Modifier.testTag("tracking_speed"), style = MaterialTheme.typography.headlineLarge)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Metric(R.string.trip_distance, detail?.let { stringResource(R.string.trip_distance_value, number(it.summary.distanceMeters / 1_000)) })
+                Metric(R.string.trip_duration, stringResource(R.string.trip_duration_value, number(elapsed / 60_000_000_000.0)))
+            }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (trip.status == TripStatus.Recording) OutlinedButton(onClick = onPause, modifier = Modifier.testTag("trip_pause")) { Text(stringResource(R.string.trip_pause)) }
+                else Button(onClick = onResume, modifier = Modifier.testTag("trip_resume")) { Text(stringResource(R.string.trip_resume)) }
+                Button(onClick = onStop, modifier = Modifier.testTag("trip_stop")) { Text(stringResource(R.string.trip_stop)) }
+            }
+            // Design 2a gives speed more space above 30 km/h. Controls remain available.
+            if (reading?.speedMetersPerSecond?.let { it < 30.0 / 3.6 } != false) {
+                Metric(R.string.trip_altitude, reading?.altitudeMeters?.let { stringResource(R.string.trip_altitude_value, number(it)) })
+                Metric(R.string.trip_quality, reading?.accuracyMeters?.let { stringResource(R.string.trip_altitude_value, number(it.toDouble())) })
+            }
+            if (trip.mode == TripMode.Plane) {
+                Metric(R.string.trip_track, reading?.bearingRadians?.let { stringResource(R.string.trip_track_value, number(Math.toDegrees(it))) })
+                Metric(R.string.trip_vertical_quality, reading?.verticalAccuracyMeters?.let { stringResource(R.string.trip_altitude_value, number(it.toDouble())) })
+                Text(stringResource(R.string.trip_plane_note), style = MaterialTheme.typography.bodySmall)
+            }
+            if (reading == null && trip.status == TripStatus.Recording) Text(stringResource(R.string.trip_signal_wait))
+        }
     }
-    if (reading == null && state.trip?.status == TripStatus.Recording) Text(stringResource(R.string.trip_signal_wait))
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        if (maxWidth > maxHeight) Row(Modifier.fillMaxSize()) {
+            MapSurface(detail?.summary?.lines.orEmpty(), Modifier.weight(1f).fillMaxHeight(), live = true)
+            Box(Modifier.weight(1f).fillMaxHeight()) { controls() }
+        } else Column(Modifier.fillMaxSize()) {
+            MapSurface(detail?.summary?.lines.orEmpty(), Modifier.fillMaxWidth().weight(1f), live = true)
+            Box(Modifier.fillMaxWidth().weight(1f)) { controls() }
+        }
+    }
 }
 
 @Composable
 private fun TripSummary(detail: TripDetail) {
     Card {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(stringResource(detail.trip.mode.title()), style = MaterialTheme.typography.titleLarge)
+            ActivityLabel(detail.trip)
             Text(stringResource(detail.trip.status.title()))
             Metric(R.string.trip_distance, stringResource(R.string.trip_distance_value, number(detail.summary.distanceMeters / 1_000)))
             Metric(R.string.trip_duration, stringResource(R.string.trip_duration_value, number(detail.trip.durationNanos / 60_000_000_000.0)))
@@ -320,6 +359,9 @@ private fun number(value: Double, decimals: Int = 1): String {
 }
 
 @StringRes internal fun TripMode.title() = when (this) {
+    TripMode.Unknown -> R.string.mode_unknown
+    TripMode.CarOrTransit -> R.string.mode_road
+    TripMode.BikeOrSki -> R.string.mode_bike_ski
     TripMode.Car -> R.string.mode_car
     TripMode.Transit -> R.string.mode_transit
     TripMode.Plane -> R.string.mode_plane

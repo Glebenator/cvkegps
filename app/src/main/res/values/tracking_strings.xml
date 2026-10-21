@@ -1,14 +1,11 @@
 <resources>
-    <string name="tracking_home">Speed</string>
     <string name="tracking_trips">Trips</string>
-    <string name="trip_new">New trip</string>
-    <string name="trip_mode">Activity</string>
     <string name="mode_car">Car</string>
     <string name="mode_transit">Transit</string>
     <string name="mode_plane">Plane</string>
     <string name="mode_bike">Bike</string>
     <string name="mode_ski">Ski</string>
-    <string name="trip_start">Start trip</string>
+    <string name="trip_start">Start map tracking</string>
     <string name="trip_pause">Pause trip</string>
     <string name="trip_resume">Resume trip</string>
     <string name="trip_stop">Stop and save</string>
@@ -24,8 +21,7 @@
     <string name="trip_location_settings">Turn on location</string>
     <string name="trip_access_missing">Allow precise location and notifications to record a trip.</string>
     <string name="trip_notification_settings">Open notification settings</string>
-    <string name="trip_none">No saved trips. Select an activity to record your first trip.</string>
-    <string name="trip_open">Open trip</string>
+    <string name="trip_none">No saved trips. Start map tracking from the tracker.</string>
     <string name="trip_back">Back to trips</string>
     <string name="trip_delete">Delete trip</string>
     <string name="trip_delete_title">Delete this trip?</string>
@@ -65,4 +61,14 @@
     <string name="map_accessibility">Recorded route. Use the trip summary for measurement values. Gaps are not connected.</string>
     <string name="map_start_end">Green marks the start. Red marks the end. Separate lines show recording gaps.</string>
     <string name="map_loading">Loading online map…</string>
+    <string name="mode_unknown">Activity unknown</string>
+    <string name="mode_road">Car or transit</string>
+    <string name="mode_bike_ski">Bike or ski</string>
+    <string name="mode_estimate">Estimate: %1$s</string>
+    <string name="mode_change">Change activity</string>
+    <string name="mode_auto">Automatic</string>
+    <string name="mode_explanation">The estimate uses recent GPS speed. Car and transit can have similar speeds. Bike and ski can also have similar speeds. Fast trains and small planes can overlap. Correct the activity if required.</string>
+    <string name="tracker_access_title">Record a route</string>
+    <string name="tracker_return">Back to tracker</string>
+    <string name="map_follow">Follow route</string>
 </resources>

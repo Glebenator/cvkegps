@@ -9,14 +9,21 @@ Update the report with each completed change, as specified in `AGENTS.md`.
 
 ## Trip recording
 
-1. Open **Trips**. Select Car, Transit, Plane, Bike, or Ski.
-2. Allow precise location and recording notifications. Turn on location if required.
-3. Select **Start trip**. Recording continues after Home or screen lock.
-4. Use **Pause trip**, **Resume trip**, or **Stop and save** in the app or notification.
-5. Open a saved trip to review its measurements and online map. Confirm deletion to remove it.
+1. Open the app. Allow precise location when requested. Speed starts without a GPS button.
+2. Select **Start map tracking**. Read the recording and map notice. Allow notifications.
+3. View the live route and measurements. Use **Pause trip**, **Resume trip**, or **Stop and save**.
+   A map gesture stops following. Select **Follow route** to follow the latest position again.
+4. Select the activity label to correct the estimate. The correction applies to the whole trip.
+5. Select **Trips** to review saved routes. Confirm deletion to remove a trip.
 
-One mode applies to the whole trip. After process loss, open the interrupted trip and select Resume or Finish.
-Resume starts a new segment. The app does not silently restart recording. The speed screen's Pause control also pauses an active trip.
+Activity estimation uses recent GPS speed. The initial categories are **Bike or ski**, **Car or transit**,
+and a possible **Plane** trip. The app shows **Activity unknown** until it has enough valid evidence.
+These categories are provisional. GPS speed cannot reliably separate all five activities.
+A manual correction stays in effect after Pause, Resume, and process recovery.
+
+After process loss, open the interrupted trip and select Resume or Finish. Resume starts a new segment.
+The app does not start or restart recording automatically. GPS display stops when the tracker is inactive,
+unless a trip is recording. Trip Pause stops the recording request.
 
 Trips use local Room storage. One GPS request supplies both the recorder and live display. Historical samples are saved before display
 updates can discard intermediate readings. Manual pauses and interruptions form separate segments. Missing GPS and poor positions do not
@@ -29,7 +36,7 @@ See the [tile policy](https://operations.osmfoundation.org/policies/tiles/). Map
 The [implementation plan](docs/tracking-implementation-plan.html) records scope and the commit sequence.
 The [HTML tracker](PROGRESS.html#tracking-verification) records builds, tests, native screenshots, and unverified cases.
 Physical-device accuracy, battery use, flight reception, long trips, Doze, Battery Saver, and API 29/37 device flows remain open.
-Offline maps, specialist layers, automatic pause, activity detection, export, and elevation totals are not implemented.
+Offline maps, specialist layers, automatic pause, sensor-based activity classification, export, and elevation totals are not implemented.
 
 For the external process-loss and notification check, use a dedicated API 36 emulator with the debug APK installed:
 
@@ -38,18 +45,18 @@ python scripts/check-interrupted-trip.py --adb <path-to-adb> --serial emulator-5
 ```
 
 This check clears emulator app data. It uses Android test locations, restores location and mock-location settings, and removes its test provider.
-Keep the output in the ignored `artifacts/` folder. Use the three `TrackingDeviceTest` cases for the main recording flows.
+Keep the output in the ignored `artifacts/` folder. Use `TrackingDeviceTest` for recording, activity correction, and tracker layout checks.
 
 ## Current scope
 
 - Show current GPS speed in km/h.
 - Show GPS altitude, horizontal accuracy, and maximum speed since app launch.
 - Request precise location through the Android permission dialog.
-- Pause and resume GPS.
+- Start map tracking from home. Pause and resume the trip.
 - Handle denied permission, disabled GPS, missing hardware, and loss of signal.
 - Use system light or dark mode and dynamic colour on Android 12 and later.
 
-The app records and saves trips locally. It does not detect activities or upload trip records.
+The app saves trips locally and estimates the activity from GPS speed. It does not upload trip records.
 GPS stops when the activity leaves the resumed state unless a trip is recording.
 The app does not keep the screen on.
 
@@ -58,7 +65,7 @@ Design 2a supplies the main concept: a large speed display, altitude, and maximu
 The implementation uses native Material components and system typography.
 It does not include controls for features that are not implemented.
 
-The home screen does not scroll. The readings and GPS controls use their required
+The home screen does not scroll. The readings and tracker controls use their required
 height. The speed dial uses the space that remains inside the system bars.
 Landscape mode puts the readings beside the GPS controls. The app name and screen
 heading are not repeated above the dial. Short windows show the speed and unit in
@@ -161,10 +168,10 @@ The tests cover:
 3. Display speed, altitude, and maximum speed across activity recreation.
 4. Reject a poor fix without increasing the maximum.
 5. Clear an old reading and recover when a new fix arrives.
-6. With no active trip, remove GPS requests during pause and in the background; resume correctly.
+6. With no active trip, remove GPS requests in Trips and in the background; resume the display correctly.
 7. Recover after GPS is disabled and enabled.
 8. Keep readings, GPS controls, and text inside the home screen at 100%, 110%, and 200%
-   text size in portrait and landscape. Check permission, live, paused, and
+   text size in portrait and landscape. Check permission, live, and
    disabled-location states, and check dark mode. Restore the display settings after
    the check.
 

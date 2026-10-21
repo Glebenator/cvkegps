@@ -39,7 +39,7 @@ android {
         abortOnError = true
         warningsAsErrors = true
         // Dependency updates need a compatibility review, not a network-dependent build failure.
-        disable += setOf("GradleDependency", "NewerVersionAvailable")
+        disable += setOf("GradleDependency", "NewerVersionAvailable", "AndroidGradlePluginVersion")
     }
     testOptions {
         execution = "ANDROIDX_TEST_ORCHESTRATOR"

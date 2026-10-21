@@ -19,19 +19,16 @@
     <string name="searching_body">Move to an open area for a GPS signal.</string>
     <string name="stale_body">No current reading. Wait for a new GPS signal.</string>
     <string name="unavailable_body">This device does not have an available GPS provider.</string>
-    <string name="paused_body">GPS is off. Resume GPS for new readings.</string>
+    <string name="paused_body">Trip recording is paused. Resume the trip for new readings.</string>
     <string name="error_body">Try again to start location updates.</string>
-    <string name="live_body">GPS stops when you leave this screen.</string>
-    <string name="accuracy_value">Accuracy ±%1$s m</string>
+    <string name="live_body">GPS stops when the app becomes inactive unless a trip is recording.</string>
+    <string name="accuracy_value">Accuracy Â±%1$s m</string>
     <string name="accuracy_unknown">Accuracy unavailable</string>
     <string name="allow_location">Allow precise location</string>
     <string name="open_settings">Open app settings</string>
     <string name="enable_location">Open location settings</string>
-    <string name="pause_gps">Pause GPS</string>
-    <string name="resume_gps">Resume GPS</string>
     <string name="retry_gps">Try again</string>
-    <string name="privacy_note">Location stays on this device.</string>
-    <string name="no_value">—</string>
+    <string name="no_value">â€”</string>
     <string name="speed_accessibility">Current speed: %1$s kilometres per hour</string>
     <string name="speed_unavailable_accessibility">Current speed unavailable</string>
 </resources>

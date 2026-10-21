@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CVKE GPS · Tracking implementation plan</title>
+  <title>CVKE GPS Â· Tracking implementation plan</title>
   <style>
     :root { color-scheme: light dark; font: 16px/1.65 system-ui, sans-serif; color: #243023; background: #f6f5f0; }
     * { box-sizing: border-box; }
@@ -46,7 +46,7 @@
 <body>
   <header>
     <a href="../PROGRESS.html#tracking-plan">Return to the progress report</a>
-    <p class="label">Implementation plan · 21 October 2026</p>
+    <p class="label">Implementation plan Â· 21 October 2026</p>
     <h1>Record a trip.<br>Keep the measurements.</h1>
     <p>Support car, transit, plane, bike, and ski trips. Use one recording system.
       Use the selected online road map for all modes. Add other map layers after field tests.</p>
@@ -78,7 +78,7 @@
         <li>Check detection limits with a small calculation test set. Update the device flows for automatic GPS,
           recording, correction, signal loss, and access recovery. Inspect both themes, rotation, and large text.</li>
       </ol>
-      <p>This is a planned correction. It is not yet verified. The prototype uses simulated scenarios; it contains no
+      <p>This correction is implemented. See the progress report for verification results. The prototype uses simulated scenarios; it contains no
         production activity classifier. GPS estimates need field validation. Small planes and fast trains can overlap.
         Do not add sensor permissions, background detection, or automatic recording starts in this change.</p>
     </section>
@@ -87,7 +87,7 @@
       <p><strong>Agreed scope:</strong> include online maps in the first release. Implement local recording before map integration.
         A map failure must not stop a recording. The recorder must work without a network connection.</p>
       <ul>
-        <li>Select Car, Transit, Plane, Bike, or Ski before Start. Use one mode per trip initially.</li>
+        <li>Start map tracking from home. Estimate the activity from recent GPS speed. Allow an optional correction to Car, Transit, Plane, Bike, or Ski.</li>
         <li>Start from the visible app. Continue after Home or screen lock through a location foreground service.</li>
         <li>Provide manual Pause, Resume, and Stop. Save points during the trip. Stop saves the final state.</li>
         <li>Show recording state, elapsed recording time, current speed, recorded distance estimate, and signal quality.</li>
@@ -97,7 +97,7 @@
       </ul>
       <p>Online route review is required before the first delivery is complete.
         Keep the trip summary available when the map cannot load. Do not add an inactive map control.</p>
-      <p>Defer automatic pause, activity detection, navigation, cloud sync, accounts, GPX export, and ski-run detection.
+      <p>Defer automatic pause, sensor-based activity classification, navigation, cloud sync, accounts, GPX export, and ski-run detection.
         Add these features only after the user selects them.</p>
     </section>
     <section id="modes">
@@ -146,7 +146,7 @@
     </section>
     <section id="design">
       <h2>4. Recording design</h2>
-      <p class="flow">One Android location request → recording coordinator → local database.<br>
+      <p class="flow">One Android location request â†’ recording coordinator â†’ local database.<br>
         The same coordinator supplies the latest reading to the screen.</p>
       <h3>Location ownership</h3>
       <p>Keep <code>LocationManager.GPS_PROVIDER</code> as the first provider. Introduce a small batch-capable source interface.
@@ -161,7 +161,7 @@
         <li>During recording, the service owns the session lifetime. Screen recreation must not add a request.
           When no trip is active, preserve the current screen-only lifetime.</li>
         <li>Trip Pause stops measurement collection, including the live speed request. Resume starts a new segment.
-          Stop removes the recording request. A visible speedometer can then resume its own explicitly active display request.</li>
+          Stop removes the recording request. A visible speedometer can then resume its display request automatically.</li>
         <li>Keep GNSS satellite status separate. It is needed only for the visible satellite display, not for route storage.</li>
         <li>Start with high accuracy, a one-second interval, immediate delivery, and a zero-metre distance filter for all modes.
           These are test settings, not measured optimum settings.</li>
@@ -192,7 +192,7 @@
           Defer moving time and moving-average speed until stop detection has an agreed definition.</li>
       </ul>
       <h3>Service, permission, and recovery</h3>
-      <p>Use these states: Idle → Recording → Paused → Recording → Finished.
+      <p>Use these states: Idle â†’ Recording â†’ Paused â†’ Recording â†’ Finished.
         Recording can also enter Interrupted or Error. Process all commands in one ordered path.
         Repeated Start and Stop commands must be safe.</p>
       <ul>
@@ -269,7 +269,7 @@
       <ul>
         <li><strong>Agreed first delivery:</strong> recorder, saved trips, trip review, and online maps. Offline downloads are deferred.</li>
         <li><strong>Agreed flight use:</strong> personal record. Use km/h and metres initially. Knots and feet remain optional future work.</li>
-        <li><strong>Agreed trip modes:</strong> one manually selected mode per trip. No automatic detection.</li>
+        <li><strong>Agreed trip modes:</strong> one trip label, estimated from GPS by default. A user correction replaces that label. Design 2a supersedes the earlier required picker.</li>
         <li><strong>Before later map work:</strong> specialist coverage, offline regions, and acceptable provider cost. The first map needs no API key or Google Play services.</li>
         <li><strong>Before field acceptance:</strong> acceptable route error, speed uncertainty, battery use per hour,
           and maximum unsaved time. Set these limits with device measurements; do not invent accuracy claims.</li>

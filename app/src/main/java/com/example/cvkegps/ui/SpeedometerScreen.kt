@@ -55,6 +55,8 @@ fun SpeedometerScreen(
     permissionNeedsSettings: Boolean,
     onAction: () -> Unit,
     modifier: Modifier = Modifier,
+    trackerControls: @Composable () -> Unit = {},
+    onTrips: (() -> Unit)? = null,
 ) {
     val locale = LocalConfiguration.current.locales[0]
     val speedFormat = remember(locale) {
@@ -94,8 +96,8 @@ fun SpeedometerScreen(
                         Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        GpsControls(state, permissionNeedsSettings, wholeFormat, onAction)
-                        PrivacyNote()
+                        GpsControls(state, permissionNeedsSettings, wholeFormat, onAction, onTrips)
+                    if (state.status != GpsStatus.PermissionRequired && state.status != GpsStatus.Disabled && state.status != GpsStatus.Unavailable) trackerControls()
                     }
                 }
             } else {
@@ -106,23 +108,12 @@ fun SpeedometerScreen(
                 ) {
                     SpeedDial(speed, state.reading?.speedMetersPerSecond != null, Modifier.weight(1f))
                     Metrics(altitude, maximum)
-                    GpsControls(state, permissionNeedsSettings, wholeFormat, onAction)
-                    PrivacyNote()
+                    GpsControls(state, permissionNeedsSettings, wholeFormat, onAction, onTrips)
+                    if (state.status != GpsStatus.PermissionRequired && state.status != GpsStatus.Disabled && state.status != GpsStatus.Unavailable) trackerControls()
                 }
             }
         }
     }
-}
-
-@Composable
-private fun PrivacyNote() {
-    Text(
-        stringResource(R.string.privacy_note),
-        modifier = Modifier.fillMaxWidth(),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        textAlign = TextAlign.Center,
-    )
 }
 
 @Composable
@@ -264,6 +255,7 @@ private fun GpsControls(
     permissionNeedsSettings: Boolean,
     format: NumberFormat,
     onAction: () -> Unit,
+    onTrips: (() -> Unit)? = null,
 ) {
     val title = when (state.status) {
         GpsStatus.PermissionRequired -> R.string.gps_permission
@@ -288,18 +280,20 @@ private fun GpsControls(
     val action = when (state.status) {
         GpsStatus.PermissionRequired -> if (permissionNeedsSettings) R.string.open_settings else R.string.allow_location
         GpsStatus.Disabled -> R.string.enable_location
-        GpsStatus.Paused -> R.string.resume_gps
         GpsStatus.Error -> R.string.retry_gps
-        else -> R.string.pause_gps
+        else -> null
     }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.large) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Box(Modifier.size(8.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
-                    Text(stringResource(title), Modifier.testTag("gps_status"), style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(title), Modifier.weight(1f).testTag("gps_status"), style = MaterialTheme.typography.titleSmall)
+                    if (onTrips != null) androidx.compose.material3.TextButton(onClick = onTrips, modifier = Modifier.testTag("nav_trips")) {
+                        Text(stringResource(R.string.tracking_trips))
+                    }
                 }
-                Text(stringResource(body), style = MaterialTheme.typography.bodyMedium)
+                if (state.status != GpsStatus.Live) Text(stringResource(body), style = MaterialTheme.typography.bodyMedium)
                 if (state.status == GpsStatus.Live) {
                     Text(
                         state.reading?.accuracyMeters?.let {
@@ -310,7 +304,7 @@ private fun GpsControls(
                 }
             }
         }
-        if (state.status != GpsStatus.Unavailable) {
+        if (action != null) {
             Button(
                 onClick = onAction,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("gps_action"),

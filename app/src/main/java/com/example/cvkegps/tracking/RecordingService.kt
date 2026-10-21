@@ -30,7 +30,7 @@ class RecordingService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val command = when (intent?.action) {
-            START -> intent.getStringExtra(MODE)?.let { mode -> TripMode.entries.find { it.name == mode } }?.let(RecordingCommand::Start)
+            START -> intent.getStringExtra(MODE)?.let { mode -> TripMode.entries.find { it.name == mode } }?.let { RecordingCommand.Start(it, intent.getBooleanExtra(AUTOMATIC, true)) }
             RESUME -> intent.getStringExtra(TRIP)?.let(RecordingCommand::Resume)
             PAUSE -> RecordingCommand.Pause
             STOP -> RecordingCommand.Finish(intent.getStringExtra(TRIP))
@@ -104,6 +104,7 @@ class RecordingService : Service() {
         const val PAUSE = "com.example.cvkegps.PAUSE_TRIP"
         const val STOP = "com.example.cvkegps.STOP_TRIP"
         const val MODE = "mode"
+        const val AUTOMATIC = "automatic"
         const val TRIP = "trip"
         const val OPEN_TRIPS = "open_trips"
         private const val CHANNEL = "trip_recording"

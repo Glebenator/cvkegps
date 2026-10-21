@@ -121,7 +121,8 @@ class SpeedometerDeviceTest {
 
         awaitSpeed(10f, "36")
         compose.onNodeWithTag("altitude").assertTextEquals("451")
-        compose.onNodeWithTag("gps_action").assertTextEquals("Pause GPS")
+        compose.onNodeWithTag("gps_action").assertDoesNotExist()
+        compose.onNodeWithTag("trip_start").assertIsDisplayed()
     }
 
     @Test
@@ -146,7 +147,7 @@ class SpeedometerDeviceTest {
             accuracy = 200f,
         )
         compose.onNodeWithTag("maximum_speed").assertTextEquals("36")
-        compose.onNodeWithTag("altitude").assertTextEquals("—")
+        compose.onNodeWithTag("altitude").assertTextEquals("â€”")
     }
 
     @Test
@@ -162,15 +163,14 @@ class SpeedometerDeviceTest {
     }
 
     @Test
-    fun pauseAndBackgroundRemoveGpsRequests() {
+    fun automaticDisplayStopsInBackgroundAndTripsList() {
         launch()
         awaitSpeed(10f, "36")
         compose.waitUntil(5_000) { hasGpsRequest() }
-        compose.onNodeWithTag("gps_action").performClick()
-        awaitText("GPS paused")
+        compose.onNodeWithTag("gps_action").assertDoesNotExist()
+        compose.onNodeWithTag("nav_trips").performClick()
         compose.waitUntil(5_000) { !hasGpsRequest() }
-
-        compose.onNodeWithTag("gps_action").performClick()
+        compose.onNodeWithTag("nav_speed").performClick()
         awaitSpeed(5f, "18")
         scenario!!.moveToState(Lifecycle.State.CREATED)
         compose.waitUntil(5_000) { !hasGpsRequest() }
@@ -217,11 +217,7 @@ class SpeedometerDeviceTest {
                     compose.onNodeWithTag("maximum_speed").assertTextEquals("123.5")
                     captureLayout("live-$scale-$landscape")
                     assertHomeFits()
-                    compose.onNodeWithTag("gps_action").performClick()
-                    awaitText("GPS paused")
-                    assertHomeFits()
-                    compose.onNodeWithTag("gps_action").performClick()
-                    awaitSpeed(34.3f, "123.5")
+                    compose.onNodeWithTag("gps_action").assertDoesNotExist()
                     manager.setTestProviderEnabled(LocationManager.GPS_PROVIDER, false)
                     awaitText("Location is off")
                     assertHomeFits()
@@ -270,12 +266,15 @@ class SpeedometerDeviceTest {
         compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange))
             .assertCountEquals(0)
         val home = compose.onNodeWithTag("home_content").getUnclippedBoundsInRoot()
-        for (tag in listOf("current_speed", "altitude", "maximum_speed", "gps_status", "gps_action")) {
+        for (tag in listOf("current_speed", "altitude", "maximum_speed", "gps_status", "nav_trips")) {
             val node = compose.onNodeWithTag(tag).assertIsDisplayed()
             val bounds = node.getUnclippedBoundsInRoot()
             assertTrue("$tag must fit inside the home screen: $bounds in $home",
                 bounds.left >= home.left && bounds.top >= home.top &&
                     bounds.right <= home.right && bounds.bottom <= home.bottom)
+        }
+        for (tag in listOf("gps_action", "trip_start")) {
+            if (compose.onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty()) compose.onNodeWithTag(tag).assertIsDisplayed()
         }
         val textNodes = compose.onAllNodes(
             SemanticsMatcher.keyIsDefined(SemanticsActions.GetTextLayoutResult) and hasAnyAncestor(hasTestTag("home_content")),

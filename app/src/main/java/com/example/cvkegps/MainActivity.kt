@@ -34,16 +34,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             CvkeGpsTheme {
-                val recording by tracking.recorder.state.collectAsStateWithLifecycle()
-                LaunchedEffect(recording.trip?.id) { if (recording.trip != null) viewModel.setPaused(false) }
-                TrackingApp(tracking, tripsRequest.intValue) {
-                    SpeedometerRoute(viewModel, onPause = { paused ->
-                        val trip = tracking.recorder.state.value.trip
-                        if (trip == null) viewModel.setPaused(paused)
-                        else startService(Intent(this, RecordingService::class.java)
-                            .setAction(if (paused) RecordingService.PAUSE else RecordingService.RESUME)
-                            .putExtra(RecordingService.TRIP, trip.id))
-                    })
+                TrackingApp(tracking, tripsRequest.intValue) { controls, onTrips ->
+                    SpeedometerRoute(viewModel, trackerControls = controls, onTrips = onTrips)
                 }
             }
         }

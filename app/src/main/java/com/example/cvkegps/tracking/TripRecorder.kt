@@ -21,12 +21,13 @@ data class RecordingState(
 }
 
 sealed interface RecordingCommand {
-    data class Start(val mode: TripMode) : RecordingCommand
+    data class Start(val mode: TripMode, val automatic: Boolean = false) : RecordingCommand
+    data class SetMode(val id: String, val mode: TripMode, val automatic: Boolean) : RecordingCommand
     data class Resume(val id: String) : RecordingCommand
     data object Pause : RecordingCommand
     data class Finish(val id: String? = null) : RecordingCommand
     data class Interrupt(val error: RecordingError) : RecordingCommand
-    data class Batch(val tripId: String, val samples: List<TrackSample>) : RecordingCommand
+    data class Batch(val tripId: String, val samples: List<TrackSample>, val estimate: TripMode) : RecordingCommand
 }
 
 /** One ordered command queue owns database changes and location demand. */
@@ -88,7 +89,7 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
         when (command) {
             is RecordingCommand.Start -> {
                 if (current != null) { publish(); return }
-                val trip = TripRecord(UUID.randomUUID().toString(), command.mode, TripStatus.Recording, System.currentTimeMillis())
+                val trip = TripRecord(UUID.randomUUID().toString(), command.mode, TripStatus.Recording, System.currentTimeMillis(), automaticMode = command.automatic)
                 val next = newSegment(trip.id, BreakReason.Start, 0)
                 dao.start(trip, next)
                 current = trip
@@ -97,6 +98,12 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
                 baseDuration = 0
                 publish()
                 request(trip.id)
+            }
+            is RecordingCommand.SetMode -> {
+                val saved = dao.trip(command.id) ?: return
+                val updated = saved.copy(mode = command.mode, automaticMode = command.automatic)
+                dao.update(updated)
+                if (current?.id == command.id) { current = updated; publish() }
             }
             is RecordingCommand.Resume -> {
                 if (current != null && current?.id != command.id) { publish(); return }
@@ -147,7 +154,8 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
                     TripPoint(trip.id, target.id, sample)
                 }
                 if (points.isNotEmpty()) {
-                    val updated = trip.copy(durationNanos = duration(), lastSavedMillis = System.currentTimeMillis())
+                    val updated = trip.copy(durationNanos = duration(), lastSavedMillis = System.currentTimeMillis(),
+                        mode = if (trip.automaticMode && command.estimate != TripMode.Unknown) command.estimate else trip.mode)
                     dao.save(updated, points)
                     current = updated
                     publish()
@@ -157,7 +165,7 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
     }
 
     private fun request(id: String) = source.recording(
-        onBatch = { send(RecordingCommand.Batch(id, it)) },
+        onBatch = { send(RecordingCommand.Batch(id, it, source.activityEstimate.value.fresh(SystemClock.elapsedRealtimeNanos()))) },
         onAccessLost = { send(RecordingCommand.Interrupt(RecordingError.Access)) },
     )
 

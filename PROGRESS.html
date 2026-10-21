@@ -165,7 +165,7 @@
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-10-21">21 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>e0717e7</code></dd></div>
+          <div><dt>App code baseline</dt><dd><code>45c9474</code> + tracker correction</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
@@ -199,7 +199,7 @@
             <li>Current speed in km/h, GPS altitude, accuracy, and maximum speed.</li>
             <li>Portrait and landscape layouts, large text, and screen-reader labels.</li>
             <li>No home-screen scroll area. The speed display uses the space left by the readings and GPS controls.</li>
-            <li>Precise-location permission, pause and resume, and recovery messages.</li>
+            <li>Precise-location permission, automatic speed display, and recovery actions.</li>
           </ul>
         </article>
         <article class="panel">
@@ -225,9 +225,9 @@
       <div class="section-head"><h2 id="tracking-heading">Trip recording</h2><span class="tag done">First functional scope implemented</span></div>
       <div class="grid">
         <article class="panel"><h3>Record and save</h3><ul>
-          <li>Select Car, Transit, Plane, Bike, or Ski. Keep one mode per trip.</li>
+          <li>Start map tracking from home. Estimate the activity from GPS speed. Correct the trip label if required.</li>
           <li>Start, Pause, Resume, and Stop. Record after Home or screen lock through a location foreground service.</li>
-          <li>Use the notification or the app controls. The speed screen's Pause control also pauses an active trip.</li>
+          <li>View the live route above the measurements and trip controls. Use the notification after screen lock.</li>
           <li>Save route points, timestamps, quality fields, and segment boundaries in local Room storage.</li>
           <li>Open saved trips, review distance and duration, and delete a trip with confirmation.</li>
           <li>After process loss, show the saved part as interrupted. Resume starts a new segment.</li>
@@ -243,20 +243,62 @@
       </div>
       <p class="note"><strong>Field validation remains open.</strong> Activity modes currently share one recording policy.
         The 50 m position threshold and 3 m/s speed-uncertainty threshold need device measurements.
-        Offline maps, specialist map layers, automatic pause, activity detection, and elevation totals are deferred.</p>
+        Offline maps, specialist map layers, automatic pause, sensor-based activity classification, and elevation totals are deferred.</p>
       <p class="test-note">Read the <a href="docs/tracking-implementation-plan.html">implementation plan</a> and
         <a href="docs/location-power-research.md">location power research</a>. The app remains a development build.</p>
     </section>
 
-    <section id="tracker-correction"><h2>Tracker design correction ? 21 October 2026</h2>
-      <p>Planned from app baseline <code>e52b25f</code>. Follow the local Android Design 2a:
-        speed on launch, Start map tracking on home, automatic activity estimates, and a live route while recording.
-        Remove the separate GPS pause button and required activity picker. Implementation and verification are pending.</p>
-      <p>See the <a href="docs/tracking-implementation-plan.html#design-correction">correction plan and detection limits</a>.</p>
+    <section id="tracker-correction" aria-labelledby="correction-heading">
+      <div class="section-head"><h2 id="correction-heading">Tracker design correction</h2><span class="tag done">21 October 2026</span></div>
+      <p>Design 2a is now the basis of the tracker. Speed starts when location access is available.
+        Home has one Start map tracking button. Permission and location recovery controls remain available.
+        Recording opens the live map with speed, distance, duration, Pause, Resume, and Stop.
+        The activity label opens an optional correction. Saved trips use a separate view.</p>
+      <p>The estimate uses at least six valid readings over 15 seconds. At least 80% of the recent readings
+        must support the category. The window holds at most 30 seconds and 60 readings.
+        Speed below 2 m/s, poor accuracy, missing speed uncertainty, and old readings do not supply an estimate.
+        Estimates expire after 10 seconds without a fresh reading. No extra location request or sensor permission is added.</p>
+      <p><strong>Detection limits:</strong> 2 to below 12 m/s suggests Bike or ski; 12 to below 55 m/s suggests Car or transit;
+        55 m/s or more suggests Plane. These are provisional GPS categories, not measured classification accuracy.
+        Fast trains and small planes can overlap. Field validation and better activity evidence remain required.
+        A user correction replaces the trip label and prevents automatic changes.</p>
+      <p>Database version 2 saves whether the label was automatic. The upgrade preserves old trips and their selected modes.
+        A live map update changes route geometry without resetting a user pan or loading the style again.
+        The live map follows the latest saved position. A map gesture stops following. Select Follow route to restore it.</p>
+      <p>Source: <code>45c9474</code> plus the tracker correction. The tested app also includes the earlier GPS display work.
+        See the <a href="docs/tracking-implementation-plan.html#design-correction">corrected plan</a> and
+        <a href="app/src/main/java/com/example/cvkegps/tracking/ActivityEstimate.kt">activity rules</a>.</p>
+      <div class="screens">
+        <figure class="shot"><a href="docs/progress/images/2026-10-21-tracker-home-light.png"><img
+          src="docs/progress/images/2026-10-21-tracker-home-light.png" width="1080" height="2340"
+          alt="Home with automatic speed, a Bike or ski estimate, and Start map tracking."></a>
+          <figcaption><strong>Automatic display &middot; Light mode</strong>21 October 2026. Baseline 45c9474 plus tracker correction
+            and earlier GPS display work. APK ebefbef9. Simulated location data.</figcaption></figure>
+        <figure class="shot"><a href="docs/progress/images/2026-10-21-tracker-live-dark.png"><img
+          src="docs/progress/images/2026-10-21-tracker-live-dark.png" width="1080" height="2340" loading="lazy"
+          alt="Live tracker in dark mode with a map, current speed, and trip controls."></a>
+          <figcaption><strong>Live recording &middot; Dark mode</strong>21 October 2026. Same baseline and APK.
+            Simulated location data. Standard map tiles retain their colours.</figcaption></figure>
+      </div>
+      <p>Also checked <a href="docs/progress/images/2026-10-21-tracker-live-light.png">live tracking in light mode while tiles load</a>,
+        <a href="docs/progress/images/2026-10-21-tracker-live-large-text.png">live controls at 200% text</a>,
+        <a href="docs/progress/images/2026-10-21-tracker-home-dark.png">home in dark mode</a>, and
+        <a href="docs/progress/images/2026-10-21-tracker-home-large-text.png">home in landscape at 200% text</a>.
+        All captures have the same date and APK baseline and use simulated positions.</p>
+      <p><strong>Verification:</strong> debug and unsigned release builds, debug and release lint, five calculation tests,
+        and ten distinct API 36 emulator checks passed during this correction. Four relevant checks passed again after the final map change. Tests cover automatic estimates, manual correction, recording,
+        screen lock, notification controls, gaps, deletion, permission recovery, display cleanup, rotation, themes, and large text.
+        A database upgrade check preserved one trip, two segments, and six positions from version 1.
+        The external check confirmed notification-permission recovery and three saved positions after force-stop. Resume added a second segment without joining the gap.</p>
+      <p>The first live-map capture exposed excessive zoom for a short initial segment. The live map now follows the latest saved position at a bounded zoom. The device test checks its camera and recovery after a gesture. The home layout first failed because Trips was outside the landscape screen. The corrected layout passed.
+        Lint first found obsolete resources and a Compose modifier issue; both were corrected. The isolated source check found extra text in the older home layout. Removing the duplicate note and hiding the live-state explanation corrected the fit. Its build also found a Gradle update notice. The existing lint rule for dependency update notices now includes that notice. One build stopped after a JVM access violation; the repeated build passed with two workers. The new camera assertion first timed out because Compose had not completed its update. It passed after the test waited for the UI.</p>
+      <p class="small">Final working-tree APK SHA-256: <code>ebefbef9295971143485f58bc84c605ccaf48acdfc0980deb2acd314ae289c1d</code>. The isolated source builds, lint, and calculation tests also passed. Its home and activity-flow device checks passed before the final shared-map change. Report links and the correction section passed at 360 px and 1100 px. Device settings were restored and test providers were removed. Local evidence: <code>artifacts/tracker-correction/</code>. Physical-device accuracy, activity classification,
+        battery use, long trips, minimum and target API checks, and TalkBack remain open. Optional work includes specialist
+        maps, offline downloads, and automatic pause. Earlier screenshots and results below are historical.</p>
     </section>
     <section id="screens" aria-labelledby="screens-heading">
       <div class="section-head"><h2 id="screens-heading"><span class="number">02</span>Screen evidence</h2><span class="small">Captures: 20 and 21 October 2026</span></div>
-      <p class="section-intro">Tracking update, 21 October 2026. Source: <code>e0717e7</code>
+      <p class="section-intro">Earlier tracking update, 21 October 2026. Source: <code>e0717e7</code>
         and the earlier GPS display work. Final debug APK: <code>fbfd19f0</code>. These native API 36 emulator captures use
         simulated location data. The route has two segments separated by process loss. Online tiles loaded from OpenStreetMap.</p>
       <div class="screens">
@@ -579,7 +621,7 @@ const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
             <li>Metric and imperial unit selection.</li>
             <li>GPX export and explicit sharing of saved trips.</li>
             <li>Offline map downloads, if the selected map provider supports them.</li>
-            <li>Automatic pause and activity detection, after field validation.</li>
+            <li>Automatic pause and improved activity classification, after field validation.</li>
             <li>Volume-button controls and a larger speed display mode.</li>
           </ul>
           <p class="reason">Each addition needs a clear user benefit and a review of battery use, privacy, and test scope.</p>
@@ -591,6 +633,15 @@ const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+        <li><time datetime="2026-10-21">21 October 2026</time>
+          <div><h3>Tracker corrected to follow Design 2a</h3>
+            <p>Removed the GPS pause button and required activity picker. Added Start map tracking to home,
+              a live recording map, tentative GPS activity categories, and an optional activity correction.
+              Preserved existing records with the database upgrade. Added native screen evidence and focused tests.</p>
+            <p>Five calculation tests and ten emulator checks passed. The landscape control issue was corrected.
+              Activity accuracy and power use still need physical-device tests. See the correction section for the app baseline and evidence.</p></div>
+        </li>
+
         <li><time datetime="2026-10-21">21 October 2026</time>
           <div><h3>Tracking and online route review implemented</h3>
             <p>Added five activity modes, durable trip records, one shared location source, a foreground recording service,

@@ -8,7 +8,7 @@ import kotlinx.coroutines.SupervisorJob
 
 class TrackingApplication : Application() {
     private val processScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    val database by lazy { Room.databaseBuilder(this, TripDatabase::class.java, "trips.db").build() }
+    val database by lazy { Room.databaseBuilder(this, TripDatabase::class.java, "trips.db").addMigrations(TripDatabase.MIGRATION_1_2).build() }
     val location by lazy { SharedLocationSource(this) }
     val recorder by lazy { TripRecorder(database.trips(), location, processScope) }
 

@@ -7,6 +7,10 @@ import android.location.LocationManager
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasTestTag
@@ -73,8 +77,10 @@ class TrackingDeviceTest {
 
     @Test fun recordingSurvivesLockAndRotationAndNotificationPauseCreatesSegments() {
         launch()
+        compose.onNodeWithTag("gps_action").assertDoesNotExist()
+        startTrip()
+        compose.onNodeWithTag("change_activity").performClick()
         compose.onNodeWithTag("mode_Bike").performClick()
-        compose.onNodeWithTag("trip_start").performClick()
         waitUntil { app.recorder.state.value.trip?.status == TripStatus.Recording }
         val id = app.recorder.state.value.trip!!.id
         deliver(id, 2)
@@ -99,15 +105,13 @@ class TrackingDeviceTest {
         device.wakeUp()
         shell("wm dismiss-keyguard")
         scenario!!.moveToState(Lifecycle.State.RESUMED)
-        compose.onNodeWithTag("nav_speed").performClick()
-        compose.onNodeWithTag("gps_action").performClick()
+        compose.onNodeWithTag("trip_pause").performScrollTo().performClick()
         waitUntil { app.recorder.state.value.trip?.status == TripStatus.Paused }
         assertEquals(0, requestCount())
-        compose.onNodeWithTag("gps_action").performClick()
+        compose.onNodeWithTag("trip_resume").performScrollTo().performClick()
         waitUntil { app.recorder.state.value.trip?.status == TripStatus.Recording }
         assertEquals(1, requestCount())
-        compose.onNodeWithTag("nav_trips").performClick()
-        compose.onNodeWithTag("trips_content").performScrollToNode(hasTestTag("trip_stop"))
+        compose.onNodeWithTag("trip_stop").performScrollTo()
         compose.onNodeWithTag("trip_stop").performClick()
         waitUntil { !app.recorder.state.value.needsService }
         val trip = runBlocking { app.database.trips().trip(id) }!!
@@ -116,14 +120,14 @@ class TrackingDeviceTest {
         assertEquals(3, runBlocking { app.database.trips().segments(id).size })
         assertEquals(0, requestCount())
         assertFalse(context.getSystemService(NotificationManager::class.java).activeNotifications.any { it.id == 100 })
-        compose.onAllNodesWithTag("saved_trip")[0].performClick()
+        // Stop opens the saved trip directly.
         compose.onNodeWithTag("trips_content").performScrollToNode(hasTestTag("route_map"))
         compose.onNodeWithTag("route_map").assertIsDisplayed()
     }
 
     @Test fun signalLossRemainsAGapAndSavedTripCanBeDeleted() {
         launch()
-        compose.onNodeWithTag("trip_start").performClick()
+        startTrip()
         waitUntil { app.recorder.state.value.trip != null }
         val id = app.recorder.state.value.trip!!.id
         deliver(id, 1)
@@ -131,14 +135,14 @@ class TrackingDeviceTest {
         Thread.sleep(11_000)
         manager.setTestProviderEnabled(LocationManager.GPS_PROVIDER, true)
         deliver(id, 2)
-        compose.onNodeWithTag("trips_content").performScrollToNode(hasTestTag("trip_stop"))
+        compose.onNodeWithTag("trip_stop").performScrollTo()
         compose.onNodeWithTag("trip_stop").performClick()
         waitUntil { !app.recorder.state.value.needsService }
         val points = runBlocking { app.database.trips().savedPoints(id) }
         val summary = RouteMath.summarize(points.groupBy { it.segmentId }.values.map { it.map { point -> point.sample } })
         assertTrue(summary.gapCount > 0)
         assertEquals(0.0, summary.distanceMeters, 0.001)
-        compose.onAllNodesWithTag("saved_trip")[0].performClick()
+        // Stop opens the saved trip directly.
         compose.onNodeWithTag("trips_content").performScrollToNode(hasTestTag("trip_delete"))
         compose.onNodeWithTag("trip_delete").performClick()
         compose.onNodeWithTag("confirm_delete").performClick()
@@ -147,21 +151,122 @@ class TrackingDeviceTest {
     }
 
     @Test fun disabledLocationBlocksStartAndRecoversWithoutRestart() {
-        manager.setTestProviderEnabled(LocationManager.GPS_PROVIDER, false)
         launch()
-        compose.onNodeWithTag("trips_content").performScrollToNode(hasTestTag("trip_start"))
-        compose.onNodeWithTag("trip_start").assertIsNotEnabled()
+        compose.onNodeWithTag("trip_start").performClick()
+        manager.setTestProviderEnabled(LocationManager.GPS_PROVIDER, false)
+        scenario!!.moveToState(Lifecycle.State.CREATED)
+        scenario!!.moveToState(Lifecycle.State.RESUMED)
+        compose.onNodeWithTag("confirm_start").assertIsNotEnabled()
         scenario!!.moveToState(Lifecycle.State.CREATED)
         manager.setTestProviderEnabled(LocationManager.GPS_PROVIDER, true)
         scenario!!.moveToState(Lifecycle.State.RESUMED)
-        compose.onNodeWithTag("trip_start").performClick()
+        compose.onNodeWithTag("confirm_start").performClick()
         waitUntil { app.recorder.state.value.trip != null }
         deliver(app.recorder.state.value.trip!!.id, 1)
     }
 
     private fun launch() {
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        compose.onNodeWithTag("nav_trips").performClick()
+    }
+
+    private fun startTrip() {
+        compose.onNodeWithTag("trip_start").performClick()
+        compose.onNodeWithTag("confirm_start").performClick()
+    }
+
+    @Test fun automaticActivityUsesLiveEvidenceAndManualCorrectionSurvivesResume() {
+        launch()
+        compose.onNodeWithTag("activity_estimate", useUnmergedTree = true).assertTextEquals("Estimate: Activity unknown")
+        val deadline = SystemClock.elapsedRealtime() + 18_000
+        while (SystemClock.elapsedRealtime() < deadline) { inject(); Thread.sleep(1_100) }
+        compose.onNodeWithTag("activity_estimate", useUnmergedTree = true).assertTextEquals("Estimate: Bike or ski")
+        Thread.sleep(400)
+        shell("screencap -p /sdcard/Download/cvkegps-home-estimate-light.png")
+        startTrip()
+        waitUntil { app.recorder.state.value.trip != null }
+        val id = app.recorder.state.value.trip!!.id
+        assertTrue(app.recorder.state.value.trip!!.automaticMode)
+        assertEquals(TripMode.BikeOrSki, app.recorder.state.value.trip!!.mode)
+        deliver(id, 8)
+        fun cameraAtLatest(): Boolean {
+            compose.waitForIdle()
+            var centred = false
+            scenario!!.onActivity { activity ->
+                fun findMap(view: android.view.View): org.maplibre.android.maps.MapView? {
+                    if (view is org.maplibre.android.maps.MapView) return view
+                    if (view is android.view.ViewGroup) for (index in 0 until view.childCount) {
+                        findMap(view.getChildAt(index))?.let { return it }
+                    }
+                    return null
+                }
+                findMap(activity.window.decorView)?.getMapAsync { map ->
+                    val target = map.cameraPosition.target
+                    centred = target != null && kotlin.math.abs(target.latitude - 49.2827) < 0.0001 &&
+                        kotlin.math.abs(target.longitude - (-123.1207 + sampleIndex * 0.0001)) < 0.0001 &&
+                        map.cameraPosition.zoom in 3.0..18.0
+                }
+            }
+            return centred
+        }
+        waitUntil { cameraAtLatest() }
+        compose.onNodeWithTag("route_map").performTouchInput { swipeLeft() }
+        compose.onNodeWithTag("map_follow").assertIsDisplayed().performClick()
+        waitUntil { cameraAtLatest() }
+        compose.onNodeWithTag("route_map").assertIsDisplayed()
+        Thread.sleep(400)
+        shell("screencap -p /sdcard/Download/cvkegps-live-estimate-light.png")
+        compose.onNodeWithTag("change_activity").performClick()
+        compose.onNodeWithTag("mode_Ski").performClick()
+        waitUntil { app.recorder.state.value.trip?.mode == TripMode.Ski }
+        scenario!!.recreate()
+        compose.onNodeWithTag("trip_pause").performScrollTo().performClick()
+        waitUntil { app.recorder.state.value.trip?.status == TripStatus.Paused }
+        assertEquals(0, requestCount())
+        compose.onNodeWithTag("trip_resume").performScrollTo().performClick()
+        waitUntil { app.recorder.state.value.trip?.status == TripStatus.Recording }
+        deliver(id, 9)
+        assertEquals(TripMode.Ski, app.recorder.state.value.trip!!.mode)
+        assertFalse(app.recorder.state.value.trip!!.automaticMode)
+    }
+
+    @Test fun liveTrackerFitsThemesLargeTextAndRotation() {
+        val font = shell("settings get system font_scale").trim()
+        val rotation = shell("settings get system user_rotation").trim()
+        val autoRotation = shell("settings get system accelerometer_rotation").trim()
+        val night = shell("cmd uimode night").substringAfter(":").trim()
+        try {
+            launch()
+            startTrip()
+            waitUntil { app.recorder.state.value.trip != null }
+            val id = app.recorder.state.value.trip!!.id
+            for ((name, scale, dark) in listOf(Triple("light", 1f, false), Triple("dark", 1f, true), Triple("large-text", 2f, false))) {
+                shell("settings put system font_scale $scale")
+                shell("cmd uimode night ${if (dark) "yes" else "no"}")
+                for (landscape in listOf(false, true)) {
+                    shell("settings put system accelerometer_rotation 0")
+                    shell("settings put system user_rotation ${if (landscape) 1 else 0}")
+                    compose.waitUntil(5_000) {
+                        var ready = false
+                        scenario!!.onActivity {
+                            ready = it.resources.configuration.fontScale == scale &&
+                                (it.resources.configuration.screenWidthDp > it.resources.configuration.screenHeightDp) == landscape
+                        }
+                        ready
+                    }
+                    deliver(id, savedCount(id) + 1)
+                    compose.onNodeWithTag("route_map").assertIsDisplayed()
+                    compose.onNodeWithTag("trip_pause").performScrollTo().assertIsDisplayed()
+                    compose.onNodeWithTag("trip_stop").performScrollTo().assertIsDisplayed()
+                    Thread.sleep(500)
+                    shell("screencap -p /sdcard/Download/cvkegps-tracker-$name-$landscape.png")
+                }
+            }
+        } finally {
+            shell("settings put system font_scale $font")
+            shell("settings put system user_rotation $rotation")
+            shell("settings put system accelerometer_rotation $autoRotation")
+            shell("cmd uimode night $night")
+        }
     }
 
     private fun deliver(id: String, count: Int) {
