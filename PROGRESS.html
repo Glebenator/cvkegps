@@ -165,7 +165,7 @@
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-10-21">21 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>3ce2cd4</code> + tracking implementation + earlier GPS display work</dd></div>
+          <div><dt>App code baseline</dt><dd><code>e0717e7</code></dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
@@ -249,20 +249,20 @@
     </section>
 
     <section id="screens" aria-labelledby="screens-heading">
-      <div class="section-head"><h2 id="screens-heading"><span class="number">02</span>Screen evidence</h2><span class="small">Captured 20 October 2026</span></div>
-      <p class="section-intro">Tracking update, 21 October 2026. Source: <code>3ce2cd4</code> plus tracking implementation
+      <div class="section-head"><h2 id="screens-heading"><span class="number">02</span>Screen evidence</h2><span class="small">Captures: 20 and 21 October 2026</span></div>
+      <p class="section-intro">Tracking update, 21 October 2026. Source: <code>e0717e7</code>
         and the earlier GPS display work. Final debug APK: <code>fbfd19f0</code>. These native API 36 emulator captures use
         simulated location data. The route has two segments separated by process loss. Online tiles loaded from OpenStreetMap.</p>
       <div class="screens">
         <figure class="shot"><a href="docs/progress/images/2026-10-21-tracking-modes-light.png">
           <img src="docs/progress/images/2026-10-21-tracking-modes-light.png" width="1080" height="2340"
             alt="Native Trips screen with the five activity modes and a saved simulated car trip."></a>
-          <figcaption><strong>Activity selection · Light mode</strong>21 October 2026. Tracking baseline after <code>3ce2cd4</code>.
+          <figcaption><strong>Activity selection · Light mode</strong>21 October 2026. Baseline <code>e0717e7</code> plus earlier GPS display work.
             APK <code>fbfd19f0</code>. Simulated trip.</figcaption></figure>
         <figure class="shot"><a href="docs/progress/images/2026-10-21-tracking-route-dark.png">
           <img src="docs/progress/images/2026-10-21-tracking-route-dark.png" width="1080" height="2340" loading="lazy"
             alt="Native dark-theme trip review with two separate blue route segments on online OpenStreetMap tiles."></a>
-          <figcaption><strong>Route review · Dark mode</strong>21 October 2026. Tracking baseline after <code>3ce2cd4</code>.
+          <figcaption><strong>Route review · Dark mode</strong>21 October 2026. Baseline <code>e0717e7</code> plus earlier GPS display work.
             APK <code>fbfd19f0</code>. Simulated route; standard map tiles retain their own colours.</figcaption></figure>
       </div>
       <p class="test-note">Also checked <a href="docs/progress/images/2026-10-21-tracking-route-light.png">light-theme route review</a>
@@ -340,7 +340,7 @@
             360 px and 1100 px. The full report had no horizontal overflow or broken loaded images at 360 px.</li>
         </ul>
         <p class="test-note">Final debug APK SHA-256: <code>fbfd19f079e13189bb46a800d32ab69030e85270ab126c47a6daaf6758216b42</code>.
-          App source: tracking implementation after <code>3ce2cd4</code>, with the earlier GPS display changes.
+          App source: <code>e0717e7</code>, with the earlier GPS display changes.
           Selected images use this APK. Device settings were restored and test providers were removed. No app GPS request remains.</p>
         <p class="test-note"><strong>Failures resolved during this change:</strong> the emulator exited during one layout run.
           Its replacement first had an older APK; that result was excluded. The new navigation bar reduced landscape space.
@@ -593,7 +593,7 @@ const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
             <p>Debug and unsigned release builds, both lint checks, three unit tests, eight emulator tests, and an external
               permission/recovery check passed. Added native light, dark, and large-text captures. Field validation remains open.</p>
             <p>Added a landscape navigation rail after the layout test found insufficient height.
-              Source: tracking implementation after <code>3ce2cd4</code>. APK <code>fbfd19f0</code>.</p></div>
+              Source: <code>e0717e7</code>. APK <code>fbfd19f0</code>.</p></div>
         </li>
         <li>
           <time datetime="2026-10-21">21 October 2026</time>
