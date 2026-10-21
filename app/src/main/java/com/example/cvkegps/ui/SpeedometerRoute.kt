@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.LocalActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -27,8 +28,10 @@ fun SpeedometerRoute(
 ) {
     val activity = LocalActivity.current ?: return
     val state by viewModel.uiState.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
+    val gnss by viewModel.gnssState.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
     var permissionRequested by rememberSaveable { mutableStateOf(false) }
     var permissionNeedsSettings by rememberSaveable { mutableStateOf(false) }
+    var showDetails by rememberSaveable { mutableStateOf(false) }
 
     fun refreshAccess() {
         // Permission results can change the recovery action without changing GPS status.
@@ -51,12 +54,7 @@ fun SpeedometerRoute(
         onPauseOrDispose { }
     }
 
-    SpeedometerScreen(
-        state = state,
-        permissionNeedsSettings = permissionNeedsSettings,
-        trackerControls = trackerControls,
-        onTrips = onTrips,
-        onAction = {
+    val onAction: () -> Unit = {
             when (state.status) {
                 GpsStatus.PermissionRequired -> {
                     if (permissionNeedsSettings) {
@@ -76,6 +74,19 @@ fun SpeedometerRoute(
                 GpsStatus.Unavailable -> Unit
                 else -> Unit
             }
-        },
-    )
+    }
+    BackHandler(enabled = showDetails) { showDetails = false }
+    if (showDetails) {
+        GpsDetailsRoute(state, gnss, permissionNeedsSettings, onAction, onBack = { showDetails = false })
+    } else {
+        SpeedometerScreen(
+            state = state,
+            permissionNeedsSettings = permissionNeedsSettings,
+            onAction = onAction,
+            onDetails = { showDetails = true },
+            gnss = gnss,
+            trackerControls = trackerControls,
+            onTrips = onTrips,
+        )
+    }
 }

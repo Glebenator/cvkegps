@@ -22,13 +22,87 @@
     <string name="paused_body">Trip recording is paused. Resume the trip for new readings.</string>
     <string name="error_body">Try again to start location updates.</string>
     <string name="live_body">GPS stops when the app becomes inactive unless a trip is recording.</string>
-    <string name="accuracy_value">Accuracy Â±%1$s m</string>
     <string name="accuracy_unknown">Accuracy unavailable</string>
     <string name="allow_location">Allow precise location</string>
     <string name="open_settings">Open app settings</string>
     <string name="enable_location">Open location settings</string>
     <string name="retry_gps">Try again</string>
-    <string name="no_value">â€”</string>
+    <string name="privacy_note">Location stays on this device.</string>
+    <string name="no_value">—</string>
     <string name="speed_accessibility">Current speed: %1$s kilometres per hour</string>
     <string name="speed_unavailable_accessibility">Current speed unavailable</string>
+    <string name="gps_details">GPS details</string>
+    <string name="back">Back</string>
+    <string name="details_not_available">Unavailable</string>
+    <string name="details_request">Location request</string>
+    <string name="details_provider">Source</string>
+    <string name="details_provider_value">Satellite GPS (GNSS)</string>
+    <string name="details_interval">Requested interval</string>
+    <string name="details_readings">Readings received in this request</string>
+    <string name="details_fix_age">Last reading age</string>
+    <string name="details_request_note">The count resets when the GPS request restarts. The requested interval does not guarantee delivery. GPS stops when the app becomes inactive unless a trip is recording.</string>
+    <string name="details_quality">Current reading quality</string>
+    <string name="details_speed_result">Speed check</string>
+    <string name="details_speed_accepted">Accepted for display</string>
+    <string name="details_speed_no_reading">No current reading</string>
+    <string name="details_speed_old">Reading is too old</string>
+    <string name="details_speed_position">Position accuracy is missing or exceeds 50 m</string>
+    <string name="details_speed_uncertain">Speed uncertainty is invalid or exceeds 3 m/s</string>
+    <string name="details_speed_missing">The reading has no speed</string>
+    <string name="details_speed_invalid">The speed value is invalid</string>
+    <string name="details_horizontal_accuracy">Horizontal accuracy estimate</string>
+    <string name="details_speed_accuracy">Speed uncertainty</string>
+    <string name="details_vertical_accuracy">Altitude uncertainty</string>
+    <string name="details_bearing">Direction of travel</string>
+    <string name="details_bearing_accuracy">Direction uncertainty</string>
+    <string name="details_test_reading">Android test location</string>
+    <string name="details_accuracy_note">Accuracy values are Android estimates, not guaranteed error limits. Direction is measured clockwise from true north. It is not the phone compass. Values clear after 10 seconds without a fresh reading.</string>
+    <string name="details_receiver">Satellite receiver</string>
+    <string name="details_last_event">Last receiver event</string>
+    <string name="details_receiver_started">Started</string>
+    <string name="details_receiver_stopped">Stopped</string>
+    <string name="details_first_fix">Time to first position</string>
+    <string name="details_satellite_report">Satellite report</string>
+    <string name="details_report_age">Report age</string>
+    <string name="details_satellites">Satellites reported</string>
+    <string name="details_used_satellites">Satellites used in position</string>
+    <string name="details_report_current">Current</string>
+    <string name="details_report_old">Old report — current signals unavailable</string>
+    <string name="details_report_waiting">Waiting for a satellite report</string>
+    <string name="details_not_monitoring">GPS is not active in this app</string>
+    <string name="details_callback_unavailable">Satellite status is unavailable</string>
+    <string name="details_receiver_note">GNSS includes GPS and other satellite systems. Receiver events can include use by other apps. First-position time is supplied by Android and can be unavailable if it occurred before this screen opened.</string>
+    <string name="details_signals">Satellite signals</string>
+    <string name="details_signal_note">A satellite can have more than one signal. C/N₀ compares the carrier signal with noise; a larger value usually means better reception. Reports older than 10 seconds are hidden. No report does not mean zero satellites.</string>
+    <string name="details_no_signals">Android reported no satellite signals.</string>
+    <string name="details_satellite_id">%1$s · ID %2$s</string>
+    <string name="details_used">Used in the latest position</string>
+    <string name="details_not_used">Not used in the latest position</string>
+    <string name="details_cn0">Signal level (C/N₀)</string>
+    <string name="details_elevation">Elevation above the horizon</string>
+    <string name="details_azimuth">Direction from true north</string>
+    <string name="details_frequency">Carrier frequency</string>
+    <string name="details_seconds">%1$s s</string>
+    <string name="details_metres">±%1$s m</string>
+    <string name="details_mps">±%1$s m/s</string>
+    <string name="details_degrees">%1$s°</string>
+    <string name="details_dbhz">%1$s dB-Hz</string>
+    <string name="details_mhz">%1$s MHz</string>
+    <string name="details_yes">Yes</string>
+    <string name="details_no">No</string>
+    <string name="constellation_gps" translatable="false">GPS</string>
+    <string name="constellation_sbas" translatable="false">SBAS</string>
+    <string name="constellation_glonass" translatable="false">GLONASS</string>
+    <string name="constellation_qzss" translatable="false">QZSS</string>
+    <string name="constellation_beidou" translatable="false">BeiDou</string>
+    <string name="constellation_galileo" translatable="false">Galileo</string>
+    <string name="constellation_irnss" translatable="false">NavIC (IRNSS)</string>
+    <string name="constellation_unknown">Unknown system</string>
+    <string name="satellite_count">Satellites: %1$s used / %2$s seen</string>
+    <string name="satellite_count_unavailable">Satellite count unavailable</string>
+    <string name="position_accuracy">Position estimate ±%1$s m</string>
+    <string name="position_accuracy_below">Position estimate below %1$s m</string>
+    <string name="accuracy_scale_metres">%1$s m</string>
+    <string name="accuracy_scale_description">Accuracy scale: empty at %1$s metres, reference mark at %2$s metres, full at %3$s metre or better. Smaller estimates are better.</string>
+    <string name="constellation_note">The home display has one marker per satellite. Bright, filled markers are used in the position. Each system has a different shape, as shown below. The pattern is decorative, not a sky map. The position bar is empty at 50 m or more and full at 1 m or less. The notch marks 5 m. The scale gives more space to small estimates. These are display references, not receiver limits. Android does not report a best possible accuracy. A full bar does not guarantee accuracy.</string>
 </resources>

@@ -15,6 +15,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.cvkegps.tracking.TrackingApplication
 import com.example.cvkegps.tracking.TrackingApp
 import com.example.cvkegps.tracking.RecordingService
+import com.example.cvkegps.location.AndroidGnssSource
 import com.example.cvkegps.ui.SpeedometerRoute
 import com.example.cvkegps.ui.SpeedometerViewModel
 import com.example.cvkegps.ui.theme.CvkeGpsTheme
@@ -24,7 +25,7 @@ class MainActivity : ComponentActivity() {
     private val tracking get() = application as TrackingApplication
     private val viewModel: SpeedometerViewModel by viewModels {
         viewModelFactory {
-            initializer { SpeedometerViewModel(tracking.location) }
+            initializer { SpeedometerViewModel(tracking.location, AndroidGnssSource(applicationContext)) }
         }
     }
 

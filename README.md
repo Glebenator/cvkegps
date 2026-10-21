@@ -55,10 +55,79 @@ Keep the output in the ignored `artifacts/` folder. Use `TrackingDeviceTest` for
 - Start map tracking from home. Pause and resume the trip.
 - Handle denied permission, disabled GPS, missing hardware, and loss of signal.
 - Use system light or dark mode and dynamic colour on Android 12 and later.
+- Open GPS details for reading quality, receiver events, and satellite signals.
+- Show a constellation behind the speed display, with live satellite counts and system markers.
+- Show a position accuracy bar that fills at 1 m or better, with a 5 m reference notch.
 
 The app saves trips locally and estimates the activity from GPS speed. It does not upload trip records.
 GPS stops when the activity leaves the resumed state unless a trip is recording.
 The app does not keep the screen on.
+
+## GPS details
+
+Select the information button beside the GPS status to open **GPS details**.
+Use the back arrow or Android Back to return.
+This screen shares the speedometer's location request. It shows:
+
+- The source, requested interval, reading count, and age of the last reading.
+- Why speed was accepted or hidden, plus horizontal, vertical, speed, and direction uncertainty.
+- Direction of travel from true north and the Android test-location flag.
+- The last receiver start or stop event and Android's time to first position, when reported.
+- Satellite systems and IDs, signal level (C/N0), elevation, azimuth, carrier frequency,
+  and use in the latest position calculation.
+
+Satellite status comes from a separate Android GNSS callback. This callback does not
+create a second location request. Home and details share one callback while the app is
+resumed and GPS is active. Trip Pause, disabled location, and app inactivity remove it.
+Back from details keeps the callback for the home display. The age display updates
+once per second only while details is resumed.
+
+An unavailable satellite report is not a report with zero satellites. A satellite can
+have more than one signal; the summary counts distinct system and satellite IDs.
+Signal rows and counts clear when their report is 10 seconds old. Reading quality values
+also clear when the location reading is old. The reading count resets with each location
+request and counts callbacks before display conflation. It includes rejected readings.
+Receiver events describe the shared Android receiver and can include use by other apps.
+First-position time can be unavailable when its event preceded callback registration.
+
+## Satellite display experiment
+
+The home display has one marker per satellite. Multiple frequency bands do not add
+markers or increase the count. A bright, filled marker means that Android used the
+satellite in the latest position. A dim, open marker means that Android reported it
+but did not use it. The count shows both used and reported satellites.
+
+GPS uses circles, GLONASS uses diamonds, Galileo uses triangles, and BeiDou uses squares.
+QZSS uses pentagons, NavIC uses hexagons, and SBAS uses crosses. Unknown systems use
+circles with a centre mark. GPS details shows these shapes beside the system names.
+Colours follow the Material theme. Shape and text also identify each system.
+
+The pattern is decorative. Azimuth sets each marker's direction. Elevation sets its
+distance within an outer band that keeps the speed clear. Short lines join markers
+from the same system. This is not a sky map. Invalid angles use a stable decorative
+position. Marker changes and the accuracy bar animate for 650 ms, then stop. Compose
+uses the Android animation duration setting. There is no continuous animation.
+
+The position bar uses Android's horizontal accuracy estimate. It is empty at 50 m or
+more and full at 1 m or less. A notch marks 5 m. The scale is logarithmic, so it gives
+more space to improvements below 5 m. At 5 m, the bar is about 59% full. At 2 m, it is
+about 82% full. These percentages describe the display, not a probability of accuracy.
+The text shows decimal values, including estimates below 1 m. A positive estimate below
+0.1 m is shown as "below 0.1 m" instead of zero.
+
+Android does not report a fixed best possible accuracy for the receiver. The endpoints
+and notch are display references, not receiver limits or a measured device capability.
+A full bar does not guarantee position or speed accuracy. Satellite count does not
+control it. Validate these display references on physical devices.
+Missing, invalid, and old readings do not fill the bar. Satellite counts and markers
+clear after 10 seconds without a fresh report. Missing reports are not zero counts.
+
+Accuracy values are estimates, not guaranteed error limits. Direction of travel is not
+the phone compass. This screen does not record coordinates, raw measurements, or NMEA
+messages. Support for optional fields depends on Android and the receiver.
+See the Android references for [location readings](https://developer.android.com/reference/android/location/Location),
+[satellite status](https://developer.android.com/reference/android/location/GnssStatus), and
+[receiver events](https://developer.android.com/reference/android/location/GnssStatus.Callback).
 
 The local design export in `GPS tracker app prototype` is excluded from Git.
 Design 2a supplies the main concept: a large speed display, altitude, and maximum speed.
@@ -97,10 +166,15 @@ app/src/main/java/com/example/cvkegps/
   location/
     GpsSource.kt                 Flow contract and SI measurement models
     AndroidGpsSource.kt          Android GPS registration and cleanup
+    GnssSource.kt                Satellite and receiver models
+    AndroidGnssSource.kt         Satellite status registration and cleanup
   ui/
     SpeedometerViewModel.kt      Immutable state, freshness, and session maximum
     SpeedometerRoute.kt          Permission and lifecycle integration
     SpeedometerScreen.kt         Stateless Material screen
+    GpsDetailsScreen.kt          Reading quality and satellite status
+    SatelliteConstellation.kt    Satellite markers and finite transitions
+    PositionAccuracy.kt          Accuracy scale, notch, and labels
     theme/Theme.kt               Dynamic colour and fallback palettes
 ```
 
@@ -183,6 +257,15 @@ The tests cover:
    text size in portrait and landscape. Check permission, live, and
    disabled-location states, and check dark mode. Restore the display settings after
    the check.
+9. Open GPS details, grant permission, and verify one shared location request. Check
+   reading rejection reasons and freshness. Verify satellite callback cleanup after
+   location-off and app inactivity, with recovery and activity recreation.
+   Back from details keeps one shared callback on home.
+10. Check details at 100% and 200% text in portrait and landscape, plus dark mode.
+    Verify scrolling and text wrapping. Restore settings after the check.
+11. Use controlled GNSS reports to check multiple bands, zero and missing reports,
+    expiry, recovery, invalid accuracy, and pause. Capture native UI in both themes
+    and with large text. These reports are supplied only by the test source.
 
 The tests inject locations into the Android location service. They do not replace the
 production source or ViewModel. Listener checks inspect current Android registrations.
@@ -203,7 +286,65 @@ Lint treats warnings as errors. Dependency update notices are excluded from this
 Review dependency updates separately so a new remote release cannot break an unchanged
 build. The Compose compiler version matches the Kotlin version supplied by AGP.
 
+## Verification on 2026-10-21
+
+### Accuracy scale update
+
+- Changed the full point from 5 m to 1 m and added a 5 m notch. The scale gives more
+  space to small estimates. Accuracy text now preserves one decimal place.
+- Debug app and test APK builds passed. Debug lint found no issues. All four focused
+  emulator tests passed: scale and grouping rules, controlled GNSS display, home layout,
+  and details layout. Layout checks covered both themes, rotation, and large text.
+  The earlier 12-test result below applies to the previous APK.
+- Debug APK SHA-256: `5eff9c130433a74b88a136b6c451bac704772a2163e3d6e917260b7f5b140e77`.
+- Captures are in `docs/progress/images/2026-10-21-accuracy-scale-*.png`. They use
+  simulated location and satellite reports. Test records are in
+  `artifacts/accuracy-scale-test-results.json`. Settings were restored and test providers
+  were removed. Physical-device accuracy and battery checks remain open.
+
+### Earlier constellation experiment
+
+- The constellation experiment builds on `8b5ea06` and the existing GPS details work.
+  Debug app and test APK builds passed. Debug lint found no issues.
+- All 12 tests passed on the dedicated API 36 emulator. Each test ran in a separate
+  AndroidJUnitRunner invocation, with app data cleared first. This run did not use Orchestrator.
+- The tests cover production location delivery and callback cleanup, permission recovery,
+  signal loss, rotation, light and dark modes, and 100%, 110%, and 200% text.
+  Controlled GNSS tests cover grouping, empty and missing reports, expiry, future timestamps,
+  recovery, invalid accuracy, and pause. They do not test receiver hardware.
+- Large-text testing found a clipped pause label in landscape. Removing the repeated
+  lifecycle note from the live home card fixed it. The permission helper now activates
+  the actual Android accessibility control after a coordinate tap failed.
+- Native light, dark, and large-text captures are in `docs/progress/images/`, dated
+  2026-10-21. They use test location and satellite reports. The emulator settings were
+  restored and the GPS test provider was removed.
+- Debug APK SHA-256: `5c60bf1013a9bbd711bfdc6b9b1dd2238476e1f67b8507465ffef1a67e362a2b`.
+  Build and test records are in `artifacts/constellation-build.log` and
+  `artifacts/constellation-test-results.json`.
+- No physical-device check was done for this change. Live satellite accuracy, battery use,
+  motion smoothness, and TalkBack remain unmeasured. Repeat release checks before publication.
+
 ## Earlier verification on 2026-10-20
+
+### GPS details update
+
+- Added GPS details on source baseline `8b5ea06`. The installed debug APK has SHA-256
+  `1bd783992c4d7746df3b29a40c980fed82e951ab492d9660c08343683a03260c`.
+- The debug app and test APK built, and debug lint passed before the last test-helper edit.
+- The user ran the installed app on the Pixel 7 Pro and reported that it worked correctly.
+  This is a user-reported manual check. No satellite report was retrieved from the phone.
+- The final home layout test passed. Earlier GPS-details layout and lifecycle runs passed,
+  as did the seven core tests, before the home information-button change.
+- The final automated rerun is incomplete. It passed the home layout test, then failed
+  inside UI Automator while waiting for the permission dialog. The last test-helper change
+  removes that failing call. It has not been built or run.
+- Further tests and the pending build were stopped at the user's request.
+  This milestone does not claim a complete final regression pass.
+- Selected details captures show the earlier feature build (`5d46104d` APK prefix), before
+  the home button changed. They use simulated locations. They show light mode, dark mode,
+  and 200% text. Real satellite accuracy and battery use remain unmeasured.
+
+### Earlier home-layout milestone
 
 - The final home-layout debug app and test APK builds passed. Debug lint reported no issues.
 - An unsigned release APK built before the final home-layout changes. Repeat the release
@@ -230,8 +371,14 @@ build. The Compose compiler version matches the Kotlin version supplied by AGP.
   `1a12d63fdb144626fb5e75c607990a7d840ce4b934f94844d258f7c02334877d`.
   Local build, layout-test, and hash records are in `artifacts/layout-final-build.log`,
   `artifacts/layout-device-final.log`, and `artifacts/layout-final-evidence.json`.
-- The update was not installed on the physical Pixel 7 Pro. Other window sizes,
-  display-size settings, and languages still need checks.
+- A later indoor check found the app installed and active on the physical Pixel 7 Pro.
+  Precise permission was granted, location was enabled, and the one-second GPS request
+  was active. Android reported zero locations delivered to the app. The user reported
+  that Google Maps showed a location. Maps can use other sources; this app requests
+  satellite GPS only. Poor indoor reception is a possible cause, not a confirmed diagnosis.
+  Outdoor acquisition remains unverified. Source baseline: `8b5ea06`. The installed
+  app reports version 1.0; its exact build was not confirmed. No coordinates were saved.
+  Other window sizes, display-size settings, and languages still need checks.
 - Real-device GPS accuracy, TalkBack, frame timing, and battery use remain unmeasured.
 
 See [the progress report](PROGRESS.html#verification) for the dated evidence and

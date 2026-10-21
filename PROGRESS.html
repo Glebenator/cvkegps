@@ -165,7 +165,7 @@
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-10-21">21 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>dd886b5</code></dd></div>
+          <div><dt>App code baseline</dt><dd><code>d9e7ae3</code> + constellation work in this commit</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
@@ -200,6 +200,9 @@
             <li>Portrait and landscape layouts, large text, and screen-reader labels.</li>
             <li>No home-screen scroll area. The speed display uses the space left by the readings and GPS controls.</li>
             <li>Precise-location permission, automatic speed display, and recovery actions.</li>
+            <li>An information button beside GPS status opens a scrollable GPS details screen.</li>
+            <li>One constellation marker per satellite. System shapes and brightness show satellite type and use.</li>
+            <li>The position accuracy bar fills from 50 m to 1 m, with a 5 m notch. It does not guarantee accuracy.</li>
           </ul>
         </article>
         <article class="panel">
@@ -210,6 +213,8 @@
             <li>Reject poor readings. Clear readings that are at least 10 seconds old.</li>
             <li>Keep measurements in SI units. Use the current locale for display.</li>
             <li>Trips use a location foreground service and local storage. No wake lock or route upload.</li>
+            <li>Home and details share one satellite callback while resumed and GPS is active. Share one location request.</li>
+            <li>Clear old satellite reports after 10 seconds. Animate data changes for 650 ms, with no continuous animation.</li>
           </ul>
         </article>
       </div>
@@ -296,7 +301,7 @@
         maps, offline downloads, and automatic pause. Earlier screenshots and results below are historical.</p>
     </section>
     <section id="screens" aria-labelledby="screens-heading">
-      <div class="section-head"><h2 id="screens-heading"><span class="number">02</span>Screen evidence</h2><span class="small">Captures: 20 and 21 October 2026</span></div>
+      <div class="section-head"><h2 id="screens-heading"><span class="number">02</span>Screen evidence</h2><span class="small">Captures dated below</span></div>
       <p class="section-intro">Earlier tracking update, 21 October 2026. Source: <code>e0717e7</code>
         and the earlier GPS display work. Final debug APK: <code>fbfd19f0</code>. These native API 36 emulator captures use
         simulated location data. The route has two segments separated by process loss. Online tiles loaded from OpenStreetMap.</p>
@@ -317,8 +322,94 @@
         The Trips screen scrolls. The speed screen uses a navigation rail in landscape to preserve reading space.</p>
       <h3 style="margin:24px 0">Earlier display milestones</h3>
 
+      <p class="section-intro">Accuracy scale update, 21 October 2026. Baseline: <code>8b5ea06</code>
+        + GPS details + constellation + accuracy scale. APK prefix: <code>5eff9c13</code>.
+        These native emulator captures use simulated location and satellite reports. The estimate is 2.5 m,
+        past the 5 m notch, with space left before the 1 m full point.
+        Also see <a href="docs/progress/images/2026-10-21-accuracy-scale-large-text.png">200% text</a> and
+        <a href="docs/progress/images/2026-10-21-accuracy-scale-full.png">the full bar at a simulated 0.5 m estimate</a>.
+        Both use the same date and APK baseline.</p>
+      <div class="screens">
+        <figure class="shot">
+          <a href="docs/progress/images/2026-10-21-accuracy-scale-light.png">
+            <img src="docs/progress/images/2026-10-21-accuracy-scale-light.png" width="1080" height="2340"
+              alt="Accuracy bar in light mode. The 2.5 metre estimate fills past the 5 metre notch but does not fill the bar.">
+          </a>
+          <figcaption><strong>Accuracy scale · Light mode</strong>21 October 2026. Baseline <code>8b5ea06</code>
+            + GPS details + constellation + accuracy scale, APK <code>5eff9c13</code>. Simulated location and satellites.</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="docs/progress/images/2026-10-21-accuracy-scale-dark.png">
+            <img src="docs/progress/images/2026-10-21-accuracy-scale-dark.png" width="1080" height="2340" loading="lazy"
+              alt="Accuracy bar in dark mode with 50 metre, 5 metre, and 1 metre scale labels.">
+          </a>
+          <figcaption><strong>Accuracy scale · Dark mode</strong>21 October 2026. Baseline <code>8b5ea06</code>
+            + GPS details + constellation + accuracy scale, APK <code>5eff9c13</code>. Simulated location and satellites.</figcaption>
+        </figure>
+      </div>
+      <h3 style="margin:24px 0 16px">Earlier constellation milestone</h3>
+      <p class="section-intro">Constellation experiment, 21 October 2026. Baseline: <code>8b5ea06</code>
+        + GPS details + constellation experiment. Debug APK prefix: <code>5c60bf10</code>.
+        These are native app captures on the API 36 emulator. The test supplies simulated location and satellite
+        reports: 9 satellites used, 12 reported, and a 4 m position estimate. They do not prove live reception.</p>
+      <div class="screens">
+        <figure class="shot">
+          <a href="docs/progress/images/2026-10-21-constellation-light.png">
+            <img src="docs/progress/images/2026-10-21-constellation-light.png" width="1080" height="2340"
+              alt="Light mode with a satellite constellation behind the speed and a full position accuracy bar.">
+          </a>
+          <figcaption><strong>Constellation · Light mode</strong>21 October 2026. Baseline <code>8b5ea06</code>
+            + GPS details + constellation experiment, APK <code>5c60bf10</code>. Simulated location and satellites.</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="docs/progress/images/2026-10-21-constellation-dark.png">
+            <img src="docs/progress/images/2026-10-21-constellation-dark.png" width="1080" height="2340" loading="lazy"
+              alt="Dark mode with circles, diamonds, triangles, and squares for different satellite systems.">
+          </a>
+          <figcaption><strong>Constellation · Dark mode</strong>21 October 2026. Baseline <code>8b5ea06</code>
+            + GPS details + constellation experiment, APK <code>5c60bf10</code>. Simulated location and satellites.</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="docs/progress/images/2026-10-21-constellation-large-text.png">
+            <img src="docs/progress/images/2026-10-21-constellation-large-text.png" width="1080" height="2340" loading="lazy"
+              alt="The native constellation display with 200 percent text and visible GPS controls.">
+          </a>
+          <figcaption><strong>Constellation · 200% text</strong>21 October 2026. Baseline <code>8b5ea06</code>
+            + GPS details + constellation experiment, APK <code>5c60bf10</code>. Simulated location and satellites.</figcaption>
+        </figure>
+      </div>
+      <h3 style="margin:24px 0 16px">Earlier GPS details milestone</h3>
+      <p class="section-intro">GPS details captures below use the earlier feature build: <code>8b5ea06</code>
+        + GPS details, APK prefix <code>5d46104d</code>, before the home information-button change.
+        These are real app captures with simulated locations. No satellite report was supplied by the emulator.</p>
+      <div class="screens">
+        <figure class="shot">
+          <a href="docs/progress/images/2026-10-20-gps-details-light.png">
+            <img src="docs/progress/images/2026-10-20-gps-details-light.png" width="1080" height="2340"
+              alt="GPS details in light mode, with request interval, reading count, age, and quality fields.">
+          </a>
+          <figcaption><strong>GPS details · Light mode</strong>20 October 2026. Baseline: <code>8b5ea06</code>
+            + GPS details, APK <code>5d46104d</code>. Simulated location. The list scrolls.</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="docs/progress/images/2026-10-20-gps-details-dark.png">
+            <img src="docs/progress/images/2026-10-20-gps-details-dark.png" width="1080" height="2340" loading="lazy"
+              alt="GPS details in dark mode, with quality estimates and a waiting satellite report.">
+          </a>
+          <figcaption><strong>GPS details · Dark mode</strong>20 October 2026. Baseline: <code>8b5ea06</code>
+            + GPS details, APK <code>5d46104d</code>. Simulated location. Missing satellite data is unavailable.</figcaption>
+        </figure>
+        <figure class="shot" style="grid-column:1 / -1">
+          <a href="docs/progress/images/2026-10-20-gps-details-large-text.png">
+            <img src="docs/progress/images/2026-10-20-gps-details-large-text.png" width="1080" height="2340" loading="lazy"
+              alt="GPS reading quality at 200% text, with wrapped labels and a scrollable list.">
+          </a>
+          <figcaption><strong>GPS details · 200% text</strong>20 October 2026. Baseline: <code>8b5ea06</code>
+            + GPS details, APK <code>5d46104d</code>. Simulated location. Text wraps in the scrollable list.</figcaption>
+        </figure>
+      </div>
       <p class="section-intro">These are app screenshots from an Android 16 emulator.
-        The new home captures use the same logical screen size as the connected Pixel 7 Pro.
+        The earlier home captures use the same logical screen size as the connected Pixel 7 Pro.
         Their baseline is <code>c934f5e</code> plus the home layout fix; debug APK hash starts with <code>1a12d63f</code>.
         The location data is simulated. Select an image to open the full capture.
         A <a href="docs/progress/images/2026-10-20-home-large-text.png">200% portrait capture</a>
@@ -365,7 +456,7 @@
     </section>
 
     <section id="verification" aria-labelledby="verification-heading">
-      <div class="section-head"><h2 id="verification-heading"><span class="number">03</span>Verification</h2><span class="tag done">7 core tests + 1 layout test passed</span></div>
+      <div class="section-head"><h2 id="verification-heading"><span class="number">03</span>Verification</h2><span class="tag done">Debug build and lint passed</span></div>
       <article id="tracking-verification" class="panel" style="margin-bottom:22px">
         <span class="tag done">Tracking checks · 21 October 2026</span>
         <h3>Builds, tests, and visual checks</h3>
@@ -403,6 +494,60 @@
       </article>
       <h3 style="margin:24px 0">Earlier display verification</h3>
 
+      <div class="panel" style="margin-bottom:24px" id="accuracy-scale-verification">
+        <h3>Accuracy scale update · 21 October 2026</h3>
+        <p>Debug app and test APK builds passed. Debug lint found no issues. All four focused API 36 emulator tests
+          passed: scale and grouping rules, controlled GNSS display, home layout, and details layout. The home
+          test covered 100%, 110%, and 200% text in portrait and landscape. Details covered 100% and 200% text
+          with rotation. Light and dark modes were inspected. Each test used a separate AndroidJUnitRunner
+          invocation with app data cleared first. The runner restored settings and removed test providers.</p>
+        <p>The report passed layout checks at 360 px and 1280 px with no horizontal overflow.
+          All 65 local links and anchors resolved.</p>
+        <p>Debug APK SHA-256: <code>5eff9c130433a74b88a136b6c451bac704772a2163e3d6e917260b7f5b140e77</code>.</p>
+        <p>The bar is full at 1 m or less and empty at 50 m or more. A notch marks 5 m. The logarithmic scale
+          gives more space to improvements near 1 m: about 59% at 5 m and 82% at 2 m. These are display fractions,
+          not confidence levels. Decimal text shows estimates below 1 m. Positive values below 0.1 m display as
+          "below 0.1 m" instead of zero.</p>
+        <p>Android does not report the best possible receiver accuracy. The endpoints and notch are display
+          references, not hardware limits. No physical-device accuracy or battery check was done for this change.</p>
+        <p class="source">Evidence: build and lint log (<code>artifacts/accuracy-scale-build.log</code>; local only),
+          focused device results (<code>artifacts/accuracy-scale-test-results.json</code>; local only),
+          <a href="app/src/main/java/com/example/cvkegps/ui/PositionAccuracy.kt">bar and notch source</a>,
+          <a href="app/src/main/java/com/example/cvkegps/location/SatelliteDisplay.kt">accuracy scale source</a>.</p>
+      </div>
+      <div class="panel" style="margin-bottom:24px" id="constellation-verification">
+        <h3>Earlier constellation experiment · 21 October 2026</h3>
+        <p>Debug app and test APK builds passed. Debug lint passed with no findings.
+          All 12 emulator tests passed. Each test used a separate AndroidJUnitRunner invocation, with app data
+          cleared first. This run did not use Orchestrator. The emulator settings were restored and the test
+          GPS provider was removed.</p>
+        <p>Debug APK SHA-256: <code>5c60bf1013a9bbd711bfdc6b9b1dd2238476e1f67b8507465ffef1a67e362a2b</code>.</p>
+        <p>Controlled GNSS tests cover duplicate frequency bands, zero and missing reports, report expiry,
+          future timestamps, recovery, invalid accuracy, and pause. The production-path suite checks Android
+          location delivery, permissions, callback lifetime, rotation, and large text. Controlled GNSS reports
+          test the ViewModel and native UI; they do not test receiver hardware.</p>
+        <p>Known limits: the constellation is decorative, not a sky map. The 5 m target is an initial display
+          choice. Physical-device satellite accuracy, battery use, motion smoothness, and TalkBack remain unmeasured.
+          Release checks remain required before publication.</p>
+        <p>The home layout passed at 100%, 110%, and 200% text in portrait and landscape. Light and dark modes
+          were inspected. The permission helper now activates the actual Android accessibility control after
+          a coordinate tap failed. Report checks passed at 360 px and 1280 px, with no horizontal overflow.
+          All 55 local links and anchors resolved.</p>
+        <p class="source">Evidence: build and lint log (<code>artifacts/constellation-build.log</code>; local only),
+          device results and APK hashes (<code>artifacts/constellation-test-results.json</code>; local only),
+          <a href="app/src/androidTest/java/com/example/cvkegps/SatelliteDisplayDeviceTest.kt">controlled GNSS tests</a>.</p>
+      </div>
+      <div class="note" style="margin:0 0 24px"><strong>GPS details · Earlier result, 20 October 2026.</strong>
+        Installed the new debug build on the Pixel 7 Pro. The user ran it and reported that it worked correctly.
+        Source baseline: <code>8b5ea06</code> + GPS details. APK SHA-256:
+        <code>1bd783992c4d7746df3b29a40c980fed82e951ab492d9660c08343683a03260c</code>.
+        Debug build and lint passed before the last test-helper edit. The final home layout test passed.
+        Earlier details lifecycle, details layout, and seven core tests passed before the home button change.
+        The final rerun failed inside UI Automator while waiting for the permission dialog.
+        The last test-helper edit has not been built or run. Further tests and the pending build were stopped
+        at the user's request. A complete final automated regression pass is not claimed.
+        No satellite report was retrieved from the phone. GPS accuracy and battery use remain unmeasured.</div>
+      <h3>Earlier milestone evidence</h3>
       <div class="note" style="margin:0 0 24px"><strong>P2 permission recovery · Fixed and verified.</strong>
         A review agent reproduced this defect on the API 36 emulator on 20 October 2026.
         After two denials, Android marked both location permissions as <code>USER_FIXED</code>.
@@ -415,6 +560,15 @@
         then returns and checks speed, altitude, and the pause action.
         A separate direct API 36 check also passed: two denials, rotation, a grant through the Settings controls,
         and a restored GPS request. The automated test does not operate those Settings permission controls.</div>
+      <div class="note" style="margin:0 0 24px"><strong>Physical Pixel 7 Pro check · Indoor GPS remains unverified.</strong>
+        On 20 October 2026, the user reported no GPS reading indoors while Google Maps showed a location.
+        A direct Android check found precise location granted, location services on, and this app in the resumed state.
+        The GPS request was active at a one-second interval. Android reported zero locations delivered to this app.
+        The source uses satellite GPS only. Maps can also use Wi-Fi and mobile networks.
+        This result is consistent with poor indoor reception. It does not prove the cause or outdoor operation.
+        Check outdoors with the app visible and a clear view of the sky. No coordinates were saved.
+        Source baseline: <code>8b5ea06</code>. The installed app reports version 1.0; its exact build was not confirmed.
+        No app code changed. See <a href="https://support.google.com/maps/answer/12244322?hl=en">Google's GPS signal guidance</a>.</div>
       <p class="section-intro">Last core device run: <time datetime="2026-10-20T13:56:10-07:00">20 October 2026, 13:56 PDT</time>.
         Seven tests passed on the dedicated API 36 emulator. Test commands took 153.4 seconds in total.
         Each test ran in a separate AndroidJUnitRunner invocation, with app data cleared before each test.
@@ -430,7 +584,7 @@
         Display and animation settings were restored. The test removed its GPS provider.</p>
       <div class="table-wrap">
         <table>
-          <caption>End-to-end device tests · Android 16, API 36</caption>
+          <caption>Earlier milestone: end-to-end device tests · Android 16, API 36</caption>
           <thead><tr><th scope="col">User flow</th><th scope="col">Evidence</th><th scope="col">Result</th></tr></thead>
           <tbody>
             <tr><td>Repeated permission denial</td><td>Two denials show the Settings action. It survives recreation. The app opens App info, stays idle there, and receives GPS after a test-API grant and return.</td><td><span class="tag done">Passed</span></td></tr>
@@ -446,7 +600,7 @@
       </div>
       <div class="grid" style="margin-top:18px">
         <article class="panel">
-          <h3>Build and visual checks</h3>
+          <h3>Earlier build and visual checks</h3>
           <ul>
             <li>The final debug app and test APKs built successfully. Debug lint reported no issues.</li>
             <li>An unsigned release APK built before the final layout changes.
@@ -463,7 +617,7 @@
           <span class="tag pending">Not yet verified</span>
           <h3>Checks that need more evidence</h3>
           <ul>
-            <li>Install and inspect this update on the physical Pixel 7 Pro. Check other window sizes, display-size settings, and languages.</li>
+            <li>The user reported success on the Pixel 7 Pro. Check other window sizes, display-size settings, and languages.</li>
             <li>Outdoor GPS accuracy and time to the first fix on physical devices.</li>
             <li>Battery use, cold start, and frame timing in a release build.</li>
             <li>TalkBack use and a broader Android device and API range.</li>
@@ -473,12 +627,12 @@
       </div>
       <p class="test-note">Evidence: <a href="app/src/androidTest/java/com/example/cvkegps/SpeedometerDeviceTest.kt">device test source</a>
         and <a href="README.md">dated build notes</a>.
-        Local output: <a href="artifacts/permission-device-results.json">seven-test result and APK hashes</a>,
-        <a href="artifacts/permission-verified-source-hashes.json">tested source hashes</a>, and
-        <a href="artifacts/permission-manual-result.json">direct Settings check</a>.
-        Layout output: <a href="artifacts/layout-final-build.log">final build and lint</a>,
-        <a href="artifacts/layout-device-final.log">layout test</a>, and
-        <a href="artifacts/layout-final-evidence.json">final APK and source hashes</a>.
+        Local output: seven-test result and APK hashes (<code>artifacts/permission-device-results.json</code>; local only),
+        tested source hashes (<code>artifacts/permission-verified-source-hashes.json</code>; local only), and
+        direct Settings check (<code>artifacts/permission-manual-result.json</code>; local only).
+        Layout output: final build and lint (<code>artifacts/layout-final-build.log</code>; local only),
+        layout test (<code>artifacts/layout-device-final.log</code>; local only), and
+        final APK and source hashes (<code>artifacts/layout-final-evidence.json</code>; local only).
         These generated files are not stored in Git. The table records their results for this milestone.</p>
     </section>
 
@@ -507,13 +661,11 @@
         <summary>Measurement model: SI units and explicit missing values</summary>
         <p>This model contains no Android location objects. The future iOS app can use the same measurement rules
           with its native location API. Shared production code is not required at this stage.</p>
-        <pre><code>data class GpsReading(
-    val speedMetersPerSecond: Float?,
-    val altitudeMeters: Double?,
-    val accuracyMeters: Float?,
-    val elapsedRealtimeNanos: Long,
-    // Other quality fields follow.
-)</code></pre>
+        <p>The first four fields are shown below. Optional quality fields follow them in the source.</p>
+        <pre><code>val speedMetersPerSecond: Float?,
+val altitudeMeters: Double?,
+val accuracyMeters: Float?,
+val elapsedRealtimeNanos: Long,</code></pre>
         <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/location/GpsSource.kt">GpsSource.kt</a>.</p>
       </details>
       <details>
@@ -534,6 +686,23 @@ const val MAX_HORIZONTAL_ERROR_METERS = 50f
 const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
         <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/location/AndroidGpsSource.kt">AndroidGpsSource.kt</a>.
           Freshness logic: <a href="app/src/main/java/com/example/cvkegps/ui/SpeedometerViewModel.kt">SpeedometerViewModel.kt</a>.</p>
+      </details>
+      <details>
+        <summary>Satellite status: share one callback between home and details</summary>
+        <p>Home and details observe satellite status through a separate interface.
+          They share the existing location request. Pause, disabled location, or app inactivity removes the callback.</p>
+        <pre><code>awaitClose { LocationManagerCompat.unregisterGnssStatusCallback(manager, callback) }</code></pre>
+        <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/location/AndroidGnssSource.kt">AndroidGnssSource.kt</a>.</p>
+      </details>
+      <details>
+        <summary>Constellation: finite motion and distinct satellite counts</summary>
+        <p>Multiple bands with the same system and satellite ID become one marker. Any used band marks that
+          satellite as used. The strongest band supplies the marker position. The pattern leaves the speed clear.
+          GPS uses circles, GLONASS diamonds, Galileo triangles, and BeiDou squares. Other systems have separate shapes.
+          Short links between markers are decorative. Position and opacity transitions last 650 ms and then stop.</p>
+        <p class="source">Sources: <a href="app/src/main/java/com/example/cvkegps/location/SatelliteDisplay.kt">satellite grouping and bar scale</a>,
+          <a href="app/src/main/java/com/example/cvkegps/ui/SatelliteConstellation.kt">constellation drawing</a>,
+          <a href="app/src/main/java/com/example/cvkegps/ui/SpeedometerViewModel.kt">report expiry</a>.</p>
       </details>
     </section>
 
@@ -556,6 +725,37 @@ const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
       </article>
       <p class="section-intro">The first tracking scope is implemented.
         The items below remain open. They are a plan for later work, not implemented features.</p>
+      <article id="favicon-proposal" class="panel" style="margin-bottom:18px">
+        <span class="tag neutral">Design confirmed · 21 October 2026</span>
+        <h3>Signal dial favicon</h3>
+        <p>Compared three vector marks: Signal dial, Position ring, and Satellite link.
+          Each mark has 16 px and 32 px samples on light and dark surfaces.
+          The user confirmed Signal dial after the similarity review. Its open ring, short needle, and separate point
+          connect the speed display to the satellite display.</p>
+        <p>The confirmed design keeps copper and peach from the fallback app theme.
+          Blue and single-colour samples check that the selected shape does not depend on colour.</p>
+        <p class="test-note"><strong>Design evidence only.</strong> Inspected the small-size PNG samples and
+          the comparison page at 728 px and 360 px. Checked all 26 PNG export dimensions.
+          App reference: <code>8b5ea06</code> + uncommitted GPS details + constellation + accuracy scale.
+          No app code, Android launcher icon, or installed favicon changed. App build, lint, and device tests
+          were not repeated for this design proposal.</p>
+        <p class="small">Report checks: local links and image references resolved.
+          The proposal and its history entry were checked at 1280 px and 360 px with the report styles.
+          Live screenshot capture timed out. Separate HTML rendering was used for these report additions.</p>
+        <p><strong>Similarity check:</strong> inspected 66 public store icons on 21 October 2026.
+          No identical mark was found in that set. Similar ring-and-needle logos do exist.
+          The upper-right gap and separate point distinguish Signal dial from the closest examples.
+          This limited visual check does not establish uniqueness or legal clearance.</p>
+        <p class="small">Read the findings and limits (<code>artifacts/favicon-design/similarity-check/README.md</code>; local only)
+          or open the source-linked icon comparison (<code>artifacts/favicon-design/similarity-check/comparison.html</code>; local only).
+          Reference artwork stays in the ignored design folder.</p>
+        <p>Before use, select the destination. Then check browser tab rendering,
+          colour-scheme changes, and an ICO fallback. Further shape or colour changes are optional.</p>
+        <p class="small">Local review files:
+          visual comparison (<code>artifacts/favicon-design/index.html</code>; local only) and
+          design notes (<code>artifacts/favicon-design/README.md</code>; local only).
+          These exports are ignored by Git. They are available in this checkout only.</p>
+      </article>
       <article class="panel" style="margin-bottom:18px">
         <span class="tag done">Research complete · 20 October 2026</span>
         <h3>Location power and background recording</h3>
@@ -581,8 +781,7 @@ const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
           <span class="tag pending">Required · Before Android publication</span>
           <h3>Validate and prepare the app</h3>
           <ol>
-            <li>Complete the separate layout acceptance check and final debug lint.
-              Repeat release lint and verify the final release build.</li>
+            <li>Repeat release lint and verify the final release build. The emulator layout check and final debug lint passed.</li>
             <li>Test GPS outdoors on physical devices. Include stationary use, movement, weak signal, and signal recovery.</li>
             <li>Measure battery use against an idle baseline. Measure cold start and frame timing in a release build.</li>
             <li>Test TalkBack, denied and approximate permission, permission revocation, and screen lock.
@@ -633,6 +832,17 @@ const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
         <li><time datetime="2026-10-21">21 October 2026</time>
+          <div><h3>Constellation and GPS details added to Git</h3>
+            <p>Added the existing GPS details, satellite markers, accuracy scale, device tests, and ten selected
+              screenshots in one commit after <code>d9e7ae3</code>. The earlier tracking commits remain separate.
+              Local evidence paths now use text because generated logs and design exports are excluded from Git.</p>
+            <p>Debug app and test APK builds and debug lint passed again before this commit.
+              The device tests were not repeated because the emulator was not running. Earlier device results
+              and screenshot baselines remain below. All 80 report links and assets passed the Git file check.
+              The updated header and history entry fit at 360 px and 1100 px.
+              Physical-device accuracy and battery measurements remain open.</p></div>
+        </li>
+        <li><time datetime="2026-10-21">21 October 2026</time>
           <div><h3>Tracker corrected to follow Design 2a</h3>
             <p>Removed the GPS pause button and required activity picker. Added Start map tracking to home,
               a live recording map, tentative GPS activity categories, and an optional activity correction.
@@ -653,6 +863,15 @@ const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
         </li>
         <li>
           <time datetime="2026-10-21">21 October 2026</time>
+          <div><h3>Signal dial design confirmed</h3>
+            <p>The user confirmed the design after the similarity review. Keep the current shape and copper/peach colours.
+              The design files remain in the ignored favicon design folder. Browser integration remains open.</p>
+            <p>Decision recorded at local app baseline <code>3ce2cd4</code>. This update changes documentation only.
+              The existing visual evidence and search limits still apply. No app tests were repeated.</p>
+          </div>
+        </li>
+        <li>
+          <time datetime="2026-10-21">21 October 2026</time>
           <div><h3>Trip storage models and route calculations added</h3>
             <p>Added Room tables for trips, recording segments, and measured points. Added distance and gap calculations.
               Three focused unit tests passed for date-line distance, stationary noise, late and duplicate points,
@@ -662,11 +881,76 @@ const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
         </li>
         <li>
           <time datetime="2026-10-21">21 October 2026</time>
+          <div><h3>Signal dial selected and checked for similar icons</h3>
+            <p>The user selected Signal dial. Inspected 34 Google Play icons and 32 Apple App Store icons.
+              No identical mark was found. Similar dial marks were found, including Speedtest by Ookla,
+              GPS Speedometer &amp; Speed Log, and Speedometer Simple.</p>
+            <p>Kept the selected geometry. The upper-right gap and separate point are its main differences.
+              This public visual check is not a trademark clearance. Integration remains open.
+              App baseline: <code>8b5ea06</code> + existing uncommitted GPS details + constellation + accuracy scale.</p>
+          </div>
+        </li>
+        <li>
+          <time datetime="2026-10-21">21 October 2026</time>
           <div><h3>Tracking release planned</h3>
             <p>Defined the five activity modes, recording lifecycle, local records, gaps, recovery, maps, commit sequence,
               and minimal tests. The user selected online OpenStreetMap maps through MapLibre, personal flight records,
               and one mode per trip. App implementation and field measurements remain open.</p>
             <p><a href="docs/tracking-implementation-plan.html">Read the implementation plan</a>.</p></div>
+        </li>
+        <li>
+          <time datetime="2026-10-21">21 October 2026</time>
+          <div><h3>Favicon design proposal</h3>
+            <p>Created three vector options and light and dark samples at 16 px and 32 px.
+              Recommended Signal dial after the small-size review. Added blue and single-colour checks.
+              The comparison page passed wide and narrow layout checks.</p>
+            <p>Reference: <code>8b5ea06</code> + uncommitted GPS details + constellation + accuracy scale.
+              Design selection and browser integration remain open. The app and its launcher icon did not change.
+              See the <a href="#favicon-proposal">proposal and its limits</a>.</p>
+          </div>
+        </li>
+        <li>
+          <time datetime="2026-10-21">21 October 2026</time>
+          <div><h3>More space for better accuracy</h3>
+            <p>Changed the accuracy bar to a 50 m to 1 m logarithmic scale. Added a 5 m notch and scale labels.
+              Improved estimates below 5 m now increase the fill. Decimal text preserves estimates below 1 m.
+              These display references do not claim a best possible receiver accuracy.</p>
+            <p>Debug build, lint, and four focused emulator tests passed. See the current verification entry for
+              test limits and dated native captures.</p>
+          </div>
+        </li>
+        <li>
+          <time datetime="2026-10-21">21 October 2026</time>
+          <div><h3>Satellite constellation experiment</h3>
+            <p>Added live satellite markers behind the speed, a used/reported count, distinct system shapes,
+              and finite motion on data changes. Added a position accuracy bar with a 5 m target.
+              Home and details now share one GNSS callback. Missing and old reports clear the markers and count.</p>
+            <p>Debug build and lint passed. All 12 emulator tests passed, including controlled GNSS checks.
+              Large-text testing found a clipped pause label in landscape. The repeated lifecycle note was removed
+              from the live home card to restore space. See the current verification entry for the final result.</p>
+          </div>
+        </li>
+        <li>
+          <time datetime="2026-10-20">20 October 2026</time>
+          <div><h3>GPS details added and checked by the user</h3>
+            <p>Added request age and count, quality estimates, speed rejection reasons, receiver events,
+              and satellite signal details. The screen shares the existing GPS request and removes its
+              satellite callback when it closes or GPS stops. Added light, dark, and large-text captures.</p>
+            <p>Installed APK <code>1bd78399</code> on the Pixel 7 Pro. The user reported that it worked correctly.
+              Debug build and lint passed before the final test-helper edit. The home layout test passed.
+              The final automated rerun failed in the permission-dialog test tool and remains incomplete.
+              Tests and the pending build were stopped at the user's request. Report layout checks were not repeated.</p>
+            <p>Baseline: <code>8b5ea06</code> + GPS details. Accuracy and battery measurements remain open.</p></div>
+        </li>
+        <li>
+          <time datetime="2026-10-20">20 October 2026</time>
+          <div><h3>Indoor GPS report checked on Pixel 7 Pro</h3>
+            <p>Confirmed precise permission, an active app, and a one-second GPS request on the physical phone.
+              Android reported zero locations delivered. The user was indoors.
+              Google Maps showing a location does not establish that satellite GPS is available.</p>
+            <p>Outdoor acquisition, the installed build identity, and GPS accuracy remain open.
+              No app code or device settings changed. No coordinates were saved.
+              Source baseline: <code>8b5ea06</code>.</p></div>
         </li>
         <li>
           <time datetime="2026-10-20">20 October 2026</time>
