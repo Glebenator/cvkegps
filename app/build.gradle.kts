@@ -47,6 +47,8 @@ android {
 }
 
 dependencies {
+    implementation(libs.maplibre)
+    implementation(libs.okhttp)
     implementation(libs.androidx.room.runtime)
     ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit)

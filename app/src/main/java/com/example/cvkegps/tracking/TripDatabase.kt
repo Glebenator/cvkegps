@@ -34,10 +34,12 @@ data class TripSegment(
     @PrimaryKey val id: String,
     val tripId: String,
     val runId: String,
+    val sequence: Int,
     val startedElapsedNanos: Long,
     val startedMillis: Long,
     val endedElapsedNanos: Long? = null,
     val reason: BreakReason,
+    val endReason: BreakReason? = null,
 )
 
 @Entity(tableName = "points", primaryKeys = ["segmentId", "elapsedNanos"], foreignKeys = [ForeignKey(
@@ -57,7 +59,7 @@ abstract class TripDao {
     @Query("SELECT * FROM trips WHERE id = :id")
     abstract suspend fun trip(id: String): TripRecord?
 
-    @Query("SELECT * FROM segments WHERE tripId = :id ORDER BY startedMillis, rowid")
+    @Query("SELECT * FROM segments WHERE tripId = :id ORDER BY sequence")
     abstract suspend fun segments(id: String): List<TripSegment>
 
     @Query("SELECT * FROM points WHERE tripId = :id ORDER BY elapsedNanos")

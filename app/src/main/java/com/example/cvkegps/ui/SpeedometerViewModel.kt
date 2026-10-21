@@ -44,6 +44,7 @@ class SpeedometerViewModel(source: GpsSource) : ViewModel() {
                         GpsEvent.Disabled -> GpsStatus.Disabled
                         GpsEvent.Unavailable -> GpsStatus.Unavailable
                         GpsEvent.Searching -> GpsStatus.Searching
+                        GpsEvent.Paused -> GpsStatus.Paused
                         GpsEvent.Error -> GpsStatus.Error
                         is GpsEvent.Fix -> GpsStatus.Live
                     }

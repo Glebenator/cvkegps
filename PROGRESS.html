@@ -158,27 +158,27 @@
     <!-- Update the date, app baseline, and evidence after each completed change. -->
     <div class="hero">
       <div>
-        <div class="eyebrow">Milestone 01 · Complete</div>
-        <h1>Main screen<br>and live GPS.</h1>
-        <p>The first native Android version is built. The home screen fits the tested Pixel 7 Pro screen size without scrolling.
-          Permission recovery after repeated denial is fixed and verified. Route recording and publication work remain open.</p>
+        <div class="eyebrow">Native Android · Trip recording</div>
+        <h1>Speed, trips,<br>and measured routes.</h1>
+        <p>Record car, transit, plane, bike, and ski trips. Save the route locally, continue with the screen locked, and review recorded segments on an online map. Physical-device validation and publication work remain open.</p>
       </div>
       <aside class="meta" aria-label="Report details">
         <dl>
-          <div><dt>Report updated</dt><dd><time datetime="2026-10-20">20 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>c934f5e</code> + home layout fix</dd></div>
+          <div><dt>Report updated</dt><dd><time datetime="2026-10-21">21 October 2026</time></dd></div>
+          <div><dt>App code baseline</dt><dd><code>3ce2cd4</code> + tracking implementation + earlier GPS display work</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
       </aside>
     </div>
     <div class="metrics" aria-label="Last verified results">
-      <div class="metric"><strong>8 / 8</strong><span>Device tests passed</span><span class="small">7 core tests + 1 layout test</span></div>
-      <div class="metric"><strong>Debug</strong><span>Final app and test APKs built</span><span class="small">Release checks remain open</span></div>
-      <div class="metric"><strong>0 findings</strong><span>Debug lint</span><span class="small">Release lint needs a repeat</span></div>
+      <div class="metric"><strong>8 / 8</strong><span>Emulator tests passed</span><span class="small">API 36 · Working-tree APK</span></div>
+      <div class="metric"><strong>3 / 3</strong><span>Calculation tests passed</span><span class="small">Route distance and quality rules</span></div>
+      <div class="metric"><strong>Passed</strong><span>Debug and release builds and lint</span><span class="small">Release APK is unsigned</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
       <a href="#status">Current scope</a>
+      <a href="#tracking">Tracking</a>
       <a href="#screens">Screenshots</a>
       <a href="#verification">Verification</a>
       <a href="#implementation">Code and structure</a>
@@ -206,23 +206,70 @@
           <h3>GPS with a limited request lifetime</h3>
           <ul>
             <li>Use the Android GPS provider. Request updates once per second.</li>
-            <li>Release the request when the main screen becomes inactive.</li>
+            <li>Release the request when the screen becomes inactive, unless a trip is recording.</li>
             <li>Reject poor readings. Clear readings that are at least 10 seconds old.</li>
             <li>Keep measurements in SI units. Use the current locale for display.</li>
-            <li>No background collection, wake lock, location upload, or trip storage.</li>
+            <li>Trips use a location foreground service and local storage. No wake lock or route upload.</li>
           </ul>
         </article>
       </div>
       <div class="note"><strong>Performance is a requirement, not a measured result yet.</strong>
-        The device tests confirm that GPS requests stop during pause and in the background.
+        The device tests confirm that GPS stops during pause and inactive display use. An active recording keeps one request after Home or lock.
         Battery use, startup time, and frame timing still need physical-device measurements.</div>
       <p class="test-note">The local repository contains source, build files, rules, and this report.
         IDE state, build output, local SDK paths, and prototype exports are excluded.
-        No remote is configured. Nothing has been pushed to GitHub.</p>
+        This change remains local. The existing remote was not changed or used for a push.</p>
+    </section>
+
+    <section id="tracking" aria-labelledby="tracking-heading">
+      <div class="section-head"><h2 id="tracking-heading">Trip recording</h2><span class="tag done">First functional scope implemented</span></div>
+      <div class="grid">
+        <article class="panel"><h3>Record and save</h3><ul>
+          <li>Select Car, Transit, Plane, Bike, or Ski. Keep one mode per trip.</li>
+          <li>Start, Pause, Resume, and Stop. Record after Home or screen lock through a location foreground service.</li>
+          <li>Use the notification or the app controls. The speed screen's Pause control also pauses an active trip.</li>
+          <li>Save route points, timestamps, quality fields, and segment boundaries in local Room storage.</li>
+          <li>Open saved trips, review distance and duration, and delete a trip with confirmation.</li>
+          <li>After process loss, show the saved part as interrupted. Resume starts a new segment.</li>
+        </ul></article>
+        <article class="panel"><h3>Review the measured route</h3><ul>
+          <li>Show saved and interrupted routes with MapLibre 13.7.1 and online OpenStreetMap tiles.</li>
+          <li>Keep manual pauses, process interruptions, signal gaps, and poor positions out of connected route lines.</li>
+          <li>Show start and end markers. Keep map attribution visible on the map.</li>
+          <li>Plane mode shows ground speed, GPS altitude relative to WGS84, true track, and quality. It is a personal record.</li>
+          <li>Use one GPS request with a one-second interval for recording and live readings. Keep historical data separate from display freshness.</li>
+          <li>Trip points stay local. Online tile requests disclose the viewed area to the tile provider.</li>
+        </ul></article>
+      </div>
+      <p class="note"><strong>Field validation remains open.</strong> Activity modes currently share one recording policy.
+        The 50 m position threshold and 3 m/s speed-uncertainty threshold need device measurements.
+        Offline maps, specialist map layers, automatic pause, activity detection, and elevation totals are deferred.</p>
+      <p class="test-note">Read the <a href="docs/tracking-implementation-plan.html">implementation plan</a> and
+        <a href="docs/location-power-research.md">location power research</a>. The app remains a development build.</p>
     </section>
 
     <section id="screens" aria-labelledby="screens-heading">
       <div class="section-head"><h2 id="screens-heading"><span class="number">02</span>Screen evidence</h2><span class="small">Captured 20 October 2026</span></div>
+      <p class="section-intro">Tracking update, 21 October 2026. Source: <code>3ce2cd4</code> plus tracking implementation
+        and the earlier GPS display work. Final debug APK: <code>fbfd19f0</code>. These native API 36 emulator captures use
+        simulated location data. The route has two segments separated by process loss. Online tiles loaded from OpenStreetMap.</p>
+      <div class="screens">
+        <figure class="shot"><a href="docs/progress/images/2026-10-21-tracking-modes-light.png">
+          <img src="docs/progress/images/2026-10-21-tracking-modes-light.png" width="1080" height="2340"
+            alt="Native Trips screen with the five activity modes and a saved simulated car trip."></a>
+          <figcaption><strong>Activity selection · Light mode</strong>21 October 2026. Tracking baseline after <code>3ce2cd4</code>.
+            APK <code>fbfd19f0</code>. Simulated trip.</figcaption></figure>
+        <figure class="shot"><a href="docs/progress/images/2026-10-21-tracking-route-dark.png">
+          <img src="docs/progress/images/2026-10-21-tracking-route-dark.png" width="1080" height="2340" loading="lazy"
+            alt="Native dark-theme trip review with two separate blue route segments on online OpenStreetMap tiles."></a>
+          <figcaption><strong>Route review · Dark mode</strong>21 October 2026. Tracking baseline after <code>3ce2cd4</code>.
+            APK <code>fbfd19f0</code>. Simulated route; standard map tiles retain their own colours.</figcaption></figure>
+      </div>
+      <p class="test-note">Also checked <a href="docs/progress/images/2026-10-21-tracking-route-light.png">light-theme route review</a>
+        and <a href="docs/progress/images/2026-10-21-tracking-large-text.png">200% text</a> on the same date and APK baseline.
+        The Trips screen scrolls. The speed screen uses a navigation rail in landscape to preserve reading space.</p>
+      <h3 style="margin:24px 0">Earlier display milestones</h3>
+
       <p class="section-intro">These are app screenshots from an Android 16 emulator.
         The new home captures use the same logical screen size as the connected Pixel 7 Pro.
         Their baseline is <code>c934f5e</code> plus the home layout fix; debug APK hash starts with <code>1a12d63f</code>.
@@ -272,6 +319,43 @@
 
     <section id="verification" aria-labelledby="verification-heading">
       <div class="section-head"><h2 id="verification-heading"><span class="number">03</span>Verification</h2><span class="tag done">7 core tests + 1 layout test passed</span></div>
+      <article id="tracking-verification" class="panel" style="margin-bottom:22px">
+        <span class="tag done">Tracking checks · 21 October 2026</span>
+        <h3>Builds, tests, and visual checks</h3>
+        <ul>
+          <li>Debug app, test APK, and unsigned release APK builds passed. Debug and release lint passed with no errors or warnings. Each reported one optional state-boxing hint.</li>
+          <li>Three focused unit tests passed: distance across the date line, stationary noise, late and duplicate points,
+            gaps, invalid data, and plane speed.</li>
+          <li>Eight emulator tests passed on API 36. Each used a separate AndroidJUnitRunner invocation with app data cleared first.
+            This run did not use Orchestrator.</li>
+          <li>New flows cover recording through rotation, Home, and lock; notification and speed-screen pause;
+            saved segments; signal loss; location-off recovery; route review; and deletion.</li>
+          <li>Regression checks cover GPS cleanup, old readings, repeated permission denial, shared GPS-details listeners,
+            and the home layout at 100%, 110%, and 200% text in both orientations.</li>
+          <li>An external process-loss check passed. Notification denial blocked Start; granting access enabled it.
+            Three saved points survived force-stop. Resume produced six saved points in two segments.</li>
+          <li>Inspected light mode, dark mode, large text, online tiles, visible attribution, and the unconnected interruption gap.</li>
+          <li>A separate build of the selected commit content passed without the earlier uncommitted satellite UI work.</li>
+          <li>Checked 150 local report and plan references and all HTML IDs. The updated report sections passed visual checks at
+            360 px and 1100 px. The full report had no horizontal overflow or broken loaded images at 360 px.</li>
+        </ul>
+        <p class="test-note">Final debug APK SHA-256: <code>fbfd19f079e13189bb46a800d32ab69030e85270ab126c47a6daaf6758216b42</code>.
+          App source: tracking implementation after <code>3ce2cd4</code>, with the earlier GPS display changes.
+          Selected images use this APK. Device settings were restored and test providers were removed. No app GPS request remains.</p>
+        <p class="test-note"><strong>Failures resolved during this change:</strong> the emulator exited during one layout run.
+          Its replacement first had an older APK; that result was excluded. The new navigation bar reduced landscape space.
+          A navigation rail and shorter permission text fixed the layout. The layout assertion now checks text inside the home content,
+          excluding the separate navigation controls. The external test reader was corrected to close database files and inspect Compose controls.</p>
+        <p class="test-note"><strong>Not yet verified:</strong> physical-device accuracy, battery use, flight reception,
+          long trips, Doze, Battery Saver, TalkBack, API 29 and API 37 device flows, and forced storage or queue failures.
+          Map-network failure and offline behaviour still need a direct failure test. The release APK is unsigned.</p>
+        <p class="small">Local logs: <code>artifacts/tracking-plan/final-build.log</code>,
+          <code>artifacts/tracking-plan/final-*.log</code>, <code>artifacts/tracking-plan/recovery.log</code>,
+          and <code>artifacts/tracking-plan/commit-check-build.log</code>. Generated logs are not stored in Git.
+          Repeat process-loss verification with <a href="scripts/check-interrupted-trip.py">the external emulator check</a>.</p>
+      </article>
+      <h3 style="margin:24px 0">Earlier display verification</h3>
+
       <div class="note" style="margin:0 0 24px"><strong>P2 permission recovery · Fixed and verified.</strong>
         A review agent reproduced this defect on the API 36 emulator on 20 October 2026.
         After two denials, Android marked both location permissions as <code>USER_FIXED</code>.
@@ -336,7 +420,7 @@
             <li>Outdoor GPS accuracy and time to the first fix on physical devices.</li>
             <li>Battery use, cold start, and frame timing in a release build.</li>
             <li>TalkBack use and a broader Android device and API range.</li>
-            <li>Route recording during screen lock, process loss, and low battery. This feature is not implemented.</li>
+            <li>Physical-device recording during screen lock, process loss, and low battery. Emulator lock and process-loss checks now pass.</li>
           </ul>
         </article>
       </div>
@@ -355,12 +439,12 @@
       <div class="section-head"><h2 id="implementation-heading"><span class="number">04</span>Code and structure</h2><span class="small">Kotlin · Compose · Material 3</span></div>
       <p class="section-intro">The screen receives immutable state. User actions return through explicit callbacks.
         Android location access stays behind a small interface. Constructor injection keeps the first feature small.</p>
-      <div class="flow" aria-label="GPS data flows from the Android source through the ViewModel to the Material screen.">
-        <div><strong>Android GPS source</strong><small>Permission and location events</small></div>
+      <div class="flow" aria-label="The shared GPS source supplies the recorder and live display. Room supplies saved-trip review.">
+        <div><strong>Shared GPS source</strong><small>One request and every delivered point</small></div>
         <span aria-hidden="true">→</span>
-        <div><strong>ViewModel</strong><small>Freshness, state, and maximum</small></div>
+        <div><strong>Recorder and Room</strong><small>Ordered commands and local transactions</small></div>
         <span aria-hidden="true">→</span>
-        <div><strong>Material screen</strong><small>Readings and user actions</small></div>
+        <div><strong>ViewModels and screens</strong><small>Fresh readings and trip review</small></div>
       </div>
       <details open>
         <summary>Permission recovery: update the settings action after each result</summary>
@@ -381,23 +465,18 @@
     val altitudeMeters: Double?,
     val accuracyMeters: Float?,
     val elapsedRealtimeNanos: Long,
+    // Other quality fields follow.
 )</code></pre>
         <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/location/GpsSource.kt">GpsSource.kt</a>.</p>
       </details>
       <details>
-        <summary>Battery control: stop the source when the screen stops collecting</summary>
-        <p>The UI collects state only while the activity is resumed. The ViewModel stops its upstream flow as soon
-          as the last collector leaves. Source cancellation removes the Android listener.</p>
-        <pre><code>val state by viewModel.uiState.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)</code></pre>
-        <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/ui/SpeedometerRoute.kt">SpeedometerRoute.kt</a>.</p>
-        <pre><code>.stateIn(
-    viewModelScope,
-    SharingStarted.WhileSubscribed(stopTimeoutMillis = 0, replayExpirationMillis = 0),
-    SpeedometerUiState(),
-)</code></pre>
-        <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/ui/SpeedometerViewModel.kt">SpeedometerViewModel.kt</a>.</p>
-        <pre><code>awaitClose { manager.removeUpdates(listener) }</code></pre>
-        <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/location/AndroidGpsSource.kt">AndroidGpsSource.kt</a>.</p>
+        <summary>Location ownership: recording continues after the screen stops</summary>
+        <p>The shared source keeps one request while recording or while a visible speed display needs GPS.
+          Trip Pause stops both demands. Route batches enter an ordered recorder queue before display updates.</p>
+        <pre><code>val wanted = !paused &amp;&amp; (recordingOwned || displayCount &gt; 0)</code></pre>
+        <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/tracking/SharedLocationSource.kt">SharedLocationSource.kt</a>.
+          See <a href="app/src/main/java/com/example/cvkegps/tracking/TripRecorder.kt">TripRecorder.kt</a> for queue failure and save handling,
+          and <a href="app/src/main/java/com/example/cvkegps/tracking/TripDatabase.kt">TripDatabase.kt</a> for transactions.</p>
       </details>
       <details>
         <summary>Measurement quality: initial limits to validate outdoors</summary>
@@ -414,7 +493,7 @@ const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
     <section id="future" aria-labelledby="future-heading">
       <div class="section-head"><h2 id="future-heading"><span class="number">05</span>Future work</h2><span class="small">Proposed order · No dates assigned</span></div>
       <article id="tracking-plan" class="panel" style="margin-bottom:18px">
-        <span class="tag pending">Tracking plan · 21 October 2026</span>
+        <span class="tag done">Tracking plan · 21 October 2026</span>
         <h3>Record car, transit, plane, bike, and ski trips</h3>
         <p>The first release will include manual Start, Pause, Resume, and Stop; screen-lock recording;
           saved trips; trip review; and online maps. Select one mode per trip.
@@ -423,12 +502,12 @@ const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
           recording controls, saved-trip recovery, and online route maps. Keep valid history separate from live-reading freshness.
           Preserve signal gaps. Measure power and accuracy before changing recording intervals by activity.</p>
         <p><a href="docs/tracking-implementation-plan.html">Open the implementation plan, activity comparison, commit sequence, and small test set</a>.</p>
-        <p class="test-note"><strong>Plan complete; implementation pending.</strong>
+        <p class="test-note"><strong>Plan complete; first functional scope implemented.</strong>
           App reference: <code>8b5ea06</code> plus the existing uncommitted GPS display changes.
-          Read the local power research and inspected the current source. No app build or device tests ran for this planning change.
+          Read the local power research and inspected the current source. No app tests ran for the original planning commit. See the tracking verification entry for implementation results.
           Verified 71 report links and anchors. Checked the report addition at 1280 px and 360 px. Checked the activity table at 728 px and 360 px. It scrolls horizontally on narrow screens. The full report had no page overflow at 360 px. Live snapshot capture timed out twice; HTML rendering supplied the visual check.</p>
       </article>
-      <p class="section-intro">The current main-screen milestone is complete.
+      <p class="section-intro">The first tracking scope is implemented.
         The items below remain open. They are a plan for later work, not implemented features.</p>
       <article class="panel" style="margin-bottom:18px">
         <span class="tag done">Research complete · 20 October 2026</span>
@@ -445,7 +524,7 @@ const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
           <li>Keep the live display's freshness rule separate from route history.
             A valid batched point can be more than 10 seconds old when delivered.</li>
         </ul>
-        <p class="test-note"><strong>Proposed settings only.</strong> Background recording is not implemented.
+        <p class="test-note"><strong>Proposed settings only.</strong> This earlier research milestone did not implement recording. The tracking section records the later implementation.
           Battery savings remain unmeasured.
           Read the <a href="docs/location-power-research.md">research findings, source links, and measurement plan</a>.
           The report also records the API 37 location-button policy decision needed before publication.</p>
@@ -468,21 +547,13 @@ const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
             The release build is unsigned.</p>
         </article>
         <article class="panel roadmap-card">
-          <span class="tag pending">Required · For route tracking</span>
-          <h3>Record and review a trip</h3>
-          <ol>
-            <li>Choose a map provider and define behaviour when the device has no network connection.</li>
-            <li>Add a route model and local storage. Preserve all delivered batch points, timestamps, accuracy, and recording gaps.
-              Keep the live display's freshness rule separate from route history.</li>
-            <li>Add a location foreground service started by the user, with notification controls.
-              Use one location request and a recording lifecycle separate from the screen.</li>
-            <li>Compare the current provider, fused location, batching, and update intervals on physical devices.
-              Select settings from measured power use and route quality.</li>
-            <li>Add start, pause, resume, finish, and save. Define recovery after process loss.</li>
-            <li>Add trip history and route details. Verify the full recording flow with device tests.</li>
-          </ol>
-          <p class="reason">The present GPS source stops with the screen.
-            A recording session must have a different request lifetime.</p>
+          <span class="tag pending">Required · Tracking field validation</span><h3>Measure power and route quality</h3>
+          <ol><li>Test each activity on physical devices. Include a second phone manufacturer.</li>
+            <li>Measure battery use, route error, stop drift, missing time, and save delay.</li>
+            <li>Test Doze, Battery Saver, low storage, queue overflow, and map-network failure.</li>
+            <li>Check API 29 and API 37 device flows and TalkBack.</li>
+            <li>Use measured results before selecting fused location, batching, or activity-specific intervals.</li></ol>
+          <p class="reason">Core recording and online route review are implemented. Simulated GPS tests do not prove accuracy or power use.</p>
         </article>
         <article class="panel roadmap-card">
           <span class="tag neutral">Planned · iOS app</span>
@@ -514,6 +585,16 @@ const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+        <li><time datetime="2026-10-21">21 October 2026</time>
+          <div><h3>Tracking and online route review implemented</h3>
+            <p>Added five activity modes, durable trip records, one shared location source, a foreground recording service,
+              notification controls, saved-trip review and deletion, process-loss recovery, and MapLibre/OpenStreetMap route maps.
+              Route lines do not cross recording gaps. Plane readings identify ground speed and GPS altitude.</p>
+            <p>Debug and unsigned release builds, both lint checks, three unit tests, eight emulator tests, and an external
+              permission/recovery check passed. Added native light, dark, and large-text captures. Field validation remains open.</p>
+            <p>Added a landscape navigation rail after the layout test found insufficient height.
+              Source: tracking implementation after <code>3ce2cd4</code>. APK <code>fbfd19f0</code>.</p></div>
+        </li>
         <li>
           <time datetime="2026-10-21">21 October 2026</time>
           <div><h3>Trip storage models and route calculations added</h3>

@@ -8,18 +8,27 @@ data class GpsReading(
     val altitudeMeters: Double?,
     val accuracyMeters: Float?,
     val elapsedRealtimeNanos: Long,
+    val speedAccuracyMetersPerSecond: Float? = null,
+    val verticalAccuracyMeters: Float? = null,
+    val bearingRadians: Double? = null,
+    val bearingAccuracyRadians: Double? = null,
+    val isMock: Boolean = false,
+    val speedIssue: SpeedIssue? = null,
 )
+
+enum class SpeedIssue { Missing, PositionAccuracy, SpeedAccuracy, Invalid }
 
 sealed interface GpsEvent {
     data object PermissionRequired : GpsEvent
     data object Disabled : GpsEvent
     data object Unavailable : GpsEvent
     data object Searching : GpsEvent
+    data object Paused : GpsEvent
     data object Error : GpsEvent
-    data class Fix(val reading: GpsReading) : GpsEvent
+    data class Fix(val reading: GpsReading, val receivedCount: Long = 1) : GpsEvent
 }
 
 interface GpsSource {
-    /** Each collector owns one request. Cancellation must release that request. */
+    /** Collectors observe location events. Cancellation must release their demand for updates. */
     fun updates(): Flow<GpsEvent>
 }

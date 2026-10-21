@@ -8,6 +8,8 @@ import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
@@ -276,7 +278,7 @@ class SpeedometerDeviceTest {
                     bounds.right <= home.right && bounds.bottom <= home.bottom)
         }
         val textNodes = compose.onAllNodes(
-            SemanticsMatcher.keyIsDefined(SemanticsActions.GetTextLayoutResult),
+            SemanticsMatcher.keyIsDefined(SemanticsActions.GetTextLayoutResult) and hasAnyAncestor(hasTestTag("home_content")),
             useUnmergedTree = true,
         )
         repeat(textNodes.fetchSemanticsNodes().size) { index ->

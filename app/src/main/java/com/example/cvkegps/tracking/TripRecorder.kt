@@ -1,0 +1,204 @@
+package com.example.cvkegps.tracking
+
+import android.os.SystemClock
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import java.util.UUID
+
+enum class RecordingError { Access, Storage, Queue, Service }
+
+data class RecordingState(
+    val trip: TripRecord? = null,
+    val error: RecordingError? = null,
+    val starting: Boolean = false,
+    val segmentStartNanos: Long? = null,
+    val segmentBaseDurationNanos: Long = 0,
+) {
+    val needsService: Boolean get() = starting || trip?.status == TripStatus.Recording || trip?.status == TripStatus.Paused
+}
+
+sealed interface RecordingCommand {
+    data class Start(val mode: TripMode) : RecordingCommand
+    data class Resume(val id: String) : RecordingCommand
+    data object Pause : RecordingCommand
+    data class Finish(val id: String? = null) : RecordingCommand
+    data class Interrupt(val error: RecordingError) : RecordingCommand
+    data class Batch(val tripId: String, val samples: List<TrackSample>) : RecordingCommand
+}
+
+/** One ordered command queue owns database changes and location demand. */
+class TripRecorder(private val dao: TripDao, private val source: SharedLocationSource, scope: CoroutineScope) {
+    private val mutableState = MutableStateFlow(RecordingState())
+    val state = mutableState.asStateFlow()
+    private val commands = Channel<RecordingCommand>(256)
+    private val processRunId = UUID.randomUUID().toString()
+    private var current: TripRecord? = null
+    private var segment: TripSegment? = null
+    private var segments = listOf<TripSegment>()
+    private var baseDuration = 0L
+    private var overflow = false
+
+    init {
+        scope.launch {
+            try { dao.markInterrupted() }
+            catch (_: Exception) { mutableState.value = RecordingState(error = RecordingError.Storage) }
+            for (command in commands) {
+                try {
+                    if (overflow) {
+                        overflow = false
+                        interrupt(RecordingError.Queue)
+                    }
+                    handle(command)
+                } catch (_: Exception) {
+                    // No exception text or coordinates enter diagnostic logs.
+                    source.pauseRecording()
+                    try { interrupt(RecordingError.Storage) }
+                    catch (_: Exception) {
+                        current = null
+                        segment = null
+                        source.releaseRecording()
+                        mutableState.value = RecordingState(error = RecordingError.Storage)
+                    }
+                }
+            }
+        }
+    }
+
+    fun send(command: RecordingCommand) {
+        if (command is RecordingCommand.Start || command is RecordingCommand.Resume) {
+            mutableState.value = mutableState.value.copy(starting = true, error = null)
+        }
+        if (commands.trySend(command).isFailure) {
+            overflow = true
+            source.pauseRecording()
+        }
+    }
+
+    fun serviceLost() {
+        if (state.value.needsService) {
+            source.pauseRecording()
+            send(RecordingCommand.Interrupt(RecordingError.Service))
+        }
+    }
+
+    private suspend fun handle(command: RecordingCommand) {
+        when (command) {
+            is RecordingCommand.Start -> {
+                if (current != null) { publish(); return }
+                val trip = TripRecord(UUID.randomUUID().toString(), command.mode, TripStatus.Recording, System.currentTimeMillis())
+                val next = newSegment(trip.id, BreakReason.Start, 0)
+                dao.start(trip, next)
+                current = trip
+                segment = next
+                segments = listOf(next)
+                baseDuration = 0
+                publish()
+                request(trip.id)
+            }
+            is RecordingCommand.Resume -> {
+                if (current != null && current?.id != command.id) { publish(); return }
+                val saved = dao.trip(command.id)
+                if (saved == null || saved.status == TripStatus.Finished || current?.status == TripStatus.Recording) {
+                    publish(); return
+                }
+                val trip = saved.copy(status = TripStatus.Recording, endedMillis = null)
+                val priorSegments = dao.segments(trip.id)
+                val next = newSegment(trip.id, if (saved.status == TripStatus.Interrupted) BreakReason.ProcessLost else BreakReason.Resume, priorSegments.size)
+                dao.resume(trip, next)
+                current = trip
+                segment = next
+                segments = dao.segments(trip.id)
+                baseDuration = trip.durationNanos
+                publish()
+                request(trip.id)
+            }
+            RecordingCommand.Pause -> {
+                if (current?.status != TripStatus.Recording) return
+                source.pauseRecording()
+                close(TripStatus.Paused, BreakReason.ManualPause)
+                publish()
+            }
+            is RecordingCommand.Finish -> {
+                if (current != null && (command.id == null || command.id == current?.id)) {
+                    source.pauseRecording()
+                    close(TripStatus.Finished, BreakReason.Stop)
+                    current = null
+                    segment = null
+                    source.releaseRecording()
+                    publish()
+                } else if (command.id != null) {
+                    dao.trip(command.id)?.takeIf { it.status == TripStatus.Interrupted }?.let {
+                        dao.update(it.copy(status = TripStatus.Finished, endedMillis = it.lastSavedMillis))
+                    }
+                    publish()
+                } else publish()
+            }
+            is RecordingCommand.Interrupt -> interrupt(command.error)
+            is RecordingCommand.Batch -> {
+                val trip = current?.takeIf { it.id == command.tripId && it.status == TripStatus.Recording } ?: return
+                val points = command.samples.filter { it.valid() }.mapNotNull { sample ->
+                    val target = segments.lastOrNull {
+                        it.runId == processRunId && sample.elapsedNanos >= it.startedElapsedNanos &&
+                            (it.endedElapsedNanos == null || sample.elapsedNanos < it.endedElapsedNanos)
+                    } ?: return@mapNotNull null
+                    TripPoint(trip.id, target.id, sample)
+                }
+                if (points.isNotEmpty()) {
+                    val updated = trip.copy(durationNanos = duration(), lastSavedMillis = System.currentTimeMillis())
+                    dao.save(updated, points)
+                    current = updated
+                    publish()
+                }
+            }
+        }
+    }
+
+    private fun request(id: String) = source.recording(
+        onBatch = { send(RecordingCommand.Batch(id, it)) },
+        onAccessLost = { send(RecordingCommand.Interrupt(RecordingError.Access)) },
+    )
+
+    private fun newSegment(id: String, reason: BreakReason, sequence: Int) = TripSegment(
+        UUID.randomUUID().toString(), id, processRunId, sequence, SystemClock.elapsedRealtimeNanos(), System.currentTimeMillis(), reason = reason,
+    )
+
+    private fun duration(): Long = segment?.let {
+        baseDuration + (SystemClock.elapsedRealtimeNanos() - it.startedElapsedNanos).coerceAtLeast(0)
+    } ?: current?.durationNanos ?: 0
+
+    private suspend fun close(status: TripStatus, reason: BreakReason) {
+        val trip = current ?: return
+        val now = System.currentTimeMillis()
+        val updated = trip.copy(status = status, durationNanos = duration(), lastSavedMillis = now,
+            endedMillis = if (status == TripStatus.Finished) now else null)
+        val closed = segment?.copy(endedElapsedNanos = SystemClock.elapsedRealtimeNanos(), endReason = reason)
+        if (closed != null) {
+            dao.closeSegment(updated, closed)
+            segments = segments.map { if (it.id == closed.id) closed else it }
+        } else dao.update(updated)
+        current = updated
+        segment = null
+        baseDuration = updated.durationNanos
+    }
+
+    private suspend fun interrupt(error: RecordingError) {
+        source.pauseRecording()
+        close(TripStatus.Interrupted, when (error) {
+            RecordingError.Access -> BreakReason.AccessLost
+            RecordingError.Service -> BreakReason.ProcessLost
+            else -> BreakReason.StorageError
+        })
+        current = null
+        segment = null
+        source.releaseRecording()
+        mutableState.value = RecordingState(error = error)
+    }
+
+    private fun publish() {
+        mutableState.value = RecordingState(current, segmentStartNanos = segment?.startedElapsedNanos,
+            segmentBaseDurationNanos = baseDuration)
+    }
+}

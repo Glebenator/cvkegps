@@ -10,6 +10,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.location.LocationListenerCompat
 import androidx.core.location.LocationManagerCompat
 import androidx.core.location.LocationRequestCompat
+import androidx.core.location.LocationCompat
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -34,9 +35,11 @@ class AndroidGpsSource(context: Context) : GpsSource {
             return@callbackFlow
         }
 
+        var receivedCount = 0L
         val listener = object : LocationListenerCompat {
             override fun onLocationChanged(location: Location) {
-                trySend(GpsEvent.Fix(location.toReading()))
+                receivedCount += 1
+                trySend(GpsEvent.Fix(location.toReading(), receivedCount))
             }
 
             override fun onProviderEnabled(provider: String) {
@@ -73,17 +76,34 @@ class AndroidGpsSource(context: Context) : GpsSource {
         awaitClose { manager.removeUpdates(listener) }
     }.conflate()
 
-    private fun Location.toReading(): GpsReading {
+    internal fun Location.toReading(): GpsReading {
         val accuracy = accuracy.takeIf { hasAccuracy() && it.isFinite() && it >= 0 }
         // Reject poor fixes and uncertain speed. Do not derive speed from position jitter.
         val usableFix = accuracy != null && accuracy <= MAX_HORIZONTAL_ERROR_METERS
-        val usableSpeed = hasSpeed() &&
-            (!hasSpeedAccuracy() || speedAccuracyMetersPerSecond <= MAX_SPEED_ERROR_METERS_PER_SECOND)
+        val speedAccuracy = speedAccuracyMetersPerSecond.takeIf {
+            hasSpeedAccuracy() && it.isFinite() && it >= 0
+        }
+        val speedIssue = when {
+            !usableFix -> SpeedIssue.PositionAccuracy
+            !hasSpeed() -> SpeedIssue.Missing
+            !speed.isFinite() || speed < 0 -> SpeedIssue.Invalid
+            hasSpeedAccuracy() && (speedAccuracy == null || speedAccuracy > MAX_SPEED_ERROR_METERS_PER_SECOND) ->
+                SpeedIssue.SpeedAccuracy
+            else -> null
+        }
         return GpsReading(
-            speedMetersPerSecond = speed.takeIf { usableFix && usableSpeed && it.isFinite() && it >= 0 },
+            speedMetersPerSecond = speed.takeIf { speedIssue == null },
             altitudeMeters = altitude.takeIf { usableFix && hasAltitude() && it.isFinite() },
             accuracyMeters = accuracy,
             elapsedRealtimeNanos = elapsedRealtimeNanos,
+            speedAccuracyMetersPerSecond = speedAccuracy,
+            verticalAccuracyMeters = verticalAccuracyMeters.takeIf { hasVerticalAccuracy() && it.isFinite() && it >= 0 },
+            bearingRadians = bearing.takeIf { hasBearing() && it.isFinite() }?.let { Math.toRadians(it.toDouble()) },
+            bearingAccuracyRadians = bearingAccuracyDegrees.takeIf {
+                hasBearingAccuracy() && it.isFinite() && it >= 0
+            }?.let { Math.toRadians(it.toDouble()) },
+            isMock = LocationCompat.isMock(this),
+            speedIssue = speedIssue,
         )
     }
 

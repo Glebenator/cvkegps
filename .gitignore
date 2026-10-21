@@ -16,6 +16,7 @@ Thumbs.db
 
 # Test output and local credentials.
 /artifacts/
+__pycache__/
 *.jks
 *.keystore
 keystore.properties

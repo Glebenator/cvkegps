@@ -14,7 +14,7 @@
     <string name="gps_unavailable">GPS is not available</string>
     <string name="gps_paused">GPS paused</string>
     <string name="gps_error">GPS could not start</string>
-    <string name="permission_body">Use precise location for speed and altitude. GPS stops when you leave.</string>
+    <string name="permission_body">Use precise location for speed and altitude.</string>
     <string name="disabled_body">Turn on location in Android settings.</string>
     <string name="searching_body">Move to an open area for a GPS signal.</string>
     <string name="stale_body">No current reading. Wait for a new GPS signal.</string>

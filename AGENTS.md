@@ -29,9 +29,9 @@
 
 ## Performance and privacy
 
-- Run GPS only while a feature needs it. Release listeners when the screen becomes inactive.
-- This first version must not collect location in the background.
-- Future route recording needs a separate lifecycle, a visible notification, and device tests.
+- Run GPS only while a feature needs it. Release display listeners when the screen becomes inactive.
+- A trip started by the user can record through a location foreground service after Home or screen lock.
+- Recording needs a separate lifecycle, a visible notification, and device tests. Do not start or restart a trip silently in the background.
 - Set an explicit update interval. Do not poll GPS, hold wake locks, or keep the screen on by default.
 - Keep disk access, network access, and expensive calculations off the main thread.
 - Avoid continuous animation and unnecessary UI updates. Measure before adding performance complexity.

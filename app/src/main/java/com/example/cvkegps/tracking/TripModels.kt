@@ -7,7 +7,7 @@ import kotlin.math.sqrt
 
 enum class TripMode { Car, Transit, Plane, Bike, Ski }
 enum class TripStatus { Recording, Paused, Interrupted, Finished }
-enum class BreakReason { Start, Resume, SignalLoss, AccessLost, ProcessLost, StorageError }
+enum class BreakReason { Start, Resume, ManualPause, Stop, SignalLoss, AccessLost, ProcessLost, StorageError }
 
 /** Linear measurements use SI units. Angular measurements use radians. */
 data class TrackSample(
