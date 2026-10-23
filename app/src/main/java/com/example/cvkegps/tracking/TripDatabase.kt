@@ -63,6 +63,9 @@ abstract class TripDao {
     @Query("SELECT * FROM trips WHERE id = :id")
     abstract suspend fun trip(id: String): TripRecord?
 
+    @Query("SELECT * FROM trips WHERE id = :id")
+    abstract fun watchTrip(id: String): Flow<TripRecord?>
+
     @Query("SELECT * FROM segments WHERE tripId = :id ORDER BY sequence")
     abstract suspend fun segments(id: String): List<TripSegment>
 

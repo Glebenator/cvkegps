@@ -1,7 +1,10 @@
 package com.example.cvkegps.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -87,12 +90,17 @@ fun AppShell(
                             }
                         },
                     )
-                    if (bars && !wide) RecordingBar(tracking, onOpen = { navigator.push(Destination.LiveTrip) })
-                    if (bars && !wide) NavigationBar(windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)) {
-                        Tab.entries.forEach { tab ->
-                            NavigationBarItem(selected = navigator.tab == tab, onClick = { navigator.select(tab) },
-                                icon = { TabIcon(tab, recording) }, label = { Text(stringResource(tab.label)) },
-                                modifier = Modifier.testTag(tab.testTag))
+                    // The bars leave with the screen transition instead of leaving an empty strip at once.
+                    AnimatedVisibility(bars && !wide, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                        Column {
+                            RecordingBar(tracking, onOpen = { navigator.push(Destination.LiveTrip) })
+                            NavigationBar(windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)) {
+                                Tab.entries.forEach { tab ->
+                                    NavigationBarItem(selected = navigator.tab == tab, onClick = { navigator.select(tab) },
+                                        icon = { TabIcon(tab, recording) }, label = { Text(stringResource(tab.label)) },
+                                        modifier = Modifier.testTag(tab.testTag))
+                                }
+                            }
                         }
                     }
                 }
@@ -114,7 +122,8 @@ private fun Screen(
         Destination.Speed -> SpeedometerRoute(speedometer, access, onDetails = { navigator.push(Destination.GpsDetails) },
             trackerControls = { canStart -> TripStartControls(tracking, canStart) }, compassViewModel = compass)
         Destination.GpsDetails -> GpsDetailsDestination(speedometer, access, onBack = navigator::pop, compassViewModel = compass)
-        Destination.Trips -> TripsScreen(tracking, onTrip = { navigator.push(Destination.SavedTrip(it)) },
+        // Select first, so the route loads while the trip screen opens.
+        Destination.Trips -> TripsScreen(tracking, onTrip = { tracking.vm.select(it); navigator.push(Destination.SavedTrip(it)) },
             onLive = { navigator.push(Destination.LiveTrip) })
         Destination.LiveTrip -> LiveTripScreen(tracking, onBack = navigator::pop, onEnded = { navigator.remove(Destination.LiveTrip) })
         is Destination.SavedTrip -> SavedTripScreen(tracking, destination.id, onBack = navigator::pop)

@@ -166,14 +166,14 @@
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-10-23">23 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>c8ba8ba</code> + navigation and button redesign + Signal dial launcher icon (not committed)</dd></div>
+          <div><dt>App code baseline</dt><dd><code>14bfce9</code> + trip opening without loading messages (not committed)</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
       </aside>
     </div>
     <div class="metrics" aria-label="Last verified results">
-      <div class="metric"><strong>24 / 24</strong><span>Emulator device tests passed</span><span class="small">API 36 · Navigation redesign · Simulated locations</span></div>
+      <div class="metric"><strong>24 / 24</strong><span>Emulator device tests passed</span><span class="small">API 36 · Trip opening change · One flaky setup wait passed on rerun</span></div>
       <div class="metric"><strong>13 / 13</strong><span>Calculation tests passed</span><span class="small">Calculations unchanged</span></div>
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, and debug lint</span><span class="small">No release build for this change</span></div>
     </div>
@@ -238,6 +238,30 @@
         <code>artifacts/nav-connected-test.log</code>, and <code>artifacts/nav-build.log</code>.
         Sources: <a href="app/src/main/java/com/example/cvkegps/ui/AppNavigation.kt">AppNavigation.kt</a>, <a href="app/src/main/java/com/example/cvkegps/ui/AppShell.kt">AppShell.kt</a>,
         <a href="app/src/main/java/com/example/cvkegps/tracking/RecordingBar.kt">RecordingBar.kt</a>.</p>
+      </article>
+      <article id="trip-opening" class="panel" style="margin-top:24px"><h3>Trip opening without loading messages · 23 October 2026</h3>
+        <p>A saved trip showed "Loading trip…" during the screen transition. The screen selected the trip only after its first frame.
+        It then waited for every saved point and the route summary before it showed anything.</p>
+        <ul>
+          <li>The trip list selects the trip at the tap, so the route loads during the transition.</li>
+          <li>The date, recording time, status, and buttons come from the list record, which is already in memory. Distance fades in when the route summary is ready.
+          The "Loading trip…" text is removed.</li>
+          <li>The trip record and the route load separately. Unchanged query results stop before the route calculation.
+          A recording in progress no longer recalculates the route of a saved trip that is open.</li>
+          <li>A map with a route that is still loading does not say "No accepted positions". The online map note shows only when tiles take more than 1.5 s.
+          The trip list shows nothing until the database answers, then "No saved trips" only if the list is empty.</li>
+          <li>The navigation bar and recording bar leave with an animation, so the old screen does not show an empty strip.</li>
+        </ul>
+        <figure class="shot" style="margin-top:12px"><a href="docs/progress/images/2026-10-23-trip-open-frames.png"><img src="docs/progress/images/2026-10-23-trip-open-frames.png" loading="lazy" alt="Three frames: the trip list, the saved trip with its title and recording time while the map loads, and the loaded route with distance."></a>
+        <figcaption><strong>Opening a saved trip, three screen-recording frames</strong>23 October 2026. Baseline <code>14bfce9</code> plus this change. Debug APK <code>8ad3bdf1</code>.
+        API 36 emulator. The trip was recorded from simulated Android test locations.</figcaption></figure>
+        <p class="test-note"><strong>Checked:</strong> debug build, Android lint, 13 calculation tests, and 24 emulator device tests.
+        In the full run, <code>homeFitsWithoutScrollWithLargeTextAndRotation</code> timed out while it waited for the emulator to apply a font and rotation change.
+        It passed in two separate reruns; the earlier three full runs also passed. Two screen recordings were inspected frame by frame. The second had no status message in any frame.
+        <strong>Not checked:</strong> long trips with many points, a slow network, and a physical device. Map tiles still need the network, so the map area can stay plain until they arrive.</p>
+        <p class="source">Sources: <a href="app/src/main/java/com/example/cvkegps/tracking/TrackingViewModel.kt">TrackingViewModel.kt</a>,
+        <a href="app/src/main/java/com/example/cvkegps/tracking/TrackingScreen.kt">TrackingScreen.kt</a>, <a href="app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt">RouteMap.kt</a>.
+        Local evidence: <code>artifacts/loading-check/</code> and <code>artifacts/loading-test.log</code>.</p>
       </article>
       <details style="margin-top:18px">
         <summary>Back stack: Trips shows above the Speed root</summary>
@@ -1108,6 +1132,9 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-23">23 October 2026</time><div><h3>Saved trips open without loading messages</h3>
+<p>The trip screen now shows its known values at once and loads the route during the transition. Removed the "Loading trip…" text and early empty-state messages.
+Debug build, lint, 13 calculation tests, and 24 emulator tests passed (one flaky setup wait passed on rerun). See <a href="#trip-opening">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-23">23 October 2026</time><div><h3>Signal dial app icon</h3>
 <p>Replaced the template Android launcher icon with the confirmed Signal dial mark and added it as this report's favicon.
 Debug build and lint passed. See <a href="#favicon-proposal">the icon and limits</a>.</p></div></li>

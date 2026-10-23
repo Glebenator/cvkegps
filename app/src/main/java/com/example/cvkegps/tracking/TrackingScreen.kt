@@ -67,7 +67,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -281,8 +284,9 @@ fun TripsScreen(actions: TrackingActions, onTrip: (String) -> Unit, onLive: () -
         LazyColumn(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets).testTag("trips_content"),
             verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(16.dp)) {
             actions.error?.let { error -> item { Text(stringResource(error), color = MaterialTheme.colorScheme.error) } }
-            if (rows.isEmpty()) item { Text(stringResource(R.string.trip_none)) }
-            items(rows, key = TripRecord::id) { trip ->
+            // Before Room answers, show the empty list area instead of a status message.
+            if (rows?.isEmpty() == true) item { Text(stringResource(R.string.trip_none)) }
+            items(rows.orEmpty(), key = TripRecord::id) { trip ->
                 val live = trip.id == actions.recording.trip?.id
                 Card(onClick = { if (live) onLive() else onTrip(trip.id) }, modifier = Modifier.fillMaxWidth().testTag("saved_trip")) {
                     ListItem(
@@ -337,19 +341,19 @@ private fun ButtonContent(icon: Int, @StringRes label: Int) {
     Text(stringResource(label))
 }
 
-/** Keep map gestures separate from the scrolling measurements. */
+/** Keep map gestures separate from the scrolling measurements. Null lines mean the route is still loading. */
 @Composable
-private fun MapWorkspace(lines: List<List<TrackSample>>, live: Boolean = false, panel: @Composable () -> Unit) {
+private fun MapWorkspace(lines: List<List<TrackSample>>?, live: Boolean = false, panel: @Composable () -> Unit) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val panelHeight = maxHeight * 0.45f
         val panelWidth = (maxWidth * 0.36f).coerceIn(240.dp, 360.dp)
         if (maxWidth > maxHeight) Row(Modifier.fillMaxSize()) {
-            MapSurface(lines, Modifier.weight(1f).fillMaxHeight(), live)
+            MapSurface(lines.orEmpty(), Modifier.weight(1f).fillMaxHeight(), live, routeReady = lines != null)
             Surface(Modifier.width(panelWidth).fillMaxHeight()) {
                 Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { panel() }
             }
         } else Column(Modifier.fillMaxSize()) {
-            MapSurface(lines, Modifier.fillMaxWidth().weight(1f), live)
+            MapSurface(lines.orEmpty(), Modifier.fillMaxWidth().weight(1f), live, routeReady = lines != null)
             Surface {
                 Column(Modifier.fillMaxWidth().heightIn(max = panelHeight)
                     .verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { panel() }
@@ -417,7 +421,7 @@ fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> 
             actions.error?.let { Text(stringResource(it), Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.error) }
             if (trip == null) Text(stringResource(R.string.trip_starting), Modifier.padding(16.dp))
             else Box(Modifier.weight(1f)) {
-                MapWorkspace(detail?.summary?.lines.orEmpty(), live = true) {
+                MapWorkspace(detail?.summary?.lines, live = true) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         Column(Modifier.weight(1f)) {
                             Text(stringResource(trip.status.title()), Modifier.testTag("recording_status"),
@@ -440,7 +444,7 @@ fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> 
                 Text(stringResource(R.string.mode_change_short))
             }
         }
-        Metric(R.string.trip_distance, detail?.let { distance(it.summary.distanceMeters) })
+        Metric(R.string.trip_distance, detail?.let { distance(it.summary.distanceMeters) }, pending = detail == null)
         Metric(R.string.trip_duration, duration(elapsed))
         Metric(R.string.trip_altitude, reading?.altitudeMeters?.let { stringResource(R.string.trip_altitude_value, number(it)) })
         Metric(R.string.trip_quality, reading?.accuracyMeters?.let { stringResource(R.string.trip_altitude_value, number(it.toDouble())) })
@@ -456,17 +460,21 @@ fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
-    LaunchedEffect(id) { actions.vm.select(id) }
+    // The trip list selects the trip before navigation. This covers a screen restored after process loss.
+    LaunchedEffect(id) { if (actions.vm.selectedId.value != id) actions.vm.select(id) }
+    val rows by actions.vm.trips.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
     val detail by actions.vm.detail.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
     val shown = detail?.takeIf { it.trip.id == id }
+    // The list record is already in memory. The screen uses it until the route summary arrives.
+    val trip = shown?.trip ?: rows?.find { it.id == id }
     var details by rememberSaveable { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
     Scaffold(topBar = {
         TopAppBar(
-            title = { Text(shown?.let { DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(it.trip.startedMillis)) } ?: "") },
+            title = { Text(trip?.let { DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(it.startedMillis)) } ?: "") },
             navigationIcon = { BackButton(onBack) },
             actions = {
-                if (shown != null) {
+                if (trip != null) {
                     DetailsAction { details = true }
                     Box {
                         IconButton(onClick = { menu = true }, modifier = Modifier.testTag("trip_menu")) {
@@ -476,7 +484,7 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
                             DropdownMenuItem(text = { Text(stringResource(R.string.mode_change)) },
                                 leadingIcon = { Icon(painterResource(R.drawable.ic_edit), contentDescription = null) },
                                 onClick = { menu = false; actions.chooseMode(id) }, modifier = Modifier.testTag("change_activity"))
-                            if (shown.trip.status == TripStatus.Finished || shown.trip.status == TripStatus.Interrupted) {
+                            if (trip.status == TripStatus.Finished || trip.status == TripStatus.Interrupted) {
                                 DropdownMenuItem(text = { Text(stringResource(R.string.trip_delete)) },
                                     leadingIcon = { Icon(painterResource(R.drawable.ic_delete), contentDescription = null) },
                                     onClick = { menu = false; actions.delete(id) }, modifier = Modifier.testTag("trip_delete"))
@@ -489,14 +497,13 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
     }) { insets ->
         Column(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets).testTag("trip_review")) {
             actions.error?.let { Text(stringResource(it), Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.error) }
-            if (shown == null) Text(stringResource(R.string.trip_loading), Modifier.padding(16.dp))
-            else Box(Modifier.weight(1f)) {
-                MapWorkspace(shown.summary.lines) {
+            Box(Modifier.weight(1f)) {
+                MapWorkspace(shown?.summary?.lines) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Metric(R.string.trip_distance, distance(shown.summary.distanceMeters))
-                        Metric(R.string.trip_duration, duration(shown.trip.durationNanos))
+                        Metric(R.string.trip_distance, shown?.let { distance(it.summary.distanceMeters) }, pending = shown == null)
+                        Metric(R.string.trip_duration, trip?.let { duration(it.durationNanos) }, pending = trip == null)
                     }
-                    if (shown.trip.status == TripStatus.Interrupted) {
+                    if (trip?.status == TripStatus.Interrupted) {
                         Text(stringResource(R.string.trip_interrupted_note), style = MaterialTheme.typography.bodySmall)
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             Button(onClick = { actions.resume(id) }, enabled = actions.recording.trip == null,
@@ -534,11 +541,15 @@ private fun TripSummary(detail: TripDetail) {
     }
 }
 
+/** A pending value keeps its space and fades in, so the layout does not jump and no status message shows. */
 @Composable
-private fun Metric(@StringRes title: Int, value: String?) {
+private fun Metric(@StringRes title: Int, value: String?, pending: Boolean = false) {
+    val alpha by animateFloatAsState(if (pending) 0f else 1f, label = "metric")
     Column {
         Text(stringResource(title), style = MaterialTheme.typography.labelMedium)
-        Text(value ?: stringResource(R.string.no_value), style = MaterialTheme.typography.titleMedium)
+        Text(value ?: stringResource(R.string.no_value),
+            Modifier.graphicsLayer { this.alpha = alpha }.then(if (pending) Modifier.clearAndSetSemantics { } else Modifier),
+            style = MaterialTheme.typography.titleMedium)
     }
 }
 

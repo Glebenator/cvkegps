@@ -26,7 +26,8 @@ data class TripDetail(val trip: TripRecord, val positions: Int, val segments: In
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TrackingViewModel(private val dao: TripDao, val recorder: TripRecorder, source: SharedLocationSource) : ViewModel() {
-    val trips = dao.trips().stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), emptyList())
+    // Null until Room answers, so the list never claims that there are no trips before it knows.
+    val trips = dao.trips().stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), null as List<TripRecord>?)
     private val selection = MutableStateFlow<String?>(null)
     val selectedId = selection.asStateFlow()
     private val selectedMode = MutableStateFlow<TripMode?>(null)
@@ -43,34 +44,27 @@ class TrackingViewModel(private val dao: TripDao, val recorder: TripRecorder, so
     private val mutationError = MutableStateFlow(false)
     val storageError = mutationError.asStateFlow()
 
-    val detail = selection.flatMapLatest { id ->
-        if (id == null) flowOf(null)
-        else combine(dao.trips(), dao.points(id)) { rows, points -> rows.find { it.id == id } to points }
-            .mapLatest { (trip, points) ->
-                if (trip == null) null else {
-                    val segments = dao.segments(id)
-                    withContext(Dispatchers.Default) {
-                        val grouped = points.groupBy { it.segmentId }
-                        TripDetail(trip, points.size, segments.size,
-                            RouteMath.summarize(segments.map { grouped[it.id].orEmpty().map(TripPoint::sample) }))
-                    }
-                }
+    /**
+     * Room invalidates whole tables. A recording elsewhere therefore re-runs these queries.
+     * Unchanged results stop here, so the route summary is calculated only when this trip changes.
+     */
+    private fun detailOf(id: String) = combine(
+        dao.watchTrip(id).distinctUntilChanged(),
+        dao.points(id).distinctUntilChanged().mapLatest { points ->
+            val segments = dao.segments(id)
+            withContext(Dispatchers.Default) {
+                val grouped = points.groupBy { it.segmentId }
+                Triple(points.size, segments.size, RouteMath.summarize(segments.map { grouped[it.id].orEmpty().map(TripPoint::sample) }))
             }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), null)
+        },
+    ) { trip, (positions, segments, summary) -> trip?.let { TripDetail(it, positions, segments, summary) } }
 
-    val activeDetail = recorder.state.map { it.trip?.id }.distinctUntilChanged().flatMapLatest { id ->
-        if (id == null) flowOf(null) else combine(dao.trips(), dao.points(id)) { rows, points -> rows.find { it.id == id } to points }
-            .mapLatest { (trip, points) ->
-                if (trip == null) null else {
-                    val segments = dao.segments(id)
-                    withContext(Dispatchers.Default) {
-                        val grouped = points.groupBy { it.segmentId }
-                        TripDetail(trip, points.size, segments.size,
-                            RouteMath.summarize(segments.map { grouped[it.id].orEmpty().map(TripPoint::sample) }))
-                    }
-                }
-            }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), null)
+    val detail = selection.flatMapLatest { id -> if (id == null) flowOf(null) else detailOf(id) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), null)
+
+    val activeDetail = recorder.state.map { it.trip?.id }.distinctUntilChanged()
+        .flatMapLatest { id -> if (id == null) flowOf(null) else detailOf(id) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), null)
 
     val reading = recorder.state.map { it.trip?.status == TripStatus.Recording }.distinctUntilChanged()
         .flatMapLatest { active -> if (active) source.updates() else flowOf(GpsEvent.Paused) }
@@ -84,6 +78,7 @@ class TrackingViewModel(private val dao: TripDao, val recorder: TripRecorder, so
             emit(null)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(0, 0), null as GpsReading?)
 
+    /** Call before the trip screen opens, so the route loads during the screen transition. */
     fun select(id: String?) { selection.value = id }
     fun selectMode(mode: TripMode?) { selectedMode.value = mode }
     fun correctMode(id: String, mode: TripMode?) = recorder.send(

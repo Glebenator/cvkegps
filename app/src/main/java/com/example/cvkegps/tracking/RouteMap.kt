@@ -90,13 +90,13 @@ private object OnlineMap {
 }
 
 @Composable
-internal fun MapSurface(lines: List<List<TrackSample>>, modifier: Modifier = Modifier, live: Boolean = false) {
+internal fun MapSurface(lines: List<List<TrackSample>>, modifier: Modifier = Modifier, live: Boolean = false, routeReady: Boolean = true) {
     var retry by rememberSaveable { mutableIntStateOf(0) }
-    key(retry) { MapCanvas(lines, modifier, live, onRetry = { retry++ }) }
+    key(retry) { MapCanvas(lines, modifier, live, routeReady, onRetry = { retry++ }) }
 }
 
 @Composable
-private fun MapCanvas(lines: List<List<TrackSample>>, modifier: Modifier, live: Boolean, onRetry: () -> Unit) {
+private fun MapCanvas(lines: List<List<TrackSample>>, modifier: Modifier, live: Boolean, routeReady: Boolean, onRetry: () -> Unit) {
     val context = LocalContext.current
     val routePadding = with(LocalDensity.current) { 48.dp.roundToPx() }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -135,8 +135,12 @@ private fun MapCanvas(lines: List<List<TrackSample>>, modifier: Modifier, live: 
             mapView.onDestroy()
         }
     }
+    // Tiles usually arrive during the screen transition. Show the loading note only when they are slow.
+    var slow by remember { mutableStateOf(false) }
     LaunchedEffect(mapView) {
-        delay(15_000)
+        delay(1_500)
+        slow = true
+        delay(13_500)
         if (!loaded) unavailable = true
     }
     var mapStyle by remember { mutableStateOf<Style?>(null) }
@@ -260,12 +264,14 @@ private fun MapCanvas(lines: List<List<TrackSample>>, modifier: Modifier, live: 
                 Icon(painterResource(R.drawable.ic_remove), contentDescription = stringResource(R.string.map_zoom_out))
             }
         }
-        if (lines.all { it.isEmpty() } || !loaded || unavailable) Surface(
+        // A route that is still loading is not reported as empty. The map style loads at the same time.
+        val noPoints = routeReady && lines.all { it.isEmpty() }
+        if (noPoints || (!loaded && slow) || unavailable) Surface(
             Modifier.align(Alignment.BottomCenter).padding(start = 8.dp, end = 8.dp, bottom = 56.dp),
             shape = MaterialTheme.shapes.small) {
             Column(Modifier.padding(8.dp)) {
                 Text(stringResource(when {
-                    lines.all { it.isEmpty() } -> R.string.map_no_points
+                    noPoints -> R.string.map_no_points
                     unavailable -> R.string.map_unavailable
                     else -> R.string.map_loading
                 }), style = MaterialTheme.typography.bodySmall)

@@ -50,7 +50,6 @@
     <string name="trip_storage_error">Recording stopped because trip data could not be saved. Check free storage. The last saved part remains available.</string>
     <string name="trip_queue_error">Recording stopped because data could not be saved fast enough. The last saved part remains available.</string>
     <string name="trip_service_error">Android stopped or could not start recording. Open the trip to resume.</string>
-    <string name="trip_loading">Loading trip…</string>
     <string name="recording_channel">Trip recording</string>
     <string name="recording_notification_title">CVKE GPS · Trip</string>
     <string name="map_attribution">© OpenStreetMap contributors</string>
