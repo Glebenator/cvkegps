@@ -17,7 +17,7 @@ Update the report with each completed change, as specified in `AGENTS.md`.
 4. In **Current trip**, select the information button, then select **Change** to correct the activity estimate.
    The correction applies to the whole trip.
 5. Select the **Trips** tab, then select a trip. Pan or pinch its map, use the zoom buttons, or select **Fit route**.
-   The information button opens trip details. The menu button contains **Change activity** and **Delete trip**.
+   The information button opens trip details. The menu button contains **Change activity**, **Share as GPX**, and **Delete trip**.
 
 Activity estimation uses recent GPS speed. The initial categories are **Bike or ski**, **Car or transit**,
 and a possible **Plane** trip. The app shows **Activity unknown** until it has enough valid evidence.
@@ -39,7 +39,7 @@ See the [tile policy](https://operations.osmfoundation.org/policies/tiles/). Map
 The [implementation plan](docs/tracking-implementation-plan.html) records scope and the commit sequence.
 The [HTML tracker](PROGRESS.html#tracking-verification) records builds, tests, native screenshots, and unverified cases.
 Physical-device accuracy, battery use, flight reception, long trips, Doze, Battery Saver, and API 29/37 device flows remain open.
-Offline maps, specialist layers, automatic pause, sensor-based activity classification, export, and elevation totals are not implemented.
+Offline maps, specialist layers, automatic pause, sensor-based activity classification, GPX import, and elevation totals are not implemented.
 
 For the external process-loss and notification check, use a dedicated API 36 emulator with the debug APK installed:
 
@@ -61,6 +61,16 @@ The recording notification opens the current trip. Navigation uses Navigation 3 
 
 The launcher icon uses the confirmed Signal dial mark: an open speed ring, a short needle, and one satellite point.
 It is an adaptive vector icon with a monochrome layer for themed icons. `PROGRESS.html` uses the same mark as its favicon.
+
+## GPX export on 23 October 2026
+
+Select **Share as GPX** in the saved trip menu. The app writes a GPX 1.1 file and opens the Android share sheet.
+The app does not upload the file; the app that you select receives it. Each route line is a separate track segment,
+so gaps are not joined. Points have latitude, longitude, and UTC time. The file does not include altitude, because
+Android reports height above the WGS84 ellipsoid. Only the latest export stays in the private cache. Trip delete removes it.
+
+Debug build, Android lint, 15 calculation tests, and all 11 `TrackingDeviceTest` tests passed on the API 36 emulator.
+Opening the file in another app and a physical device remain unchecked. See [the report](PROGRESS.html#gpx-export).
 
 ## Screen transitions on 23 October 2026
 

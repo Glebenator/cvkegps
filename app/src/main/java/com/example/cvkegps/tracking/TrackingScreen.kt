@@ -2,6 +2,7 @@ package com.example.cvkegps.tracking
 
 import android.Manifest
 import android.app.NotificationManager
+import android.content.ClipData
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Resources
@@ -52,6 +53,8 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -64,6 +67,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -84,6 +88,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -97,7 +102,9 @@ import com.example.cvkegps.ui.AppNavigator
 import com.example.cvkegps.ui.Destination
 import com.example.cvkegps.ui.Tab
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import android.text.format.DateUtils
+import java.io.File
 import java.text.NumberFormat
 
 /**
@@ -118,6 +125,7 @@ class TrackingActions(
     val chooseMode: (String?) -> Unit,
     val finish: (String) -> Unit,
     val delete: (String) -> Unit,
+    val shareGpx: suspend (String) -> Boolean,
 ) {
     val recording get() = recordingState.value
     @get:StringRes val error get() = errorState.value
@@ -133,7 +141,7 @@ fun TrackingHost(
     content: @Composable (TrackingActions) -> Unit,
 ) {
     val vm: TrackingViewModel = viewModel(factory = viewModelFactory {
-        initializer { TrackingViewModel(app.database.trips(), app.recorder, app.location) }
+        initializer { TrackingViewModel(app.database.trips(), app.recorder, app.location, File(app.cacheDir, "exports")) }
     })
     val activity = LocalActivity.current ?: return
     val recordingState = vm.recorder.state.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
@@ -210,6 +218,20 @@ fun TrackingHost(
         chooseMode = { id -> modeTrip = id; changeMode = true },
         finish = vm::finishInterrupted,
         delete = { id -> deleteTrip = id },
+        shareGpx = { id ->
+            val name = vm.trips.value?.find { it.id == id }?.let {
+                DateUtils.formatDateTime(activity, it.startedMillis, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_SHOW_YEAR)
+            } ?: activity.getString(R.string.app_name)
+            val file = vm.exportGpx(id, name)
+            file != null && try {
+                val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.exports", file)
+                val send = Intent(Intent.ACTION_SEND).setType(Gpx.MIME_TYPE).putExtra(Intent.EXTRA_STREAM, uri)
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                send.clipData = ClipData.newRawUri(file.name, uri)
+                activity.startActivity(Intent.createChooser(send, activity.getString(R.string.trip_share_gpx)))
+                true
+            } catch (_: RuntimeException) { false }
+        },
     ) })
     if (showAccess) AlertDialog(onDismissRequest = { showAccess = false }, title = { Text(stringResource(R.string.tracker_access_title)) },
         text = {
@@ -503,7 +525,10 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
     val trip = shown?.trip ?: rows?.find { it.id == id }
     var details by rememberSaveable { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
-    Scaffold(topBar = {
+    val scope = rememberCoroutineScope()
+    val snackbar = remember { SnackbarHostState() }
+    val exportError = stringResource(R.string.trip_export_error)
+    Scaffold(snackbarHost = { SnackbarHost(snackbar) }, topBar = {
         TopAppBar(
             title = { Text(trip?.let { tripTime(it.startedMillis) } ?: "", maxLines = 1, overflow = TextOverflow.Ellipsis) },
             navigationIcon = { BackButton(onBack) },
@@ -518,6 +543,15 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
                             DropdownMenuItem(text = { Text(stringResource(R.string.mode_change)) },
                                 leadingIcon = { Icon(painterResource(R.drawable.ic_edit), contentDescription = null) },
                                 onClick = { menu = false; actions.chooseMode(id) }, modifier = Modifier.testTag("change_activity"))
+                            // Only a route with positions can be shared.
+                            if (shown?.summary?.lines?.isNotEmpty() == true) {
+                                DropdownMenuItem(text = { Text(stringResource(R.string.trip_share_gpx)) },
+                                    leadingIcon = { Icon(painterResource(R.drawable.ic_share), contentDescription = null) },
+                                    onClick = {
+                                        menu = false
+                                        scope.launch { if (!actions.shareGpx(id)) snackbar.showSnackbar(exportError) }
+                                    }, modifier = Modifier.testTag("trip_share_gpx"))
+                            }
                             if (trip.status == TripStatus.Finished || trip.status == TripStatus.Interrupted) {
                                 DropdownMenuItem(text = { Text(stringResource(R.string.trip_delete)) },
                                     leadingIcon = { Icon(painterResource(R.drawable.ic_delete), contentDescription = null) },
@@ -557,6 +591,7 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
         TripSummary(shown)
         Text(stringResource(R.string.map_start_end), style = MaterialTheme.typography.bodySmall)
         Text(stringResource(R.string.map_privacy), style = MaterialTheme.typography.bodySmall)
+        Text(stringResource(R.string.trip_share_gpx_note), style = MaterialTheme.typography.bodySmall)
     }
 }
 

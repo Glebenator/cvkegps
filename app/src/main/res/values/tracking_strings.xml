@@ -86,4 +86,7 @@
     <string name="trip_summary_line">%1$s · %2$s</string>
     <string name="mode_change_short">Change</string>
     <string name="more_options">More options</string>
+    <string name="trip_share_gpx">Share as GPX</string>
+    <string name="trip_share_gpx_note">Share as GPX sends the saved positions and times to the app that you select. The file does not include altitude.</string>
+    <string name="trip_export_error">The GPX file could not be made. Try again.</string>
 </resources>

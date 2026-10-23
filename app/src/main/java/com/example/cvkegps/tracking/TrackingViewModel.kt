@@ -21,11 +21,14 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.IOException
 
 data class TripDetail(val trip: TripRecord, val positions: Int, val segments: Int, val summary: RouteSummary)
 
+/** [exports] is a private cache folder for shared GPX files. */
 @OptIn(ExperimentalCoroutinesApi::class)
-class TrackingViewModel(private val dao: TripDao, val recorder: TripRecorder, source: SharedLocationSource) : ViewModel() {
+class TrackingViewModel(private val dao: TripDao, val recorder: TripRecorder, source: SharedLocationSource, private val exports: File) : ViewModel() {
     // Null until Room answers, so the list never claims that there are no trips before it knows.
     val trips = dao.trips().stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), null as List<TripRecord>?)
     private val selection = MutableStateFlow<String?>(null)
@@ -85,7 +88,24 @@ class TrackingViewModel(private val dao: TripDao, val recorder: TripRecorder, so
         RecordingCommand.SetMode(id, mode ?: TripMode.Unknown, mode == null))
     fun finishInterrupted(id: String) = recorder.send(RecordingCommand.Finish(id))
     fun delete(id: String) = viewModelScope.launch {
-        try { dao.delete(id); selection.value = null }
+        try { dao.delete(id); selection.value = null; withContext(Dispatchers.IO) { clearExports() } }
         catch (_: Exception) { mutationError.value = true }
     }
+
+    /**
+     * Writes the trip as GPX into the private export folder and returns the file, or null on failure.
+     * Earlier exports are removed first, so the private cache keeps only one route.
+     */
+    suspend fun exportGpx(id: String, name: String): File? = withContext(Dispatchers.IO) {
+        try {
+            val trip = dao.trip(id) ?: return@withContext null
+            val grouped = dao.savedPoints(id).groupBy { it.segmentId }
+            val lines = RouteMath.summarize(dao.segments(id).map { grouped[it.id].orEmpty().map(TripPoint::sample) }).lines
+            clearExports()
+            if (!exports.mkdirs() && !exports.isDirectory) return@withContext null
+            File(exports, Gpx.fileName(trip.startedMillis)).also { file -> file.bufferedWriter().use { Gpx.write(it, name, lines) } }
+        } catch (_: IOException) { null }
+    }
+
+    private fun clearExports() { exports.listFiles()?.forEach { it.delete() } }
 }

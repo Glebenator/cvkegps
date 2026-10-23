@@ -166,18 +166,19 @@
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-10-23">23 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>0ffc705</code> + shorter screen transitions</dd></div>
+          <div><dt>App code baseline</dt><dd><code>5036b47</code> + GPX export and share</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
       </aside>
     </div>
     <div class="metrics" aria-label="Last verified results">
-      <div class="metric"><strong>25 / 25</strong><span>Emulator device tests passed</span><span class="small">API 36 · Transitions change · One flaky setup wait passed on rerun · 10 / 10 tracking tests on the final build</span></div>
-      <div class="metric"><strong>13 / 13</strong><span>Calculation tests passed</span><span class="small">Calculations unchanged</span></div>
+      <div class="metric"><strong>11 / 11</strong><span>Tracking device tests passed</span><span class="small">API 36 · GPX change · All 25 earlier device tests passed on <code>5036b47</code> (one flaky setup wait passed on rerun)</span></div>
+      <div class="metric"><strong>15 / 15</strong><span>Calculation tests passed</span><span class="small">Two new GPX tests</span></div>
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, and debug lint</span><span class="small">No release build for this change</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#gpx-export">GPX export</a>
       <a href="#transitions">Transitions</a>
       <a href="#trip-polish">Trip polish</a>
       <a href="#navigation">Navigation</a>
@@ -193,6 +194,46 @@
       <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
     </nav>
+
+    <section id="gpx-export" aria-labelledby="gpx-heading">
+      <div class="section-head"><h2 id="gpx-heading">Share a saved trip as GPX · 23 October 2026</h2><span class="tag done">Implemented and checked</span></div>
+      <p class="section-intro">The user selected this feature from the proposed list. A saved trip can now be shared as a GPX 1.1 file through the Android share sheet.
+      The app does not upload the file. The user selects the receiving app.</p>
+      <div class="grid">
+        <article class="panel"><h3>Behaviour</h3><ul>
+          <li>The saved trip menu contains <strong>Share as GPX</strong> when the route has accepted positions.</li>
+          <li>Each route line is a separate track segment. Gaps and pauses are not joined, as on the map.</li>
+          <li>Each point has its latitude, longitude, and UTC time. Numbers use a decimal point in every language.</li>
+          <li>The file does not include altitude. Android reports height above the WGS84 ellipsoid; GPX readers expect height above sea level.</li>
+          <li>The file is written off the main thread to a private cache folder. Only the latest export stays there. Trip delete removes it.</li>
+          <li>A <code>FileProvider</code> gives the receiving app read access to that one file. If the file cannot be made, a message says so.</li>
+          <li>Trip details states that sharing sends the saved positions and times to the selected app.</li>
+        </ul></article>
+        <article class="panel"><h3>Verification</h3>
+          <p>The debug build, Android lint, and 15 calculation tests passed. Two new calculation tests cover track segments, the decimal point under a German locale, XML escaping, no altitude, and the file name.</p>
+          <p>All 11 <code>TrackingDeviceTest</code> tests passed on the API 36 emulator. Light, dark, and 200% text were inspected. A new device test records a trip, shares it, checks that Android's chooser opens, and reads the file. The file has one point for each saved position. Trip delete then removes the file.</p>
+          <p>The first versions of the device test failed in the test, not in the app. The v2 Compose test rule runs screen coroutines only when the test waits through Compose.
+          The test now waits with <code>compose.waitUntil</code>. A manual check on the emulator opened the chooser with the GPX file.</p>
+          <p class="test-note"><strong>Not checked:</strong> opening the file in another app, a physical device, long trips with many points, and TalkBack.</p>
+        </article>
+      </div>
+      <div class="screens"><figure class="shot"><a href="docs/progress/images/2026-10-23-gpx-menu-light.png"><img src="docs/progress/images/2026-10-23-gpx-menu-light.png" loading="lazy" alt="Saved trip menu with Change activity, Share as GPX, and Delete trip."></a>
+      <figcaption><strong>Saved trip menu with Share as GPX</strong>23 October 2026. Baseline <code>5036b47</code> plus this change. Debug APK <code>ce42dfdb</code>. API 36 emulator. The trip was recorded from simulated Android test locations.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-23-gpx-share-sheet.png"><img src="docs/progress/images/2026-10-23-gpx-share-sheet.png" loading="lazy" alt="Android share sheet with the file cvke-trip-2026-10-23-1442.gpx."></a>
+      <figcaption><strong>Android share sheet with the GPX file</strong>23 October 2026. Baseline <code>5036b47</code> plus this change. Debug APK <code>ce42dfdb</code>. API 36 emulator. The trip was recorded from simulated Android test locations. Captured by the device test.</figcaption></figure></div>
+      <p class="source">Debug APK SHA-256: <code>ce42dfdb109a978765dafeeac68982fa753d4b87f58da598b31828ba6fd77e21</code>. Local evidence: <code>artifacts/gpx-build.log</code>, <code>artifacts/gpx-tracking-test.log</code>,
+      <code>artifacts/gpx-tracking-test.xml</code>, and <code>artifacts/gpx-test-single.log</code>.
+      Sources: <a href="app/src/main/java/com/example/cvkegps/tracking/Gpx.kt">Gpx.kt</a>, <a href="app/src/main/java/com/example/cvkegps/tracking/TrackingViewModel.kt">TrackingViewModel.kt</a>,
+      <a href="app/src/main/java/com/example/cvkegps/tracking/TrackingScreen.kt">TrackingScreen.kt</a>, <a href="app/src/test/java/com/example/cvkegps/tracking/GpxTest.kt">GpxTest.kt</a>.</p>
+      <details style="margin-top:18px">
+        <summary>One track segment for each route line</summary>
+        <pre><code>for (line in lines) {
+    out.write("    &lt;trkseg&gt;\n")
+    for (sample in line) {
+        // Locale.ROOT keeps a decimal point in every language.
+        val lat = String.format(Locale.ROOT, "%.7f", Math.toDegrees(sample.latitudeRadians))</code></pre>
+        <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/tracking/Gpx.kt">Gpx.kt</a>.</p>
+      </details>
+    </section>
 
     <section id="transitions" aria-labelledby="transitions-heading">
       <div class="section-head"><h2 id="transitions-heading">Shorter screen transitions · 23 October 2026</h2><span class="tag done">Implemented and checked</span></div>
@@ -1211,7 +1252,7 @@ val angle = azimuthRadians - headingRadians</code></pre>
           <h3>Additional capabilities</h3>
           <ul>
             <li>Metric and imperial unit selection.</li>
-            <li>GPX export and explicit sharing of saved trips.</li>
+            <li>GPX import, or GPX altitude converted to height above sea level. GPX export and sharing are <a href="#gpx-export">implemented</a>.</li>
             <li>Offline map downloads, if the selected map provider supports them.</li>
             <li>Automatic pause and improved activity classification, after field validation.</li>
             <li>Volume-button controls and a larger speed display mode.</li>
@@ -1225,6 +1266,9 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-23">23 October 2026</time><div><h3>Share a saved trip as GPX</h3>
+<p>Added Share as GPX to the saved trip menu. The app writes a private GPX 1.1 file and opens the Android share sheet; it uploads nothing.
+Debug build, lint, 15 calculation tests, and 11 tracking emulator tests passed. See <a href="#gpx-export">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-23">23 October 2026</time><div><h3>Shorter screen transitions</h3>
 <p>Replaced the 700 ms Navigation 3 fade with 300 ms Material motion, removed a dark flash during fades, and added a fade-in for trip list entries.
 Debug build, lint, 13 calculation tests, and 25 emulator tests passed (one flaky setup wait passed on rerun). See <a href="#transitions">evidence and limits</a>.</p></div></li>

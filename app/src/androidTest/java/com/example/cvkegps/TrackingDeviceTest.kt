@@ -30,6 +30,7 @@ import com.example.cvkegps.tracking.TripMode
 import com.example.cvkegps.tracking.TripStatus
 import com.example.cvkegps.tracking.TrackingApplication
 import kotlinx.coroutines.runBlocking
+import java.io.File
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -487,6 +488,36 @@ class TrackingDeviceTest {
         waitUntil { !app.recorder.state.value.needsService }
         waitUntil { runCatching { compose.onNodeWithTag("trips_content").assertIsDisplayed() }.isSuccess }
         compose.onNodeWithTag("recording_bar").assertDoesNotExist()
+    }
+
+    @Test fun savedTripSharesAGpxFileAndDeleteRemovesIt() {
+        launch()
+        startTrip()
+        val id = app.recorder.state.value.trip!!.id
+        deliver(id, 3)
+        compose.onNodeWithTag("trip_stop").performClick()
+        waitUntil { !app.recorder.state.value.needsService }
+        // The menu offers sharing when the route summary is ready. The fitted map shows that it is ready.
+        waitUntil { mapCamera()?.zoom?.let { it > 1 } == true }
+        compose.onNodeWithTag("trip_menu").performClick()
+        compose.onNodeWithTag("trip_share_gpx").performClick()
+        // The export runs in a screen coroutine. Compose's waitUntil lets the test dispatcher run it.
+        val exports = File(context.cacheDir, "exports")
+        compose.waitUntil(10_000) { exports.listFiles().orEmpty().isNotEmpty() }
+        // Android's chooser opens over the app.
+        waitUntil { shell("dumpsys activity activities").lineSequence().any { "topResumedActivity" in it && "intentresolver" in it } }
+        capture("share-sheet")
+        val files = exports.listFiles().orEmpty()
+        assertEquals(1, files.size)
+        val gpx = files.single().readText()
+        assertTrue(gpx.startsWith("<?xml") && gpx.contains("<gpx version=\"1.1\""))
+        assertEquals(savedCount(id), Regex("<trkpt ").findAll(gpx).count())
+        device.pressBack()
+        compose.onNodeWithTag("route_map").assertIsDisplayed()
+        compose.onNodeWithTag("trip_menu").performClick()
+        compose.onNodeWithTag("trip_delete").performClick()
+        compose.onNodeWithTag("confirm_delete").performClick()
+        waitUntil { exports.listFiles().orEmpty().isEmpty() }
     }
 
     @Test fun screenChangesFinishWithinTheMaterialDuration() {

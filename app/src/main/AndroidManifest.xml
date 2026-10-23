@@ -19,6 +19,13 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.CvkeGps">
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.exports"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/exports" />
+        </provider>
         <service android:name=".tracking.RecordingService" android:exported="false" android:foregroundServiceType="location" />
         <activity
             android:name=".MainActivity"
