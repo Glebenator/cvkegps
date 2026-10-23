@@ -166,18 +166,19 @@
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-10-23">23 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>825af99</code> + trip text and status polish</dd></div>
+          <div><dt>App code baseline</dt><dd><code>0ffc705</code> + shorter screen transitions</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
       </aside>
     </div>
     <div class="metrics" aria-label="Last verified results">
-      <div class="metric"><strong>9 / 9</strong><span>Tracking device tests passed</span><span class="small">API 36 · Trip polish change · Other device tests last passed on <code>825af99</code></span></div>
-      <div class="metric"><strong>13 / 13</strong><span>Calculation tests passed</span><span class="small">Run again for this change</span></div>
+      <div class="metric"><strong>25 / 25</strong><span>Emulator device tests passed</span><span class="small">API 36 · Transitions change · One flaky setup wait passed on rerun · 10 / 10 tracking tests on the final build</span></div>
+      <div class="metric"><strong>13 / 13</strong><span>Calculation tests passed</span><span class="small">Calculations unchanged</span></div>
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, and debug lint</span><span class="small">No release build for this change</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#transitions">Transitions</a>
       <a href="#trip-polish">Trip polish</a>
       <a href="#navigation">Navigation</a>
       <a href="#map-attribution">Map attribution</a>
@@ -192,6 +193,46 @@
       <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
     </nav>
+
+    <section id="transitions" aria-labelledby="transitions-heading">
+      <div class="section-head"><h2 id="transitions-heading">Shorter screen transitions · 23 October 2026</h2><span class="tag done">Implemented and checked</span></div>
+      <p class="section-intro">The user selected this change from the proposed feature list. Navigation 3 used a 700 ms fade for every screen change.
+      The app now uses Material motion of 300 ms.</p>
+      <div class="grid">
+        <article class="panel"><h3>Motion</h3><ul>
+          <li>GPS details, Current trip, and saved trips use a shared horizontal axis: a short shift of one twelfth of the width with a fade through. Back reverses the direction.
+          Right-to-left layouts reverse it again.</li>
+          <li>The Speed and Trips tabs use a fade through: the old tab fades out in 90 ms, then the new tab fades in.</li>
+          <li>The navigation bar and recording bar grow and shrink with the same 300 ms timing.</li>
+          <li>The predictive Back gesture of sub-screens keeps the Navigation 3 default.</li>
+        </ul></article>
+        <article class="panel"><h3>Problems found and corrected</h3><ul>
+          <li>The window background is transparent. During the faster fade, a dark background showed through both screens. The app shell now paints the theme background.</li>
+          <li>The first trip list entry appeared suddenly when the database answered. List entries now fade in, and move smoothly after a delete.</li>
+        </ul></article>
+      </div>
+      <figure class="shot landscape" style="margin-top:18px"><a href="docs/progress/images/2026-10-23-transitions-back-frames.png"><img src="docs/progress/images/2026-10-23-transitions-back-frames.png" loading="lazy" alt="Seven frames of Back from GPS details to the Speed tab over about 280 ms: the details screen fades out, then the Speed tab fades in with a small shift while the navigation bar grows."></a>
+      <figcaption><strong>Back from GPS details, seven screen-recording frames</strong>23 October 2026. Baseline <code>0ffc705</code> plus this change, before the background moved from the screen area to the whole shell.
+      API 36 emulator. Recorded at 5× animator duration scale; labels show the time at normal speed. GPS was searching with simulated emulator locations.</figcaption></figure>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <p>The debug build, Android lint, and 13 calculation tests passed. A new device test uses the Compose test clock. It checks that GPS details opens, Back returns,
+        and the Trips tab replaces Speed within 350 ms. The same test failed with the Navigation 3 default transitions, as expected.</p>
+        <p>All 25 API 36 emulator device tests passed on the first transitions build, except <code>liveTrackerFitsThemesLargeTextAndRotation</code>. That test timed out in its
+        5-second wait for the emulator to apply a font and rotation change, and passed when run again on the same APK.
+        The final build moved the theme background to the whole shell. All 10 <code>TrackingDeviceTest</code> tests passed on it.</p>
+        <p class="test-note"><strong>Not checked:</strong> motion smoothness on a physical device, the predictive Back gesture by hand, right-to-left languages, and the system setting that removes animations.
+        The emulator screen recorder drops frames, so frame timing comes from the test clock.</p>
+        <p class="source">Final debug APK SHA-256: <code>82257b68c8b672bc5b9395bafb2ac84cbbed23bd85d28e9ba6ad56f035b45374</code>. Local evidence: <code>artifacts/transitions/</code>, <code>artifacts/transitions-full-test.xml</code>,
+        <code>artifacts/transitions-rerun-live-tracker.log</code>, <code>artifacts/transitions-tracking-test.xml</code>, and <code>artifacts/transitions-test-default-fade.log</code>.
+        Source: <a href="app/src/main/java/com/example/cvkegps/ui/AppShell.kt">AppShell.kt</a>.</p>
+      </article>
+      <details style="margin-top:18px">
+        <summary>Shared horizontal axis</summary>
+        <pre><code>return (slideInHorizontally(slide) { width -&gt; direction * width / 12 } + fade.targetContentEnter) togetherWith
+    (slideOutHorizontally(slide) { width -&gt; -direction * width / 12 } + fade.initialContentExit)</code></pre>
+        <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/ui/AppShell.kt">AppShell.kt</a>.</p>
+      </details>
+    </section>
 
     <section id="trip-polish" aria-labelledby="trip-polish-heading">
       <div class="section-head"><h2 id="trip-polish-heading">Trip text and status polish · 23 October 2026</h2><span class="tag done">Implemented and checked</span></div>
@@ -1184,6 +1225,9 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-23">23 October 2026</time><div><h3>Shorter screen transitions</h3>
+<p>Replaced the 700 ms Navigation 3 fade with 300 ms Material motion, removed a dark flash during fades, and added a fade-in for trip list entries.
+Debug build, lint, 13 calculation tests, and 25 emulator tests passed (one flaky setup wait passed on rerun). See <a href="#transitions">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-23">23 October 2026</time><div><h3>Trip text and status polish</h3>
 <p>Shorter times, no split values at large text, date and time in trip titles, a clear empty Trips state, live distance, maximum speed on saved trips, and a notification with a running time.
 Debug build, lint, 13 calculation tests, and 9 tracking emulator tests passed. See <a href="#trip-polish">screenshots and evidence</a>.</p></div></li>

@@ -293,7 +293,8 @@ fun TripsScreen(actions: TrackingActions, onTrip: (String) -> Unit, onLive: () -
             if (rows?.isEmpty() == true) item { EmptyTrips(Modifier.fillParentMaxSize()) }
             items(rows.orEmpty(), key = TripRecord::id) { trip ->
                 val live = trip.id == actions.recording.trip?.id
-                Card(onClick = { if (live) onLive() else onTrip(trip.id) }, modifier = Modifier.fillMaxWidth().testTag("saved_trip")) {
+                // Entries fade in when the first database answer arrives, and move smoothly after a delete.
+                Card(onClick = { if (live) onLive() else onTrip(trip.id) }, modifier = Modifier.animateItem().fillMaxWidth().testTag("saved_trip")) {
                     ListItem(
                         headlineContent = { Text(tripTime(trip.startedMillis)) },
                         supportingContent = { Text(stringResource(R.string.trip_summary_line, activityText(trip), duration(trip.durationNanos))) },

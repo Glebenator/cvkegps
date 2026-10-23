@@ -1,6 +1,16 @@
 package com.example.cvkegps.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -18,7 +28,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.background
 import androidx.compose.material3.Badge
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -44,10 +56,27 @@ import com.example.cvkegps.tracking.TrackingHost
 import com.example.cvkegps.tracking.TripStartControls
 import com.example.cvkegps.tracking.TripsScreen
 
-// Tabs change in place. Only screens inside a tab slide.
-private val tabTransition = NavDisplay.transitionSpec { fadeIn() togetherWith fadeOut() } +
-    NavDisplay.popTransitionSpec { fadeIn() togetherWith fadeOut() } +
-    NavDisplay.predictivePopTransitionSpec { fadeIn() togetherWith fadeOut() }
+// Material motion durations. Navigation 3 uses a 700 ms fade by default, which feels slow.
+private const val TRANSITION_MILLIS = 300
+private const val FADE_OUT_MILLIS = 90
+
+/** Fade through: the old screen fades out quickly, then the new screen fades in. Tabs use it, so they change in place. */
+private fun fadeThrough(): ContentTransform =
+    fadeIn(tween(TRANSITION_MILLIS - FADE_OUT_MILLIS, delayMillis = FADE_OUT_MILLIS, easing = LinearOutSlowInEasing)) togetherWith
+        fadeOut(tween(FADE_OUT_MILLIS, easing = FastOutLinearInEasing))
+
+/** Shared horizontal axis: a short shift with a fade through. A new screen comes from the end side; Back reverses it. */
+private fun sharedAxis(forward: Boolean, rtl: Boolean): ContentTransform {
+    val direction = if (forward != rtl) 1 else -1
+    val slide = tween<IntOffset>(TRANSITION_MILLIS, easing = FastOutSlowInEasing)
+    val fade = fadeThrough()
+    return (slideInHorizontally(slide) { width -> direction * width / 12 } + fade.targetContentEnter) togetherWith
+        (slideOutHorizontally(slide) { width -> -direction * width / 12 } + fade.initialContentExit)
+}
+
+private val tabTransition = NavDisplay.transitionSpec { fadeThrough() } +
+    NavDisplay.popTransitionSpec { fadeThrough() } +
+    NavDisplay.predictivePopTransitionSpec { fadeThrough() }
 
 @Composable
 fun AppShell(
@@ -59,8 +88,10 @@ fun AppShell(
     val navigator = rememberAppNavigator()
     val access = rememberGpsAccess(speedometer) ?: return
     TrackingHost(app, navigator, openTripsRequest) { tracking ->
-        BoxWithConstraints(Modifier.fillMaxSize()) {
+        // The window background is transparent. Screens fade and the bars change height, so paint the theme background behind them.
+        BoxWithConstraints(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             val wide = maxWidth > maxHeight
+            val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
             val bars = navigator.atRoot
             val recording = tracking.recording.trip != null
             // The bars pad for the system bars. Content must not pad for the same insets again.
@@ -84,6 +115,8 @@ fun AppShell(
                         backStack = navigator.backStack,
                         modifier = Modifier.weight(1f).fillMaxWidth().consumeWindowInsets(consumed),
                         onBack = navigator::pop,
+                        transitionSpec = { sharedAxis(forward = true, rtl) },
+                        popTransitionSpec = { sharedAxis(forward = false, rtl) },
                         entryProvider = { destination ->
                             NavEntry(destination, metadata = if (destination == Destination.Trips) tabTransition else emptyMap()) {
                                 Screen(destination, navigator, tracking, speedometer, compass, access)
@@ -91,7 +124,8 @@ fun AppShell(
                         },
                     )
                     // The bars leave with the screen transition instead of leaving an empty strip at once.
-                    AnimatedVisibility(bars && !wide, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                    AnimatedVisibility(bars && !wide, enter = expandVertically(tween(TRANSITION_MILLIS, easing = FastOutSlowInEasing)) + fadeIn(tween(TRANSITION_MILLIS)),
+                        exit = shrinkVertically(tween(TRANSITION_MILLIS, easing = FastOutSlowInEasing)) + fadeOut(tween(TRANSITION_MILLIS))) {
                         Column {
                             RecordingBar(tracking, onOpen = { navigator.push(Destination.LiveTrip) })
                             NavigationBar(windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)) {

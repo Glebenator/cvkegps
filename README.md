@@ -62,6 +62,17 @@ The recording notification opens the current trip. Navigation uses Navigation 3 
 The launcher icon uses the confirmed Signal dial mark: an open speed ring, a short needle, and one satellite point.
 It is an adaptive vector icon with a monochrome layer for themed icons. `PROGRESS.html` uses the same mark as its favicon.
 
+## Screen transitions on 23 October 2026
+
+Screen changes use 300 ms Material motion instead of the 700 ms Navigation 3 fade. GPS details, Current trip,
+and saved trips use a short horizontal shift with a fade through. Back reverses the direction. Tabs use a fade through.
+The app shell paints the theme background, so no dark background shows during a fade. Trip list entries fade in.
+
+A device test uses the Compose test clock to check that each screen change ends within 350 ms. It failed with the
+Navigation 3 default, as expected. All 25 emulator device tests passed; one flaky setup wait passed on rerun.
+Motion on a physical device, the predictive Back gesture by hand, and right-to-left languages remain unchecked.
+See [the report](PROGRESS.html#transitions).
+
 ## Trip polish on 23 October 2026
 
 Times below one minute show seconds only. Values and units do not break across lines at large text.

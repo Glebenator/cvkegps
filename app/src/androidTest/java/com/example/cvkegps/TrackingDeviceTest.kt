@@ -489,6 +489,29 @@ class TrackingDeviceTest {
         compose.onNodeWithTag("recording_bar").assertDoesNotExist()
     }
 
+    @Test fun screenChangesFinishWithinTheMaterialDuration() {
+        launch()
+        compose.onNodeWithTag("current_speed").assertIsDisplayed()
+        // The test clock moves only when told. Navigation 3's default 700 ms fade would keep the old screen at 350 ms.
+        compose.mainClock.autoAdvance = false
+        try {
+            compose.onNodeWithTag("gps_details").performClick()
+            compose.mainClock.advanceTimeBy(350)
+            compose.onNodeWithTag("gps_details_list").assertIsDisplayed()
+            compose.onNodeWithTag("current_speed").assertDoesNotExist()
+            compose.onNodeWithTag("details_back").performClick()
+            compose.mainClock.advanceTimeBy(350)
+            compose.onNodeWithTag("gps_details_list").assertDoesNotExist()
+            compose.onNodeWithTag("current_speed").assertIsDisplayed()
+            compose.onNodeWithTag("nav_tab_trips").performClick()
+            compose.mainClock.advanceTimeBy(350)
+            compose.onNodeWithTag("current_speed").assertDoesNotExist()
+            compose.onNodeWithTag("trips_content").assertIsDisplayed()
+        } finally {
+            compose.mainClock.autoAdvance = true
+        }
+    }
+
     private fun setDisplay(scale: Float, landscape: Boolean, dark: Boolean) {
         shell("settings put system font_scale $scale")
         shell("cmd uimode night ${if (dark) "yes" else "no"}")
