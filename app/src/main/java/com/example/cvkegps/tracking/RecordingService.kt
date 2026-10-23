@@ -124,7 +124,7 @@ class RecordingService : Service() {
         const val AUTOMATIC = "automatic"
         const val TRIP = "trip"
         const val OPEN_TRIPS = "open_trips"
-        private const val CHANNEL = "trip_recording"
+        const val CHANNEL = "trip_recording"
         private const val NOTIFICATION = 100
     }
 }

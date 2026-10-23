@@ -69,6 +69,7 @@ See [the fix list](PROGRESS.html#ux-review) for status and evidence.
 
 - The activity estimate uses an explicit null check instead of the `!!` operator. Behaviour does not change.
 - `ui/DisplayFormat.kt` formats speed, distance, and time from SI values in the user's locale. Screens and the notification use it.
+- Each trip screen has its own file. `TrackingController` is a plain Kotlin class for recording commands, access checks, and settings actions.
 
 ## GPX export on 23 October 2026
 
@@ -296,6 +297,20 @@ app/src/main/java/com/example/cvkegps/
     SatelliteConstellation.kt    Sky ring and map drawing and system markers
     PositionAccuracy.kt          Accuracy scale, notch, and labels
     theme/Theme.kt               Dynamic colour and fallback palettes
+    DisplayFormat.kt             Locale-aware speed, distance, and time text from SI values
+  tracking/
+    TripModels.kt                Samples, route summary, and distance rules
+    TripDatabase.kt              Room entities, queries, and migrations
+    TripRecorder.kt              One command queue for trip changes and location demand
+    RecordingService.kt          Location foreground service and notification
+    TrackingViewModel.kt         Trip list, route details, and GPX export
+    TrackingController.kt        Recording commands, access checks, and settings actions
+    TrackingHost.kt              Trip state for the screens and the trip dialogs
+    TripsScreen.kt               Trips tab
+    LiveTripScreen.kt            Current trip with the live map
+    SavedTripScreen.kt           Saved trip with its map and details
+    TripComponents.kt            Shared trip controls, values, and labels
+    RouteMap.kt                  MapLibre route map
 ```
 
 State flows from the location source through the ViewModel to the screen.

@@ -210,7 +210,12 @@
             <td><code>DisplayFormat</code> takes SI values and the user's locale. It replaces six <code>* 3.6</code> conversions and the private
             <code>number()</code>, <code>duration()</code>, and <code>distance()</code> helpers. The notification uses the same class.
             Debug build, lint, 17 calculation tests (two new tests with a German locale), and all 26 emulator device tests passed. Displayed text does not change.</td></tr>
-          <tr><td>One file for each trip screen, and a plain controller for recording commands and access</td><td><span class="tag pending">Planned</span></td><td>—</td></tr>
+          <tr><td>One file for each trip screen, and a plain controller for recording commands and access</td><td><span class="tag done">Done</span></td>
+            <td>The 670-line <code>TrackingScreen.kt</code> is now <code>TripsScreen.kt</code>, <code>LiveTripScreen.kt</code>, <code>SavedTripScreen.kt</code>,
+            <code>TripComponents.kt</code>, and <code>TrackingHost.kt</code>. <code>TrackingController</code> is a plain Kotlin class. It reads access,
+            starts the recording service, keeps the access dialog state through rotation, and opens settings and the share sheet.
+            No line in these files is longer than 140 characters. Behaviour does not change.
+            Debug build, lint, 17 calculation tests, and all 11 tracking emulator tests passed.</td></tr>
           <tr><td>Distance on each trip card, stored with the trip</td><td><span class="tag pending">Planned</span></td><td>—</td></tr>
           <tr><td>Trip details lead with distance, time, and speeds. Technical details are collapsed</td><td><span class="tag pending">Planned</span></td><td>—</td></tr>
           <tr><td>Average speed on the current trip and saved trips</td><td><span class="tag pending">Planned</span></td><td>—</td></tr>
@@ -219,7 +224,8 @@
         </tbody>
       </table></div>
       <p class="source">Local evidence: <code>artifacts/ux-review/</code>. Sources: <a href="app/src/main/java/com/example/cvkegps/tracking/ActivityEstimate.kt">ActivityEstimate.kt</a>,
-      <a href="app/src/main/java/com/example/cvkegps/ui/DisplayFormat.kt">DisplayFormat.kt</a>, <a href="app/src/test/java/com/example/cvkegps/ui/DisplayFormatTest.kt">DisplayFormatTest.kt</a>.</p>
+      <a href="app/src/main/java/com/example/cvkegps/ui/DisplayFormat.kt">DisplayFormat.kt</a>, <a href="app/src/test/java/com/example/cvkegps/ui/DisplayFormatTest.kt">DisplayFormatTest.kt</a>,
+      <a href="app/src/main/java/com/example/cvkegps/tracking/TrackingController.kt">TrackingController.kt</a>, <a href="app/src/main/java/com/example/cvkegps/tracking/TrackingHost.kt">TrackingHost.kt</a>.</p>
       <details style="margin-top:18px">
         <summary>One conversion from metres per second</summary>
         <pre><code>fun speedNumber(metersPerSecond: Float): String = speedNumber.format(metersPerSecond * KMH_PER_MPS)
@@ -257,7 +263,7 @@ fun speed(metersPerSecond: Float): String = text(R.string.trip_speed_value, arra
       <p class="source">Debug APK SHA-256: <code>ce42dfdb109a978765dafeeac68982fa753d4b87f58da598b31828ba6fd77e21</code>. Local evidence: <code>artifacts/gpx-build.log</code>, <code>artifacts/gpx-tracking-test.log</code>,
       <code>artifacts/gpx-tracking-test.xml</code>, and <code>artifacts/gpx-test-single.log</code>.
       Sources: <a href="app/src/main/java/com/example/cvkegps/tracking/Gpx.kt">Gpx.kt</a>, <a href="app/src/main/java/com/example/cvkegps/tracking/TrackingViewModel.kt">TrackingViewModel.kt</a>,
-      <a href="app/src/main/java/com/example/cvkegps/tracking/TrackingScreen.kt">TrackingScreen.kt</a>, <a href="app/src/test/java/com/example/cvkegps/tracking/GpxTest.kt">GpxTest.kt</a>.</p>
+      <a href="app/src/main/java/com/example/cvkegps/tracking/TrackingController.kt">TrackingController.kt</a>, <a href="app/src/test/java/com/example/cvkegps/tracking/GpxTest.kt">GpxTest.kt</a>.</p>
       <details style="margin-top:18px">
         <summary>One track segment for each route line</summary>
         <pre><code>for (line in lines) {
@@ -347,7 +353,7 @@ fun speed(metersPerSecond: Float): String = text(R.string.trip_speed_value, arra
         <p class="test-note"><strong>Not checked:</strong> the notification on a physical device, other languages and date formats, TalkBack, and a release build.</p>
         <p class="source">Debug APK SHA-256: <code>d111f808b9ea9e70b453ad7e4f19f9983a8a249c03af5f8e2662bc09f3c00bea</code>. Local evidence: <code>artifacts/polish-captures/</code>,
         <code>artifacts/polish-build.log</code>, <code>artifacts/polish-tracking-test.log</code>, and <code>artifacts/polish-tracking-test.xml</code>.
-        Sources: <a href="app/src/main/java/com/example/cvkegps/tracking/TrackingScreen.kt">TrackingScreen.kt</a>,
+        Sources: <a href="app/src/main/java/com/example/cvkegps/tracking/TripsScreen.kt">TripsScreen.kt</a>,
         <a href="app/src/main/java/com/example/cvkegps/tracking/RecordingService.kt">RecordingService.kt</a>,
         <a href="app/src/main/java/com/example/cvkegps/tracking/RecordingBar.kt">RecordingBar.kt</a>,
         <a href="app/src/main/res/values/tracking_strings.xml">tracking_strings.xml</a>.</p>
@@ -428,7 +434,7 @@ builder.setWhen(System.currentTimeMillis() - elapsedMillis.coerceAtLeast(0)).set
         It passed in two separate reruns; the earlier three full runs also passed. Two screen recordings were inspected frame by frame. The second had no status message in any frame.
         <strong>Not checked:</strong> long trips with many points, a slow network, and a physical device. Map tiles still need the network, so the map area can stay plain until they arrive.</p>
         <p class="source">Sources: <a href="app/src/main/java/com/example/cvkegps/tracking/TrackingViewModel.kt">TrackingViewModel.kt</a>,
-        <a href="app/src/main/java/com/example/cvkegps/tracking/TrackingScreen.kt">TrackingScreen.kt</a>, <a href="app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt">RouteMap.kt</a>.
+        <a href="app/src/main/java/com/example/cvkegps/tracking/SavedTripScreen.kt">SavedTripScreen.kt</a>, <a href="app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt">RouteMap.kt</a>.
         Local evidence: <code>artifacts/loading-check/</code> and <code>artifacts/loading-test.log</code>.</p>
       </article>
       <details style="margin-top:18px">
@@ -509,7 +515,7 @@ builder.setWhen(System.currentTimeMillis() - elapsedMillis.coerceAtLeast(0)).set
         <p>Physical-device accuracy, power use, TalkBack operation, long trips, Doze, Battery Saver, and API 29/37 flows still need checks.
         Offline map failure remains unverified. Release results below refer to earlier code; no release check is claimed for this update.</p>
         <p class="source">Debug APK SHA-256: <code>6e0db4357b1f3903b98b7c08cf8c7a125d0710b67ec3a24337662bde92c1e1dc</code>. Local evidence: <code>artifacts/ui-polish/</code> and <code>artifacts/ui-polish-build.log</code>.
-        Source: <a href="app/src/main/java/com/example/cvkegps/tracking/TrackingScreen.kt">tracking screens</a>,
+        Source: <a href="app/src/main/java/com/example/cvkegps/tracking/LiveTripScreen.kt">tracking screens</a>,
         <a href="app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt">map controls</a>, and
         <a href="app/src/androidTest/java/com/example/cvkegps/TrackingDeviceTest.kt">device tests</a>.</p>
       </article>
@@ -1301,8 +1307,8 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
 <li><time datetime="2026-10-23">23 October 2026</time><div><h3>UX and code review fixes</h3>
-<p>Started the eight approved review fixes. Done: an explicit null check in the activity estimate, and one shared display formatter.
-Debug build, lint, 17 calculation tests, and all 26 emulator device tests passed. See <a href="#ux-review">the fix list</a>.</p></div></li>
+<p>Started the eight approved review fixes. Done: an explicit null check in the activity estimate, one shared display formatter, and one file for each trip screen with a plain recording controller.
+Debug build, lint, 17 calculation tests, and the emulator device tests for each fix passed. See <a href="#ux-review">the fix list</a>.</p></div></li>
 <li><time datetime="2026-10-23">23 October 2026</time><div><h3>Share a saved trip as GPX</h3>
 <p>Added Share as GPX to the saved trip menu. The app writes a private GPX 1.1 file and opens the Android share sheet; it uploads nothing.
 Debug build, lint, 15 calculation tests, and 11 tracking emulator tests passed. See <a href="#gpx-export">evidence and limits</a>.</p></div></li>
