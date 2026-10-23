@@ -143,13 +143,13 @@ class TrackingDeviceTest {
         val summary = RouteMath.summarize(points.groupBy { it.segmentId }.values.map { it.map { point -> point.sample } })
         assertTrue(summary.gapCount > 0)
         assertEquals(0.0, summary.distanceMeters, 0.001)
-        // Stop opens the saved trip directly.
-        compose.onNodeWithTag("trip_details").performClick()
-        compose.onNodeWithTag("trip_delete").performScrollTo()
+        // Stop opens the saved trip directly. Delete is in its menu and returns to the trip list.
+        compose.onNodeWithTag("trip_menu").performClick()
         compose.onNodeWithTag("trip_delete").performClick()
         compose.onNodeWithTag("confirm_delete").performClick()
         waitUntil { runBlocking { app.database.trips().trip(id) } == null }
         assertEquals(0, savedCount(id))
+        compose.onNodeWithTag("trips_content").assertIsDisplayed()
     }
 
     @Test fun disabledLocationBlocksStartAndRecoversWithoutRestart() {
@@ -288,7 +288,7 @@ class TrackingDeviceTest {
         deliver(id, 2)
         compose.onNodeWithTag("current_speed").assertIsDisplayed()
         compose.onNodeWithTag("gps_compact").assertIsDisplayed()
-        compose.onNodeWithTag("recording_status").assertTextEquals("Recording")
+        compose.onNodeWithTag("recording_status", useUnmergedTree = true).assertTextEquals("Recording")
         compose.onNodeWithTag("route_map").assertDoesNotExist()
         assertEquals(1, requestCount())
         capture("home-light")
@@ -300,14 +300,14 @@ class TrackingDeviceTest {
         Thread.sleep(1_200)
         inject(30f)
         waitUntil { compose.onAllNodesWithTag("gps_compact").fetchSemanticsNodes().isEmpty() }
-        compose.onNodeWithTag("position_accuracy").assertIsDisplayed()
+        compose.onNodeWithTag("position_accuracy", useUnmergedTree = true).assertIsDisplayed()
         Thread.sleep(1_100)
         deliver(id, savedCount(id) + 1)
         compose.onNodeWithTag("gps_compact").assertIsDisplayed()
         // Old readings must expand the warning and hide the current speed.
         Thread.sleep(10_500)
         compose.onNodeWithTag("gps_compact").assertDoesNotExist()
-        compose.onNodeWithTag("gps_status").assertTextEquals("GPS signal lost")
+        compose.onNodeWithTag("gps_status", useUnmergedTree = true).assertTextEquals("GPS signal lost")
         deliver(id, savedCount(id) + 1)
         compose.onNodeWithTag("gps_compact").assertIsDisplayed()
         compose.onNodeWithTag("show_route").performClick()
@@ -315,10 +315,11 @@ class TrackingDeviceTest {
         device.pressBack()
         compose.onNodeWithTag("current_speed").assertIsDisplayed()
         deliver(id, savedCount(id) + 1)
-        compose.onNodeWithTag("nav_trips").performClick()
+        compose.onNodeWithTag("nav_tab_trips").performClick()
         deliver(id, savedCount(id) + 1)
         assertEquals(1, requestCount())
         compose.onNodeWithTag("trips_content").assertIsDisplayed()
+        compose.onNodeWithTag("recording_bar").assertIsDisplayed()
         device.pressBack()
         waitUntil { runCatching { compose.onNodeWithTag("trip_pause").assertIsDisplayed() }.isSuccess }
         compose.onNodeWithTag("trip_pause").performClick()
@@ -360,9 +361,14 @@ class TrackingDeviceTest {
         val zoomed = mapCamera()!!
         capture("saved-map-light")
         compose.onNodeWithTag("trip_details").performClick()
-        compose.onNodeWithTag("trip_delete").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("trip_details_content").assertIsDisplayed()
         capture("saved-details")
         compose.onNodeWithTag("close_trip_details").performScrollTo().performClick()
+        compose.onNodeWithTag("trip_menu").performClick()
+        compose.onNodeWithTag("trip_delete").assertIsDisplayed()
+        capture("saved-menu")
+        device.pressBack()
+        compose.onNodeWithTag("trip_delete").assertDoesNotExist()
         assertEquals(zoomed.zoom, mapCamera()!!.zoom, 0.01)
         assertEquals(zoomed.target!!.latitude, mapCamera()!!.target!!.latitude, 0.0001)
         scenario!!.recreate()
@@ -370,7 +376,7 @@ class TrackingDeviceTest {
         assertEquals(zoomed.target!!.latitude, mapCamera()!!.target!!.latitude, 0.0001)
         compose.onNodeWithTag("map_fit").performClick()
         waitUntil { kotlin.math.abs(mapCamera()!!.target!!.latitude - fitted.target!!.latitude) < 0.0001 }
-        compose.onNodeWithTag("nav_speed").performClick()
+        compose.onNodeWithTag("top_back").performClick()
         compose.onNodeWithTag("saved_trip").assertIsDisplayed().performClick()
         compose.onNodeWithTag("route_map").assertIsDisplayed()
     }
@@ -384,12 +390,12 @@ class TrackingDeviceTest {
             launch()
             startTrip()
             val id = app.recorder.state.value.trip!!.id
-            compose.onNodeWithTag("nav_speed").performClick()
+            compose.onNodeWithTag("top_back").performClick()
             for ((name, scale, dark) in listOf(Triple("light", 1f, false), Triple("dark", 1f, true), Triple("large-text", 2f, false))) {
                 for (landscape in listOf(false, true)) {
                     setDisplay(scale, landscape, dark)
                     deliver(id, savedCount(id) + 1)
-                    for (tag in listOf("current_speed", "gps_compact", "show_route", "trip_pause", "trip_stop")) {
+                    for (tag in listOf("current_speed", "gps_compact", "show_route", "trip_pause", "trip_stop", "nav_tab_trips")) {
                         compose.onNodeWithTag(tag).assertIsDisplayed()
                     }
                     capture("home-$name-$landscape")
@@ -402,10 +408,14 @@ class TrackingDeviceTest {
                     setDisplay(scale, landscape, dark)
                     compose.onNodeWithTag("route_map").assertIsDisplayed()
                     compose.onNodeWithTag("map_fit").assertIsDisplayed()
-                    compose.onNodeWithTag("trip_details").performScrollTo().assertIsDisplayed()
+                    compose.onNodeWithTag("top_back").assertIsDisplayed()
+                    compose.onNodeWithTag("trip_details").assertIsDisplayed()
                     capture("saved-$name-$landscape")
+                    compose.onNodeWithTag("trip_menu").performClick()
+                    compose.onNodeWithTag("trip_delete").assertIsDisplayed()
+                    device.pressBack()
                     compose.onNodeWithTag("trip_details").performClick()
-                    compose.onNodeWithTag("trip_delete").performScrollTo().assertIsDisplayed()
+                    compose.onNodeWithTag("trip_details_content").assertIsDisplayed()
                     compose.onNodeWithTag("close_trip_details").performScrollTo().performClick()
                 }
             }
@@ -415,6 +425,56 @@ class TrackingDeviceTest {
             shell("settings put system accelerometer_rotation $auto")
             shell("cmd uimode night $night")
         }
+    }
+
+    @Test fun tabsBackAndNotificationFollowStandardNavigation() {
+        launch()
+        // Trips is a top-level tab. Back from its root returns to Speed.
+        compose.onNodeWithTag("nav_tab_trips").performClick()
+        compose.onNodeWithTag("trips_content").assertIsDisplayed()
+        compose.onNodeWithTag("nav_tab_trips").performClick()
+        compose.onNodeWithTag("trips_content").assertIsDisplayed()
+        device.pressBack()
+        compose.onNodeWithTag("current_speed").assertIsDisplayed()
+        // A sub-screen hides the tabs, keeps its place through recreation, and returns with its back arrow.
+        compose.onNodeWithTag("gps_details").performClick()
+        compose.onNodeWithTag("gps_details_list").assertIsDisplayed()
+        compose.onNodeWithTag("nav_tab_trips").assertDoesNotExist()
+        scenario!!.recreate()
+        compose.onNodeWithTag("gps_details_list").assertIsDisplayed()
+        compose.onNodeWithTag("details_back").performClick()
+        compose.onNodeWithTag("current_speed").assertIsDisplayed()
+        compose.onNodeWithTag("recording_bar").assertDoesNotExist()
+
+        compose.onNodeWithTag("trip_start").performClick()
+        compose.onNodeWithTag("confirm_start").performClick()
+        waitUntil { app.recorder.state.value.trip != null }
+        val id = app.recorder.state.value.trip!!.id
+        deliver(id, 1)
+        compose.onNodeWithTag("recording_bar").assertIsDisplayed()
+        compose.onNodeWithTag("trip_start").assertDoesNotExist()
+        capture("recording-home-light")
+        // The notification opens the current trip.
+        scenario!!.onActivity {
+            it.startActivity(android.content.Intent(it, MainActivity::class.java)
+                .putExtra(com.example.cvkegps.tracking.RecordingService.OPEN_TRIPS, true)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP))
+        }
+        waitUntil { runCatching { compose.onNodeWithTag("route_map").assertIsDisplayed() }.isSuccess }
+        compose.onNodeWithTag("recording_status").assertTextEquals("Recording")
+        capture("live-light")
+        // Back from the current trip goes to the Trips tab, which shows the active trip first.
+        device.pressBack()
+        compose.onNodeWithTag("trips_content").assertIsDisplayed()
+        capture("trips-active-light")
+        compose.onAllNodesWithTag("saved_trip")[0].performClick()
+        compose.onNodeWithTag("route_map").assertIsDisplayed()
+        // A trip stopped from the notification closes the live screen.
+        context.getSystemService(NotificationManager::class.java).activeNotifications.single { it.id == 100 }
+            .notification.actions[1].actionIntent.send()
+        waitUntil { !app.recorder.state.value.needsService }
+        waitUntil { runCatching { compose.onNodeWithTag("trips_content").assertIsDisplayed() }.isSuccess }
+        compose.onNodeWithTag("recording_bar").assertDoesNotExist()
     }
 
     private fun setDisplay(scale: Float, landscape: Boolean, dark: Boolean) {
@@ -453,7 +513,7 @@ class TrackingDeviceTest {
     private fun capture(name: String) {
         compose.waitForIdle()
         Thread.sleep(500)
-        shell("screencap -p /sdcard/Download/cvkegps-polish-$name.png")
+        shell("screencap -p /sdcard/Download/cvkegps-nav-$name.png")
     }
 
     private fun deliver(id: String, count: Int) {

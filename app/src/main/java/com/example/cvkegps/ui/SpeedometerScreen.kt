@@ -3,6 +3,7 @@ package com.example.cvkegps.ui
 import android.content.res.Configuration
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -28,17 +29,18 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
@@ -64,7 +66,6 @@ fun SpeedometerScreen(
     modifier: Modifier = Modifier,
     gnss: GnssSnapshot = GnssSnapshot(),
     trackerControls: @Composable (canStartTrip: Boolean) -> Unit = {},
-    onTrips: (() -> Unit)? = null,
     heading: @Composable () -> PhoneHeading = { PhoneHeading.Unavailable },
 ) {
     val locale = LocalConfiguration.current.locales[0]
@@ -110,7 +111,7 @@ fun SpeedometerScreen(
                         Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        GpsControls(state, permissionNeedsSettings, wholeFormat, onAction, onDetails, satellites, onTrips, compact = wide, collapseWhenReady = true)
+                        GpsControls(state, permissionNeedsSettings, wholeFormat, onAction, onDetails, satellites, compact = wide, collapseWhenReady = true)
                     trackerControls(state.status != GpsStatus.PermissionRequired && state.status != GpsStatus.Disabled && state.status != GpsStatus.Unavailable)
                     }
                 }
@@ -122,7 +123,7 @@ fun SpeedometerScreen(
                 ) {
                     SpeedDial(speed, state.reading?.speedMetersPerSecond != null, satellites, heading, Modifier.weight(1f))
                     Metrics(altitude, maximum)
-                    GpsControls(state, permissionNeedsSettings, wholeFormat, onAction, onDetails, satellites, onTrips, compact = wide, collapseWhenReady = true)
+                    GpsControls(state, permissionNeedsSettings, wholeFormat, onAction, onDetails, satellites, compact = wide, collapseWhenReady = true)
                     trackerControls(state.status != GpsStatus.PermissionRequired && state.status != GpsStatus.Disabled && state.status != GpsStatus.Unavailable)
                 }
             }
@@ -283,7 +284,6 @@ internal fun GpsControls(
     onAction: () -> Unit,
     onDetails: (() -> Unit)? = null,
     satellites: List<SatelliteSignal>? = null,
-    onTrips: (() -> Unit)? = null,
     compact: Boolean = false,
     collapseWhenReady: Boolean = false,
 ) {
@@ -315,35 +315,29 @@ internal fun GpsControls(
     }
     val ready = collapseWhenReady && state.status == GpsStatus.Live &&
         state.reading?.accuracyMeters?.let { it.isFinite() && it in 0f..5f } == true
+    // The whole status surface opens GPS details. A chevron shows that it is a navigation target.
+    val detailsLabel = stringResource(R.string.gps_details)
+    val opens = if (onDetails != null) Modifier.clip(MaterialTheme.shapes.large)
+        .clickable(onClickLabel = detailsLabel, role = Role.Button, onClick = onDetails).testTag("gps_details") else Modifier
     if (ready) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("gps_compact"),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(Modifier.weight(1f).testTag("gps_status")) {
-                PositionAccuracy(state.reading?.accuracyMeters, compact = true)
-            }
-            if (onDetails != null) IconButton(onClick = onDetails, modifier = Modifier.size(48.dp).testTag("gps_details")) {
-                Icon(painterResource(R.drawable.ic_info), contentDescription = stringResource(R.string.gps_details))
-            }
-            if (onTrips != null) androidx.compose.material3.TextButton(onClick = onTrips, modifier = Modifier.testTag("nav_trips")) {
-                Text(stringResource(R.string.tracking_trips))
+        Box(Modifier.testTag("gps_compact")) {
+            Row(Modifier.fillMaxWidth().then(opens).heightIn(min = 48.dp).padding(start = 4.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.weight(1f).testTag("gps_status")) {
+                    PositionAccuracy(state.reading?.accuracyMeters, compact = true)
+                }
+                if (onDetails != null) DetailsChevron()
             }
         }
         return
     }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.large) {
+        Surface(opens, color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.large) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.heightIn(min = 24.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Box(Modifier.size(8.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
                     Text(stringResource(title), Modifier.weight(1f).testTag("gps_status"), style = MaterialTheme.typography.titleSmall)
-                    if (onTrips != null) androidx.compose.material3.TextButton(onClick = onTrips, modifier = Modifier.testTag("nav_trips")) {
-                        Text(stringResource(R.string.tracking_trips))
-                    }
-                    if (onDetails != null) {
-                        IconButton(onClick = onDetails, modifier = Modifier.size(48.dp).testTag("gps_details")) {
-                            Icon(painterResource(R.drawable.ic_info), contentDescription = stringResource(R.string.gps_details))
-                        }
-                    }
+                    if (onDetails != null) DetailsChevron()
                 }
                 if (onDetails != null && (!compact || satellites != null)) {
                     Text(
@@ -371,6 +365,12 @@ internal fun GpsControls(
             }
         }
     }
+}
+
+@Composable
+private fun DetailsChevron() {
+    Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = null,
+        tint = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @Preview(name = "Light", showBackground = true)

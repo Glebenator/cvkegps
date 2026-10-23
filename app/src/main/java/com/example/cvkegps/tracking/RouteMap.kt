@@ -12,7 +12,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.FilledTonalIconToggleButton
+import androidx.compose.material3.Icon
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.material3.MaterialTheme
@@ -34,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -236,23 +239,25 @@ private fun MapCanvas(lines: List<List<TrackSample>>, modifier: Modifier, live: 
                     style = MaterialTheme.typography.bodySmall)
             }
         }
-        Surface(Modifier.align(Alignment.TopEnd).padding(8.dp), shape = MaterialTheme.shapes.medium,
-            tonalElevation = 3.dp) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                if (live) TextButton(onClick = { following = true }, enabled = !following && lines.any { it.isNotEmpty() },
-                    modifier = Modifier.testTag("map_follow")) { Text(stringResource(R.string.map_follow)) }
-                else TextButton(onClick = { positioned = false; fitRequest++ }, enabled = lines.any { it.isNotEmpty() },
-                    modifier = Modifier.testTag("map_fit")) { Text(stringResource(R.string.map_fit)) }
-                val zoomIn = stringResource(R.string.map_zoom_in)
-                val zoomOut = stringResource(R.string.map_zoom_out)
-                IconButton(onClick = { nativeMap?.animateCamera(CameraUpdateFactory.zoomIn()) },
-                    modifier = Modifier.size(48.dp).semantics { contentDescription = zoomIn }.testTag("map_zoom_in")) {
-                    Text(stringResource(R.string.map_plus), style = MaterialTheme.typography.headlineSmall)
+        Column(Modifier.align(Alignment.TopEnd).padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            val hasRoute = lines.any { it.isNotEmpty() }
+            if (live) {
+                val follow = stringResource(R.string.map_follow)
+                FilledTonalIconToggleButton(checked = following, onCheckedChange = { if (it) following = true }, enabled = hasRoute,
+                    modifier = Modifier.size(48.dp).testTag("map_follow")) {
+                    Icon(painterResource(R.drawable.ic_my_location), contentDescription = follow)
                 }
-                IconButton(onClick = { nativeMap?.animateCamera(CameraUpdateFactory.zoomOut()) },
-                    modifier = Modifier.size(48.dp).semantics { contentDescription = zoomOut }.testTag("map_zoom_out")) {
-                    Text(stringResource(R.string.map_minus), style = MaterialTheme.typography.headlineSmall)
-                }
+            } else FilledTonalIconButton(onClick = { positioned = false; fitRequest++ }, enabled = hasRoute,
+                modifier = Modifier.size(48.dp).testTag("map_fit")) {
+                Icon(painterResource(R.drawable.ic_fit_route), contentDescription = stringResource(R.string.map_fit))
+            }
+            FilledTonalIconButton(onClick = { nativeMap?.animateCamera(CameraUpdateFactory.zoomIn()) },
+                modifier = Modifier.size(48.dp).testTag("map_zoom_in")) {
+                Icon(painterResource(R.drawable.ic_add), contentDescription = stringResource(R.string.map_zoom_in))
+            }
+            FilledTonalIconButton(onClick = { nativeMap?.animateCamera(CameraUpdateFactory.zoomOut()) },
+                modifier = Modifier.size(48.dp).testTag("map_zoom_out")) {
+                Icon(painterResource(R.drawable.ic_remove), contentDescription = stringResource(R.string.map_zoom_out))
             }
         }
         if (lines.all { it.isEmpty() } || !loaded || unavailable) Surface(

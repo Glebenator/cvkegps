@@ -51,7 +51,8 @@ import com.example.cvkegps.location.SatelliteSignal
 import com.example.cvkegps.location.SatelliteSystem
 import com.example.cvkegps.ui.GpsDetailsRoute
 import com.example.cvkegps.ui.GpsStatus
-import com.example.cvkegps.ui.SpeedometerRoute
+import com.example.cvkegps.tracking.TrackingApplication
+import com.example.cvkegps.ui.AppShell
 import com.example.cvkegps.ui.SpeedometerViewModel
 import com.example.cvkegps.ui.SpeedometerUiState
 import com.example.cvkegps.ui.theme.CvkeGpsTheme
@@ -265,7 +266,7 @@ class SkyMapDeviceTest {
                             }
                         }
                         CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale)) {
-                            CvkeGpsTheme(darkTheme = dark) { SpeedometerRoute(speed, compassViewModel = compass) }
+                            CvkeGpsTheme(darkTheme = dark) { AppShell(activity.application as TrackingApplication, speed, compass, 0) }
                         }
                     }
                 }

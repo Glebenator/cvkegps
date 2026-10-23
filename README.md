@@ -11,13 +11,13 @@ Update the report with each completed change, as specified in `AGENTS.md`.
 
 1. Open the app. Allow precise location when requested. Speed starts without a GPS button.
 2. Select **Start map tracking**. Read the recording and map notice. Allow notifications.
-3. Recording stays on the main GPS screen. Use **Pause trip**, **Resume trip**, or **Stop and save**.
-   Select **View route** to open the live map. Select **Speedometer** or Android Back to return.
-   A map gesture stops following. Select **Follow route** to follow the latest position again.
-4. In the live map, select **Trip details**, then select the activity label to correct the estimate.
+3. A recording bar shows above the navigation bar. Use its **Pause trip**, **Resume trip**, or **Stop and save** buttons.
+   Select the bar text to open **Current trip** with the live map. Use the back arrow or Android Back to return.
+   A map gesture stops following. Select the **Follow route** button to follow the latest position again.
+4. In **Current trip**, select the information button, then select **Change** to correct the activity estimate.
    The correction applies to the whole trip.
-5. Select **Trips**, then select a trip. Pan or pinch its map, use the zoom buttons, or select **Fit route**.
-   **Trip details** opens a separate scrolling panel. Select **Delete trip** there and confirm deletion.
+5. Select the **Trips** tab, then select a trip. Pan or pinch its map, use the zoom buttons, or select **Fit route**.
+   The information button opens trip details. The menu button contains **Change activity** and **Delete trip**.
 
 Activity estimation uses recent GPS speed. The initial categories are **Bike or ski**, **Car or transit**,
 and a possible **Plane** trip. The app shows **Activity unknown** until it has enough valid evidence.
@@ -50,11 +50,18 @@ python scripts/check-interrupted-trip.py --adb <path-to-adb> --serial emulator-5
 This check clears emulator app data. It uses Android test locations, restores location and mock-location settings, and removes its test provider.
 Keep the output in the ignored `artifacts/` folder. Use `TrackingDeviceTest` for recording, activity correction, and tracker layout checks.
 
+## Navigation
+
+The app has two tabs: **Speed** and **Trips**. A navigation bar shows them in portrait. A navigation rail shows them in landscape.
+The tabs show only on their main screens. GPS details, the current trip, and saved trips use a top app bar with a back arrow.
+Android Back from the Trips tab returns to Speed. Select the current tab again to return to its main screen.
+The recording notification opens the current trip. Navigation uses Navigation 3 with an app-owned back stack for each tab.
+
 ## UI polish on 22 October 2026
 
 Recording continues while the main GPS screen or Trips is open. The GPS card reduces to its bar
 when a fresh position has an accuracy estimate of 5 m or better. Poor or old readings expand the card.
-Select the information button for the full accuracy scale and satellite reports.
+Select the GPS card for the full accuracy scale and satellite reports.
 
 Saved trips open on a large map. Map gestures and trip-detail scrolling are separate.
 The camera stays in place when details open and after activity recreation. Short routes use an initial
@@ -85,7 +92,7 @@ The app does not keep the screen on.
 
 ## GPS details
 
-Select the information button beside the GPS status to open **GPS details**.
+Select the GPS status card on the Speed tab to open **GPS details**.
 Use the back arrow or Android Back to return.
 This screen shares the speedometer's location request. It shows:
 
@@ -232,6 +239,8 @@ app/src/main/java/com/example/cvkegps/
     AndroidGnssSource.kt         Satellite status registration and cleanup
     AndroidHeadingSource.kt      Compass registration and display axes
   ui/
+    AppNavigation.kt             Destinations and a back stack for each tab
+    AppShell.kt                  Navigation bar or rail, recording bar, and screens
     SpeedometerViewModel.kt      Immutable state, freshness, and session maximum
     CompassViewModel.kt          Heading states, freshness, correction, and screen rotation
     SpeedometerRoute.kt          Permission and lifecycle integration

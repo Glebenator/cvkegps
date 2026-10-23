@@ -164,19 +164,20 @@
       </div>
       <aside class="meta" aria-label="Report details">
         <dl>
-          <div><dt>Report updated</dt><dd><time datetime="2026-10-22">22 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>5303e43</code> + existing GPS display changes + UI polish + smaller map attribution</dd></div>
+          <div><dt>Report updated</dt><dd><time datetime="2026-10-23">23 October 2026</time></dd></div>
+          <div><dt>App code baseline</dt><dd><code>c8ba8ba</code> + navigation and button redesign (not committed)</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
       </aside>
     </div>
     <div class="metrics" aria-label="Last verified results">
-      <div class="metric"><strong>2 / 2</strong><span>Map layout tests passed</span><span class="small">API 36 · Earlier 12-test check recorded below</span></div>
-      <div class="metric"><strong>13 / 13</strong><span>Calculation tests passed</span><span class="small">Earlier UI milestone · Calculations unchanged</span></div>
-      <div class="metric"><strong>Passed</strong><span>Debug build, test build, and debug lint</span><span class="small">Release evidence is from the earlier milestone</span></div>
+      <div class="metric"><strong>24 / 24</strong><span>Emulator device tests passed</span><span class="small">API 36 · Navigation redesign · Simulated locations</span></div>
+      <div class="metric"><strong>13 / 13</strong><span>Calculation tests passed</span><span class="small">Calculations unchanged</span></div>
+      <div class="metric"><strong>Passed</strong><span>Debug build, test build, and debug lint</span><span class="small">No release build for this change</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#navigation">Navigation</a>
       <a href="#map-attribution">Map attribution</a>
       <a href="#ui-polish">UI polish</a>
       <a href="#status">Current scope</a>
@@ -189,6 +190,61 @@
       <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
     </nav>
+
+    <section id="navigation" aria-labelledby="navigation-heading">
+      <div class="section-head"><h2 id="navigation-heading">Navigation and buttons · 23 October 2026</h2><span class="tag done">Implemented and checked</span></div>
+      <p class="section-intro">The app now uses standard Material 3 navigation. Two tabs, Speed and Trips, replace the loose text links.
+      Sub-screens use a top app bar with a back arrow. The buttons now show which action is most important.</p>
+      <div class="grid">
+        <article class="panel"><h3>Structure</h3><ul>
+          <li>A navigation bar shows the tabs in portrait. A navigation rail shows them in landscape. The tabs show only on their main screens.</li>
+          <li>GPS details, Current trip, and saved trips have a back arrow. Android Back from the Trips tab returns to Speed. Select the current tab again to return to its main screen.</li>
+          <li>Navigation 3 displays an app-owned back stack for each tab. The stacks are saved through rotation and process recreation.</li>
+          <li>The recording notification opens Current trip. A trip that stops elsewhere closes Current trip.</li>
+        </ul></article>
+        <article class="panel"><h3>Buttons and controls</h3><ul>
+          <li>While a trip is active, a recording bar shows status and time with Pause and Stop icon buttons. In landscape these controls are in the navigation rail.</li>
+          <li>The whole GPS card opens GPS details. A chevron replaces the separate information button.</li>
+          <li>Current trip uses full-width Pause and Stop and save buttons with icons. Trip details opens from the top app bar.</li>
+          <li>Saved trips put Change activity and Delete trip in the top app bar menu. Map controls are 48 dp icon buttons for follow or fit, zoom in, and zoom out.</li>
+        </ul></article>
+      </div>
+      <div class="screens"><figure class="shot"><a href="docs/progress/images/2026-10-23-nav-recording-speed-light.png"><img src="docs/progress/images/2026-10-23-nav-recording-speed-light.png" loading="lazy" alt="Speed tab with the recording bar above the navigation bar, light theme."></a>
+      <figcaption><strong>Speed tab while recording, light theme</strong>23 October 2026. Baseline <code>c8ba8ba</code> plus the navigation redesign. Debug APK <code>cc8cbdd7</code>.
+      Position and speed use simulated Android test locations.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-23-nav-recording-speed-dark.png"><img src="docs/progress/images/2026-10-23-nav-recording-speed-dark.png" loading="lazy" alt="Speed tab with the recording bar above the navigation bar, dark theme."></a>
+      <figcaption><strong>Speed tab while recording, dark theme</strong>23 October 2026. Baseline <code>c8ba8ba</code> plus the navigation redesign. Debug APK <code>cc8cbdd7</code>.
+      Position and speed use simulated Android test locations.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-23-nav-trips-active-light.png"><img src="docs/progress/images/2026-10-23-nav-trips-active-light.png" loading="lazy" alt="Trips tab with a top app bar, the active trip first, and the recording bar."></a>
+      <figcaption><strong>Trips tab with an active trip</strong>23 October 2026. Baseline <code>c8ba8ba</code> plus the navigation redesign. Debug APK <code>cc8cbdd7</code>.
+      Position and speed use simulated Android test locations.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-23-nav-current-trip-light.png"><img src="docs/progress/images/2026-10-23-nav-current-trip-light.png" loading="lazy" alt="Current trip with a back arrow, icon map controls, and full-width Pause and Stop buttons."></a>
+      <figcaption><strong>Current trip, light theme</strong>23 October 2026. Baseline <code>c8ba8ba</code> plus the navigation redesign. Debug APK <code>cc8cbdd7</code>.
+      Position and speed use simulated Android test locations.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-23-nav-saved-menu-light.png"><img src="docs/progress/images/2026-10-23-nav-saved-menu-light.png" loading="lazy" alt="Saved trip with its top app bar menu open, showing Change activity and Delete trip."></a>
+      <figcaption><strong>Saved trip menu</strong>23 October 2026. Baseline <code>c8ba8ba</code> plus the navigation redesign. Debug APK <code>cc8cbdd7</code>.
+      Position and speed use simulated Android test locations.</figcaption></figure><figure class="shot landscape"><a href="docs/progress/images/2026-10-23-nav-recording-speed-landscape-large-text.png"><img src="docs/progress/images/2026-10-23-nav-recording-speed-landscape-large-text.png" loading="lazy" alt="Speed tab in landscape at 200% text with the navigation rail and recording controls."></a>
+      <figcaption><strong>Speed tab, landscape at 200% text</strong>23 October 2026. Baseline <code>c8ba8ba</code> plus the navigation redesign. Debug APK <code>cc8cbdd7</code>.
+      Position and speed use simulated Android test locations.</figcaption></figure><figure class="shot landscape"><a href="docs/progress/images/2026-10-23-nav-saved-landscape-large-text.png"><img src="docs/progress/images/2026-10-23-nav-saved-landscape-large-text.png" loading="lazy" alt="Saved trip in landscape at 200% text with the top app bar and the trip panel beside the map."></a>
+      <figcaption><strong>Saved trip, landscape at 200% text</strong>23 October 2026. Baseline <code>c8ba8ba</code> plus the navigation redesign. Debug APK <code>cc8cbdd7</code>.
+      Position and speed use simulated Android test locations.</figcaption></figure></div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <p>The debug build, test APK build, Android lint, and 13 calculation tests passed. All 24 API 36 emulator device tests passed.
+        A new test checks tab selection, Back from Trips, a back arrow through recreation, the notification route, and trip end from the notification.
+        The other tests were changed for the new controls and kept their recording, lifecycle, GPS request, and map checks.</p>
+        <p>The first test run found that screens kept old trip and permission state. The cause: Navigation 3 keeps screen content between compositions.
+        Shared screen state now reads its current value. The first landscape check at 200% text also cut off the speed. The recording controls then moved into the navigation rail.
+        Light, dark, landscape, and 200% text screenshots were checked after these fixes.</p>
+        <p>Not checked: predictive back gesture feel, TalkBack, one-handed reach, and a physical device. No release build was run for this change.
+        The Trips list shows the stored recording time for an active trip. The recording bar shows the live time.</p>
+        <p class="source">Debug APK SHA-256: <code>cc8cbdd7d08e913fc2832f7d86c03a8f3402d8dccf853172fef672ed322f56c7</code>. Local evidence: <code>artifacts/nav-redesign/</code>,
+        <code>artifacts/nav-connected-test.log</code>, and <code>artifacts/nav-build.log</code>.
+        Sources: <a href="app/src/main/java/com/example/cvkegps/ui/AppNavigation.kt">AppNavigation.kt</a>, <a href="app/src/main/java/com/example/cvkegps/ui/AppShell.kt">AppShell.kt</a>,
+        <a href="app/src/main/java/com/example/cvkegps/tracking/RecordingBar.kt">RecordingBar.kt</a>.</p>
+      </article>
+      <details style="margin-top:18px">
+        <summary>Back stack: Trips shows above the Speed root</summary>
+        <p>Android Back from the Trips root therefore returns to Speed without a separate back handler.</p>
+        <pre><code>val backStack: List&lt;Destination&gt; get() = if (tab == Tab.Speed) speed.toList() else listOf(Destination.Speed) + trips</code></pre>
+        <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/ui/AppNavigation.kt">AppNavigation.kt</a>.</p>
+      </details>
+    </section>
 
     <section id="map-attribution" aria-labelledby="attribution-heading">
       <div class="section-head"><h2 id="attribution-heading">Smaller map attribution · 22 October 2026</h2><span class="tag done">Implemented and checked</span></div>
@@ -278,7 +334,7 @@
             <li>Portrait and landscape layouts, large text, and screen-reader labels.</li>
             <li>No home-screen scroll area. The speed display uses the space left by the readings and GPS controls.</li>
             <li>Precise-location permission, automatic speed display, and recovery actions.</li>
-            <li>An information button beside GPS status opens a scrollable GPS details screen.</li>
+            <li>Speed and Trips tabs in a navigation bar or rail. The GPS status card opens a scrollable GPS details screen with a back arrow.</li>
             <li>An abstract satellite ring around the speed uses reported direction and elevation and turns with the phone. A small N marks north.
               GPS details has a full sky map with direction labels. Brighter markers have stronger signals. Filled markers are used in the position.</li>
             <li>The position accuracy bar fills from 50 m to 1 m, with a 5 m notch. It does not guarantee accuracy.</li>
@@ -1043,6 +1099,9 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-23">23 October 2026</time><div><h3>Standard tabs, back arrows, and clearer buttons</h3>
+<p>Replaced the text links with Speed and Trips tabs, top app bars, a recording bar, icon map controls, and a saved trip menu.
+Debug build, lint, 13 calculation tests, and 24 emulator tests passed. See <a href="#navigation">screenshots and evidence</a>.</p></div></li>
 <li><time datetime="2026-10-22">22 October 2026</time><div><h3>Smaller OpenStreetMap credit</h3>
 <p>Reduced the text and background area. Kept the full credit, link, and a 48 dp touch area.
 Debug build, lint, and two map layout checks passed. See <a href="#map-attribution">screenshots and evidence</a>.</p></div></li>

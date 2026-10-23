@@ -21,8 +21,7 @@
     <string name="trip_location_settings">Turn on location</string>
     <string name="trip_access_missing">Allow precise location and notifications to record a trip.</string>
     <string name="trip_notification_settings">Open notification settings</string>
-    <string name="trip_none">No saved trips. Start map tracking from the tracker.</string>
-    <string name="trip_back">Back to trips</string>
+    <string name="trip_none">No saved trips. Start map tracking on the Speed tab.</string>
     <string name="trip_delete">Delete trip</string>
     <string name="trip_delete_title">Delete this trip?</string>
     <string name="trip_delete_message">This removes the saved route and its measurements from this device.</string>
@@ -70,15 +69,17 @@
     <string name="mode_auto">Automatic</string>
     <string name="mode_explanation">The estimate uses recent GPS speed. Car and transit can have similar speeds. Bike and ski can also have similar speeds. Fast trains and small planes can overlap. Correct the activity if required.</string>
     <string name="tracker_access_title">Record a route</string>
-    <string name="tracker_return">Back to tracker</string>
     <string name="map_follow">Follow route</string>
-    <string name="trip_view_route">View route</string>
-    <string name="trip_speedometer">Speedometer</string>
     <string name="trip_details">Trip details</string>
     <string name="trip_close">Close</string>
     <string name="map_fit">Fit route</string>
     <string name="map_zoom_in">Zoom in</string>
     <string name="map_zoom_out">Zoom out</string>
-    <string name="map_plus">+</string>
-    <string name="map_minus">−</string>
+    <string name="nav_speed">Speed</string>
+    <string name="trip_live_title">Current trip</string>
+    <string name="trip_open_live">Open current trip</string>
+    <string name="trip_activity">Activity</string>
+    <string name="trip_summary_line">%1$s · %2$s</string>
+    <string name="mode_change_short">Change</string>
+    <string name="more_options">More options</string>
 </resources>

@@ -34,7 +34,8 @@ import com.example.cvkegps.location.SatelliteSignal
 import com.example.cvkegps.location.SatelliteSystem
 import com.example.cvkegps.location.distinctSatellites
 import com.example.cvkegps.location.positionAccuracyProgress
-import com.example.cvkegps.ui.SpeedometerRoute
+import com.example.cvkegps.tracking.TrackingApplication
+import com.example.cvkegps.ui.AppShell
 import com.example.cvkegps.ui.SpeedometerViewModel
 import com.example.cvkegps.ui.theme.CvkeGpsTheme
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -93,7 +94,7 @@ class SatelliteDisplayDeviceTest {
                         }
                     }
                     CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale)) {
-                        CvkeGpsTheme(darkTheme = dark) { SpeedometerRoute(model) }
+                        CvkeGpsTheme(darkTheme = dark) { AppShell(activity.application as TrackingApplication, model, null, 0) }
                     }
                 }
             }
@@ -106,7 +107,7 @@ class SatelliteDisplayDeviceTest {
             }
             fun awaitCount(text: String) {
                 compose.waitUntil(5_000) {
-                    runCatching { compose.onNodeWithTag("satellite_count").assertTextEquals(text) }.isSuccess
+                    runCatching { compose.onNodeWithTag("satellite_count", useUnmergedTree = true).assertTextEquals(text) }.isSuccess
                 }
             }
             awaitCount("Satellite count unavailable")
@@ -115,9 +116,9 @@ class SatelliteDisplayDeviceTest {
             awaitCount("Satellites: 0 used / 0 seen")
             report()
             awaitCount("Satellites: 9 used / 12 seen")
-            compose.onNodeWithTag("accuracy_bar").assertIsDisplayed()
-            compose.onNodeWithTag("position_accuracy").assertTextEquals("Position estimate ±6 m")
-            compose.onNodeWithTag("accuracy_scale").assertIsDisplayed()
+            compose.onNodeWithTag("accuracy_bar", useUnmergedTree = true).assertIsDisplayed()
+            compose.onNodeWithTag("position_accuracy", useUnmergedTree = true).assertTextEquals("Position estimate ±6 m")
+            compose.onNodeWithTag("accuracy_scale", useUnmergedTree = true).assertIsDisplayed()
             capture("light")
             compose.runOnIdle { dark = true }
             capture("dark")
@@ -131,12 +132,12 @@ class SatelliteDisplayDeviceTest {
 
             fix(0.5f)
             compose.waitUntil(5_000) {
-                runCatching { compose.onNodeWithTag("accuracy_bar").assertContentDescriptionEquals("Position estimate ±0.5 m") }.isSuccess
+                runCatching { compose.onNodeWithTag("accuracy_bar", useUnmergedTree = true).assertContentDescriptionEquals("Position estimate ±0.5 m") }.isSuccess
             }
             capture("full")
             fix(0.04f)
             compose.waitUntil(5_000) {
-                runCatching { compose.onNodeWithTag("accuracy_bar").assertContentDescriptionEquals("Position estimate below 0.1 m") }.isSuccess
+                runCatching { compose.onNodeWithTag("accuracy_bar", useUnmergedTree = true).assertContentDescriptionEquals("Position estimate below 0.1 m") }.isSuccess
             }
 
             fix()
@@ -150,12 +151,12 @@ class SatelliteDisplayDeviceTest {
             awaitCount("Satellites: 9 used / 12 seen")
             fix(Float.NaN)
             compose.waitUntil(5_000) {
-                runCatching { compose.onNodeWithTag("position_accuracy").assertTextEquals("Accuracy unavailable") }.isSuccess
+                runCatching { compose.onNodeWithTag("position_accuracy", useUnmergedTree = true).assertTextEquals("Accuracy unavailable") }.isSuccess
             }
-            compose.onNodeWithTag("accuracy_bar").assertDoesNotExist()
+            compose.onNodeWithTag("accuracy_bar", useUnmergedTree = true).assertDoesNotExist()
             fixes.value = GpsEvent.Paused
             awaitCount("Satellite count unavailable")
-            compose.onNodeWithTag("accuracy_bar").assertDoesNotExist()
+            compose.onNodeWithTag("accuracy_bar", useUnmergedTree = true).assertDoesNotExist()
         }
     }
 

@@ -171,9 +171,9 @@ class SpeedometerDeviceTest {
         awaitSpeed(10f, "36")
         compose.waitUntil(5_000) { hasGpsRequest() }
         compose.onNodeWithTag("gps_action").assertDoesNotExist()
-        compose.onNodeWithTag("nav_trips").performClick()
+        compose.onNodeWithTag("nav_tab_trips").performClick()
         compose.waitUntil(5_000) { !hasGpsRequest() }
-        compose.onNodeWithTag("nav_speed").performClick()
+        compose.onNodeWithTag("nav_tab_speed").performClick()
         awaitSpeed(5f, "18")
         scenario!!.moveToState(Lifecycle.State.CREATED)
         compose.waitUntil(5_000) { !hasGpsRequest() }
@@ -413,8 +413,8 @@ class SpeedometerDeviceTest {
         compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange))
             .assertCountEquals(0)
         val home = compose.onNodeWithTag("home_content").getUnclippedBoundsInRoot()
-        for (tag in listOf("current_speed", "altitude", "maximum_speed", "gps_status", "gps_details", "nav_trips")) {
-            val node = compose.onNodeWithTag(tag).assertIsDisplayed()
+        for (tag in listOf("current_speed", "altitude", "maximum_speed", "gps_status", "gps_details")) {
+            val node = compose.onNodeWithTag(tag, useUnmergedTree = true).assertIsDisplayed()
             val bounds = node.getUnclippedBoundsInRoot()
             assertTrue("$tag must fit inside the home screen: $bounds in $home",
                 bounds.left >= home.left && bounds.top >= home.top &&
