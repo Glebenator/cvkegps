@@ -6,6 +6,7 @@
   <meta name="color-scheme" content="light">
   <meta name="description" content="CVKE GPS development progress, screenshots, verification results, and future work.">
   <title>CVKE GPS · Development progress</title>
+  <link rel="icon" href="docs/progress/favicon.svg" type="image/svg+xml">
   <style>
     :root {
       --paper: #f6f5f0;
@@ -165,7 +166,7 @@
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-10-23">23 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>c8ba8ba</code> + navigation and button redesign (not committed)</dd></div>
+          <div><dt>App code baseline</dt><dd><code>c8ba8ba</code> + navigation and button redesign + Signal dial launcher icon (not committed)</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
@@ -993,7 +994,7 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <p class="section-intro">The first tracking scope is implemented.
         The items below remain open. They are a plan for later work, not implemented features.</p>
       <article id="favicon-proposal" class="panel" style="margin-bottom:18px">
-        <span class="tag neutral">Design confirmed · 21 October 2026</span>
+        <span class="tag done">Applied · 23 October 2026</span>
         <h3>Signal dial favicon</h3>
         <p>Compared three vector marks: Signal dial, Position ring, and Satellite link.
           Each mark has 16 px and 32 px samples on light and dark surfaces.
@@ -1016,8 +1017,16 @@ val angle = azimuthRadians - headingRadians</code></pre>
         <p class="small">Read the findings and limits (<code>artifacts/favicon-design/similarity-check/README.md</code>; local only)
           or open the source-linked icon comparison (<code>artifacts/favicon-design/similarity-check/comparison.html</code>; local only).
           Reference artwork stays in the ignored design folder.</p>
-        <p>Before use, select the destination. Then check browser tab rendering,
-          colour-scheme changes, and an ICO fallback. Further shape or colour changes are optional.</p>
+        <p><strong>Applied on 23 October 2026.</strong> The Android launcher icon now uses Signal dial: copper <code>#8F4C28</code> on
+          <code>#FFF8F4</code>. The mark has a 1.75 scale inside the 108 dp adaptive icon, so it stays inside the 66 dp safe zone.
+          The same shape is the monochrome layer for Android themed icons. The unused template launcher bitmaps were removed; the minimum SDK is 29,
+          so Android always uses the adaptive icon. This report uses the colour-adaptive SVG as its browser favicon.</p>
+        <div class="screens"><figure class="shot landscape"><a href="docs/progress/images/2026-10-23-launcher-icon-light.png"><img src="docs/progress/images/2026-10-23-launcher-icon-light.png" loading="lazy" alt="App drawer row with the CVKE GPS Signal dial icon beside Contacts, Drive, and Files."></a>
+      <figcaption><strong>Launcher icon in the app drawer</strong>23 October 2026. Baseline <code>c8ba8ba</code> plus the navigation redesign and launcher icon.
+      Debug APK <code>b3fc877a</code>. API 36 emulator, light theme. No location data is shown.</figcaption></figure></div>
+        <p class="test-note"><strong>Checked:</strong> debug build and Android lint passed. The icon was inspected in the API 36 emulator app drawer.
+          The first size filled too much of the circle and was reduced. <strong>Not checked:</strong> themed (monochrome) icons, other launchers,
+          a physical device, and favicon behaviour in browsers other than the built-in preview. No ICO fallback was added.</p>
         <p class="small">Local review files:
           visual comparison (<code>artifacts/favicon-design/index.html</code>; local only) and
           design notes (<code>artifacts/favicon-design/README.md</code>; local only).
@@ -1099,6 +1108,9 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-23">23 October 2026</time><div><h3>Signal dial app icon</h3>
+<p>Replaced the template Android launcher icon with the confirmed Signal dial mark and added it as this report's favicon.
+Debug build and lint passed. See <a href="#favicon-proposal">the icon and limits</a>.</p></div></li>
 <li><time datetime="2026-10-23">23 October 2026</time><div><h3>Standard tabs, back arrows, and clearer buttons</h3>
 <p>Replaced the text links with Speed and Trips tabs, top app bars, a recording bar, icon map controls, and a saved trip menu.
 Debug build, lint, 13 calculation tests, and 24 emulator tests passed. See <a href="#navigation">screenshots and evidence</a>.</p></div></li>

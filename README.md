@@ -57,6 +57,11 @@ The tabs show only on their main screens. GPS details, the current trip, and sav
 Android Back from the Trips tab returns to Speed. Select the current tab again to return to its main screen.
 The recording notification opens the current trip. Navigation uses Navigation 3 with an app-owned back stack for each tab.
 
+## App icon
+
+The launcher icon uses the confirmed Signal dial mark: an open speed ring, a short needle, and one satellite point.
+It is an adaptive vector icon with a monochrome layer for themed icons. `PROGRESS.html` uses the same mark as its favicon.
+
 ## UI polish on 22 October 2026
 
 Recording continues while the main GPS screen or Trips is open. The GPS card reduces to its bar
