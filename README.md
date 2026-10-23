@@ -68,6 +68,7 @@ The user approved eight fixes from a UX and code review. Each fix is a separate 
 See [the fix list](PROGRESS.html#ux-review) for status and evidence.
 
 - The activity estimate uses an explicit null check instead of the `!!` operator. Behaviour does not change.
+- `ui/DisplayFormat.kt` formats speed, distance, and time from SI values in the user's locale. Screens and the notification use it.
 
 ## GPX export on 23 October 2026
 

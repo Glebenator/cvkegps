@@ -15,6 +15,7 @@ import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.example.cvkegps.MainActivity
 import com.example.cvkegps.R
+import com.example.cvkegps.ui.DisplayFormat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -31,7 +32,8 @@ class RecordingService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val command = when (intent?.action) {
-            START -> intent.getStringExtra(MODE)?.let { mode -> TripMode.entries.find { it.name == mode } }?.let { RecordingCommand.Start(it, intent.getBooleanExtra(AUTOMATIC, true)) }
+            START -> intent.getStringExtra(MODE)?.let { mode -> TripMode.entries.find { it.name == mode } }
+                ?.let { RecordingCommand.Start(it, intent.getBooleanExtra(AUTOMATIC, true)) }
             RESUME -> intent.getStringExtra(TRIP)?.let(RecordingCommand::Resume)
             PAUSE -> RecordingCommand.Pause
             STOP -> RecordingCommand.Finish(intent.getStringExtra(TRIP))
@@ -39,14 +41,17 @@ class RecordingService : Service() {
         }
         if (command == null) { stopSelf(startId); return START_NOT_STICKY }
         val manager = getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(NotificationChannel(CHANNEL, getString(R.string.recording_channel), NotificationManager.IMPORTANCE_LOW))
+        manager.createNotificationChannel(
+            NotificationChannel(CHANNEL, getString(R.string.recording_channel), NotificationManager.IMPORTANCE_LOW))
         try {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            val permission = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+            if (permission != PackageManager.PERMISSION_GRANTED) {
                 recorder.send(RecordingCommand.Interrupt(RecordingError.Access))
                 stopSelf(startId)
                 return START_NOT_STICKY
             }
-            ServiceCompat.startForeground(this, NOTIFICATION, notification(recorder.state.value), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+            ServiceCompat.startForeground(this, NOTIFICATION, notification(recorder.state.value),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
         } catch (_: RuntimeException) {
             recorder.send(RecordingCommand.Interrupt(RecordingError.Service))
             stopSelf(startId)
@@ -83,7 +88,8 @@ class RecordingService : Service() {
         val segmentStart = state.segmentStartNanos
         if (state.trip?.status == TripStatus.Paused) {
             builder.setContentTitle(getString(R.string.recording_notification_paused)).setShowWhen(false)
-                .setContentText(getString(R.string.recording_notification_paused_time, durationText(resources, state.trip.durationNanos)))
+                .setContentText(getString(R.string.recording_notification_paused_time,
+                    DisplayFormat(resources).duration(state.trip.durationNanos)))
         } else {
             builder.setContentTitle(getString(R.string.recording_notification_title))
             if (state.trip != null && segmentStart != null) {

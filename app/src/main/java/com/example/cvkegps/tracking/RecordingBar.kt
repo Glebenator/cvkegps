@@ -27,6 +27,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.example.cvkegps.R
+import com.example.cvkegps.ui.rememberDisplayFormat
 
 /** Shows the active trip above the navigation bar. The text area opens the live map. */
 @Composable
@@ -45,8 +46,10 @@ fun RecordingBar(actions: TrackingActions, onOpen: () -> Unit, modifier: Modifie
                 Icon(painterResource(R.drawable.ic_record), contentDescription = null, Modifier.size(16.dp),
                     tint = if (recording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                 Column {
-                    Text(stringResource(trip.status.title()), Modifier.testTag("recording_status"), style = MaterialTheme.typography.titleSmall)
-                    Text(duration(elapsed), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(trip.status.title()), Modifier.testTag("recording_status"),
+                        style = MaterialTheme.typography.titleSmall)
+                    Text(rememberDisplayFormat().duration(elapsed), style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             if (recording) FilledTonalIconButton(onClick = actions.pause, modifier = Modifier.size(48.dp).testTag("trip_pause")) {

@@ -206,7 +206,10 @@
           <tr><td>Replace the <code>!!</code> operator in the activity estimate with an explicit null check</td><td><span class="tag done">Done</span></td>
             <td>Debug build, lint, 15 calculation tests, and the activity estimate device test passed. Behaviour does not change:
             a usable speed already needs a known accuracy.</td></tr>
-          <tr><td>One shared display formatter for speed, distance, and time</td><td><span class="tag pending">Planned</span></td><td>—</td></tr>
+          <tr><td>One shared display formatter for speed, distance, and time</td><td><span class="tag done">Done</span></td>
+            <td><code>DisplayFormat</code> takes SI values and the user's locale. It replaces six <code>* 3.6</code> conversions and the private
+            <code>number()</code>, <code>duration()</code>, and <code>distance()</code> helpers. The notification uses the same class.
+            Debug build, lint, 17 calculation tests (two new tests with a German locale), and all 26 emulator device tests passed. Displayed text does not change.</td></tr>
           <tr><td>One file for each trip screen, and a plain controller for recording commands and access</td><td><span class="tag pending">Planned</span></td><td>—</td></tr>
           <tr><td>Distance on each trip card, stored with the trip</td><td><span class="tag pending">Planned</span></td><td>—</td></tr>
           <tr><td>Trip details lead with distance, time, and speeds. Technical details are collapsed</td><td><span class="tag pending">Planned</span></td><td>—</td></tr>
@@ -215,7 +218,15 @@
           <tr><td>Friendlier trip wording in Simplified Technical English</td><td><span class="tag pending">Planned</span></td><td>—</td></tr>
         </tbody>
       </table></div>
-      <p class="source">Local evidence: <code>artifacts/ux-review/</code>. Source: <a href="app/src/main/java/com/example/cvkegps/tracking/ActivityEstimate.kt">ActivityEstimate.kt</a>.</p>
+      <p class="source">Local evidence: <code>artifacts/ux-review/</code>. Sources: <a href="app/src/main/java/com/example/cvkegps/tracking/ActivityEstimate.kt">ActivityEstimate.kt</a>,
+      <a href="app/src/main/java/com/example/cvkegps/ui/DisplayFormat.kt">DisplayFormat.kt</a>, <a href="app/src/test/java/com/example/cvkegps/ui/DisplayFormatTest.kt">DisplayFormatTest.kt</a>.</p>
+      <details style="margin-top:18px">
+        <summary>One conversion from metres per second</summary>
+        <pre><code>fun speedNumber(metersPerSecond: Float): String = speedNumber.format(metersPerSecond * KMH_PER_MPS)
+
+fun speed(metersPerSecond: Float): String = text(R.string.trip_speed_value, arrayOf(speedNumber(metersPerSecond)))</code></pre>
+        <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/ui/DisplayFormat.kt">DisplayFormat.kt</a>.</p>
+      </details>
     </section>
 
     <section id="gpx-export" aria-labelledby="gpx-heading">
@@ -1290,8 +1301,8 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
 <li><time datetime="2026-10-23">23 October 2026</time><div><h3>UX and code review fixes</h3>
-<p>Started the eight approved review fixes. Done: an explicit null check in the activity estimate.
-Debug build, lint, 15 calculation tests, and the activity estimate device test passed. See <a href="#ux-review">the fix list</a>.</p></div></li>
+<p>Started the eight approved review fixes. Done: an explicit null check in the activity estimate, and one shared display formatter.
+Debug build, lint, 17 calculation tests, and all 26 emulator device tests passed. See <a href="#ux-review">the fix list</a>.</p></div></li>
 <li><time datetime="2026-10-23">23 October 2026</time><div><h3>Share a saved trip as GPX</h3>
 <p>Added Share as GPX to the saved trip menu. The app writes a private GPX 1.1 file and opens the Android share sheet; it uploads nothing.
 Debug build, lint, 15 calculation tests, and 11 tracking emulator tests passed. See <a href="#gpx-export">evidence and limits</a>.</p></div></li>

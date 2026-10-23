@@ -69,24 +69,21 @@ fun SpeedometerScreen(
     heading: @Composable () -> PhoneHeading = { PhoneHeading.Unavailable },
 ) {
     val locale = LocalConfiguration.current.locales[0]
-    val speedFormat = remember(locale) {
-        NumberFormat.getNumberInstance(locale).apply {
-            maximumFractionDigits = 1
-            isGroupingUsed = false
-        }
-    }
+    val format = rememberDisplayFormat()
     val wholeFormat = remember(locale) {
         NumberFormat.getIntegerInstance(locale).apply { isGroupingUsed = false }
     }
     val missing = stringResource(R.string.no_value)
-    val speed = state.reading?.speedMetersPerSecond?.let { speedFormat.format(it * 3.6) } ?: missing
+    val speed = state.reading?.speedMetersPerSecond?.let(format::speedNumber) ?: missing
     val altitude = state.reading?.altitudeMeters?.let(wholeFormat::format) ?: missing
-    val maximum = state.maximumSpeedMetersPerSecond?.let { speedFormat.format(it * 3.6) } ?: missing
+    val maximum = state.maximumSpeedMetersPerSecond?.let(format::speedNumber) ?: missing
     val satellites = remember(gnss.signals, state.status) {
         gnss.signals?.takeIf {
             state.status == GpsStatus.Live || state.status == GpsStatus.Searching || state.status == GpsStatus.Stale
         }?.distinctSatellites()
     }
+    val canStartTrip = state.status != GpsStatus.PermissionRequired && state.status != GpsStatus.Disabled &&
+        state.status != GpsStatus.Unavailable
 
     Scaffold(modifier = modifier.fillMaxSize()) { insets ->
         BoxWithConstraints(
@@ -111,8 +108,9 @@ fun SpeedometerScreen(
                         Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        GpsControls(state, permissionNeedsSettings, wholeFormat, onAction, onDetails, satellites, compact = wide, collapseWhenReady = true)
-                    trackerControls(state.status != GpsStatus.PermissionRequired && state.status != GpsStatus.Disabled && state.status != GpsStatus.Unavailable)
+                        GpsControls(state, permissionNeedsSettings, wholeFormat, onAction, onDetails, satellites,
+                            compact = wide, collapseWhenReady = true)
+                        trackerControls(canStartTrip)
                     }
                 }
             } else {
@@ -123,8 +121,9 @@ fun SpeedometerScreen(
                 ) {
                     SpeedDial(speed, state.reading?.speedMetersPerSecond != null, satellites, heading, Modifier.weight(1f))
                     Metrics(altitude, maximum)
-                    GpsControls(state, permissionNeedsSettings, wholeFormat, onAction, onDetails, satellites, compact = wide, collapseWhenReady = true)
-                    trackerControls(state.status != GpsStatus.PermissionRequired && state.status != GpsStatus.Disabled && state.status != GpsStatus.Unavailable)
+                    GpsControls(state, permissionNeedsSettings, wholeFormat, onAction, onDetails, satellites,
+                        compact = wide, collapseWhenReady = true)
+                    trackerControls(canStartTrip)
                 }
             }
         }
@@ -226,7 +225,8 @@ private fun SpeedValue(
 private fun Metrics(altitude: String, maximum: String) {
     Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         MetricCard(R.string.altitude, altitude, R.string.altitude_unit, "altitude", Modifier.weight(1f).fillMaxHeight())
-        MetricCard(R.string.maximum_speed, maximum, R.string.speed_unit, "maximum_speed", Modifier.weight(1f).fillMaxHeight(), R.string.since_open)
+        MetricCard(R.string.maximum_speed, maximum, R.string.speed_unit, "maximum_speed", Modifier.weight(1f).fillMaxHeight(),
+            R.string.since_open)
     }
 }
 
@@ -334,7 +334,8 @@ internal fun GpsControls(
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Surface(opens, color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.large) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(Modifier.heightIn(min = 24.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.heightIn(min = 24.dp), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Box(Modifier.size(8.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
                     Text(stringResource(title), Modifier.weight(1f).testTag("gps_status"), style = MaterialTheme.typography.titleSmall)
                     if (onDetails != null) DetailsChevron()
@@ -342,7 +343,8 @@ internal fun GpsControls(
                 if (onDetails != null && (!compact || satellites != null)) {
                     Text(
                         satellites?.let {
-                            stringResource(R.string.satellite_count, format.format(it.count { satellite -> satellite.usedInFix }), format.format(it.size))
+                            stringResource(R.string.satellite_count, format.format(it.count { satellite -> satellite.usedInFix }),
+                                format.format(it.size))
                         } ?: stringResource(R.string.satellite_count_unavailable),
                         Modifier.testTag("satellite_count"),
                         style = MaterialTheme.typography.labelLarge,

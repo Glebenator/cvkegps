@@ -5,7 +5,6 @@ import android.app.NotificationManager
 import android.content.ClipData
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.content.res.Resources
 import android.location.LocationManager
 import androidx.core.net.toUri
 import android.os.Build
@@ -78,7 +77,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -101,11 +99,11 @@ import com.example.cvkegps.R
 import com.example.cvkegps.ui.AppNavigator
 import com.example.cvkegps.ui.Destination
 import com.example.cvkegps.ui.Tab
+import com.example.cvkegps.ui.rememberDisplayFormat
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import android.text.format.DateUtils
 import java.io.File
-import java.text.NumberFormat
 
 /**
  * Trip state and commands for the screens. The host owns the recording dialogs.
@@ -306,6 +304,7 @@ fun TripStartControls(actions: TrackingActions, canStartTrip: Boolean) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TripsScreen(actions: TrackingActions, onTrip: (String) -> Unit, onLive: () -> Unit) {
+    val format = rememberDisplayFormat()
     val rows by actions.vm.trips.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
     Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.tracking_trips)) }) }) { insets ->
         LazyColumn(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets).testTag("trips_content"),
@@ -319,7 +318,7 @@ fun TripsScreen(actions: TrackingActions, onTrip: (String) -> Unit, onLive: () -
                 Card(onClick = { if (live) onLive() else onTrip(trip.id) }, modifier = Modifier.animateItem().fillMaxWidth().testTag("saved_trip")) {
                     ListItem(
                         headlineContent = { Text(tripTime(trip.startedMillis)) },
-                        supportingContent = { Text(stringResource(R.string.trip_summary_line, activityText(trip), duration(trip.durationNanos))) },
+                        supportingContent = { Text(stringResource(R.string.trip_summary_line, activityText(trip), format.duration(trip.durationNanos))) },
                         trailingContent = if (trip.status != TripStatus.Finished) { { StatusLabel(trip.status) } } else null,
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                     )
@@ -456,6 +455,7 @@ internal fun rememberElapsed(state: RecordingState): Long {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> Unit) {
+    val format = rememberDisplayFormat()
     val state = actions.recording
     val trip = state.trip
     val detail by actions.vm.activeDetail.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
@@ -478,12 +478,12 @@ fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> 
                         Column(Modifier.weight(1f)) {
                             Text(stringResource(trip.status.title()), Modifier.testTag("recording_status"),
                                 style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(reading?.speedMetersPerSecond?.let { stringResource(R.string.trip_speed_value, number(it * 3.6)) }
+                            Text(reading?.speedMetersPerSecond?.let(format::speed)
                                 ?: stringResource(R.string.no_value), Modifier.testTag("tracking_speed"), style = MaterialTheme.typography.headlineSmall)
                         }
                         Column(horizontalAlignment = Alignment.End) {
-                            Text(duration(elapsed), style = MaterialTheme.typography.titleMedium)
-                            PendingText(detail?.let { distance(it.summary.distanceMeters) }, Modifier.testTag("live_distance"),
+                            Text(format.duration(elapsed), style = MaterialTheme.typography.titleMedium)
+                            PendingText(detail?.let { format.distance(it.summary.distanceMeters) }, Modifier.testTag("live_distance"),
                                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
@@ -493,20 +493,20 @@ fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> 
         }
     }
     if (details && trip != null) TripDetailsSheet({ details = false }) {
-        Metric(R.string.trip_ground_speed, reading?.speedMetersPerSecond?.let { stringResource(R.string.trip_speed_value, number(it * 3.6)) })
+        Metric(R.string.trip_ground_speed, reading?.speedMetersPerSecond?.let(format::speed))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { Metric(R.string.trip_activity, activityText(trip)) }
             TextButton(onClick = { actions.chooseMode(trip.id) }, modifier = Modifier.testTag("change_activity")) {
                 Text(stringResource(R.string.mode_change_short))
             }
         }
-        Metric(R.string.trip_distance, detail?.let { distance(it.summary.distanceMeters) }, pending = detail == null)
-        Metric(R.string.trip_duration, duration(elapsed))
-        Metric(R.string.trip_altitude, reading?.altitudeMeters?.let { stringResource(R.string.trip_altitude_value, number(it)) })
-        Metric(R.string.trip_quality, reading?.accuracyMeters?.let { stringResource(R.string.trip_uncertainty_value, number(it.toDouble())) })
+        Metric(R.string.trip_distance, detail?.let { format.distance(it.summary.distanceMeters) }, pending = detail == null)
+        Metric(R.string.trip_duration, format.duration(elapsed))
+        Metric(R.string.trip_altitude, reading?.altitudeMeters?.let { stringResource(R.string.trip_altitude_value, format.decimal(it)) })
+        Metric(R.string.trip_quality, reading?.accuracyMeters?.let { stringResource(R.string.trip_uncertainty_value, format.decimal(it.toDouble())) })
         if (trip.mode == TripMode.Plane) {
-            Metric(R.string.trip_track, reading?.bearingRadians?.let { stringResource(R.string.trip_track_value, number(Math.toDegrees(it))) })
-            Metric(R.string.trip_vertical_quality, reading?.verticalAccuracyMeters?.let { stringResource(R.string.trip_uncertainty_value, number(it.toDouble())) })
+            Metric(R.string.trip_track, reading?.bearingRadians?.let { stringResource(R.string.trip_track_value, format.decimal(Math.toDegrees(it))) })
+            Metric(R.string.trip_vertical_quality, reading?.verticalAccuracyMeters?.let { stringResource(R.string.trip_uncertainty_value, format.decimal(it.toDouble())) })
             Text(stringResource(R.string.trip_plane_note), style = MaterialTheme.typography.bodySmall)
         }
         if (reading == null && trip.status == TripStatus.Recording) Text(stringResource(R.string.trip_signal_wait))
@@ -516,6 +516,7 @@ fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
+    val format = rememberDisplayFormat()
     // The trip list selects the trip before navigation. This covers a screen restored after process loss.
     LaunchedEffect(id) { if (actions.vm.selectedId.value != id) actions.vm.select(id) }
     val rows by actions.vm.trips.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
@@ -568,10 +569,9 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
             Box(Modifier.weight(1f)) {
                 MapWorkspace(shown?.summary?.lines) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Metric(R.string.trip_distance, shown?.let { distance(it.summary.distanceMeters) }, pending = shown == null)
-                        Metric(R.string.trip_duration, trip?.let { duration(it.durationNanos) }, pending = trip == null)
-                        Metric(R.string.maximum_speed, shown?.summary?.maximumSpeedMetersPerSecond?.let { stringResource(R.string.trip_speed_value, number(it * 3.6)) },
-                            pending = shown == null)
+                        Metric(R.string.trip_distance, shown?.let { format.distance(it.summary.distanceMeters) }, pending = shown == null)
+                        Metric(R.string.trip_duration, trip?.let { format.duration(it.durationNanos) }, pending = trip == null)
+                        Metric(R.string.maximum_speed, shown?.summary?.maximumSpeedMetersPerSecond?.let(format::speed), pending = shown == null)
                     }
                     if (trip?.status == TripStatus.Interrupted) {
                         Text(stringResource(R.string.trip_interrupted_note), style = MaterialTheme.typography.bodySmall)
@@ -597,16 +597,17 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
 
 @Composable
 private fun TripSummary(detail: TripDetail) {
+    val format = rememberDisplayFormat()
     Card {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(activityText(detail.trip))
             Text(stringResource(detail.trip.status.title()))
-            Metric(R.string.trip_distance, distance(detail.summary.distanceMeters))
-            Metric(R.string.trip_duration, duration(detail.trip.durationNanos))
-            Metric(R.string.maximum_speed, detail.summary.maximumSpeedMetersPerSecond?.let { stringResource(R.string.trip_speed_value, number(it * 3.6)) })
-            Metric(R.string.trip_points, number(detail.positions.toDouble(), 0))
-            Metric(R.string.trip_segments, number(detail.segments.toDouble(), 0))
-            Metric(R.string.trip_gaps, number(detail.summary.gapCount.toDouble(), 0))
+            Metric(R.string.trip_distance, format.distance(detail.summary.distanceMeters))
+            Metric(R.string.trip_duration, format.duration(detail.trip.durationNanos))
+            Metric(R.string.maximum_speed, detail.summary.maximumSpeedMetersPerSecond?.let(format::speed))
+            Metric(R.string.trip_points, format.whole(detail.positions))
+            Metric(R.string.trip_segments, format.whole(detail.segments))
+            Metric(R.string.trip_gaps, format.whole(detail.summary.gapCount))
             Text(stringResource(R.string.trip_gap_note), style = MaterialTheme.typography.bodySmall)
         }
     }
@@ -627,31 +628,6 @@ private fun PendingText(value: String?, modifier: Modifier = Modifier, style: Te
     val alpha by animateFloatAsState(if (value == null) 0f else 1f, label = "pending")
     Text(value ?: " ", modifier.graphicsLayer { this.alpha = alpha }.then(if (value == null) Modifier.clearAndSetSemantics { } else Modifier),
         style = style, color = color)
-}
-
-@Composable
-private fun distance(meters: Double): String = if (meters < 1_000) {
-    stringResource(R.string.trip_metres_value, number(meters, 0))
-} else stringResource(R.string.trip_distance_value, number(meters / 1_000, 2))
-
-@Composable
-internal fun duration(nanos: Long): String = durationText(LocalResources.current, nanos)
-
-/** Formats a recording time without Compose, so the notification uses the same text. */
-internal fun durationText(resources: Resources, nanos: Long): String {
-    val seconds = (nanos / 1_000_000_000L).coerceAtLeast(0)
-    val format = NumberFormat.getIntegerInstance(resources.configuration.locales[0])
-    return when {
-        seconds >= 3_600 -> resources.getString(R.string.trip_hours_minutes, format.format(seconds / 3_600), format.format(seconds / 60 % 60))
-        seconds >= 60 -> resources.getString(R.string.trip_minutes_seconds, format.format(seconds / 60), format.format(seconds % 60))
-        else -> resources.getString(R.string.trip_seconds, format.format(seconds))
-    }
-}
-
-@Composable
-private fun number(value: Double, decimals: Int = 1): String {
-    val locale = LocalConfiguration.current.locales[0]
-    return remember(locale, value, decimals) { NumberFormat.getNumberInstance(locale).apply { maximumFractionDigits = decimals }.format(value) }
 }
 
 @StringRes internal fun TripMode.title() = when (this) {
