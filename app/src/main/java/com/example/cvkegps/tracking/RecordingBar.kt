@@ -35,7 +35,8 @@ fun RecordingBar(actions: TrackingActions, onOpen: () -> Unit, modifier: Modifie
     val recording = trip.status == TripStatus.Recording
     val elapsed = rememberElapsed(actions.recording)
     Surface(modifier.fillMaxWidth().testTag("recording_bar"), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-        Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
+        // The text has 16 dp from the start edge through its touch area. The buttons use the same edge margin.
+        Row(Modifier.padding(start = 8.dp, end = 16.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.weight(1f).clip(MaterialTheme.shapes.medium)
                 .clickable(onClickLabel = stringResource(R.string.trip_open_live), role = Role.Button, onClick = onOpen)

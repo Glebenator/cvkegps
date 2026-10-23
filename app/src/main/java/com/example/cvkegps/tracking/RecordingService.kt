@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.IBinder
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
@@ -53,13 +54,13 @@ class RecordingService : Service() {
         }
         recorder.send(command)
         if (observer == null) observer = serviceScope.launch {
-            var previous: Pair<String?, TripStatus?>? = null
+            var previous: Triple<String?, TripStatus?, Long?>? = null
             recorder.state.collect { state ->
                 if (!state.needsService) {
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
                 } else {
-                    val key = state.trip?.id to state.trip?.status
+                    val key = Triple(state.trip?.id, state.trip?.status, state.segmentStartNanos)
                     if (key != previous) {
                         manager.notify(NOTIFICATION, notification(state))
                         previous = key
@@ -76,10 +77,20 @@ class RecordingService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val builder = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_recording)
-            .setContentTitle(getString(R.string.recording_notification_title))
-            .setContentText(getString(if (state.trip?.status == TripStatus.Paused) R.string.trip_paused else R.string.trip_recording))
             .setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
+        // Android shows the app name. While recording, the system chronometer counts the time without notification updates.
+        val segmentStart = state.segmentStartNanos
+        if (state.trip?.status == TripStatus.Paused) {
+            builder.setContentTitle(getString(R.string.recording_notification_paused)).setShowWhen(false)
+                .setContentText(getString(R.string.recording_notification_paused_time, durationText(resources, state.trip.durationNanos)))
+        } else {
+            builder.setContentTitle(getString(R.string.recording_notification_title))
+            if (state.trip != null && segmentStart != null) {
+                val elapsedMillis = (state.segmentBaseDurationNanos + SystemClock.elapsedRealtimeNanos() - segmentStart) / 1_000_000
+                builder.setWhen(System.currentTimeMillis() - elapsedMillis.coerceAtLeast(0)).setUsesChronometer(true).setShowWhen(true)
+            } else builder.setShowWhen(false)
+        }
         if (state.trip != null) {
             val paused = state.trip.status == TripStatus.Paused
             val action = Intent(this, RecordingService::class.java).setAction(if (paused) RESUME else PAUSE).putExtra(TRIP, state.trip.id)

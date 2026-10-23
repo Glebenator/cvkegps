@@ -62,6 +62,18 @@ The recording notification opens the current trip. Navigation uses Navigation 3 
 The launcher icon uses the confirmed Signal dial mark: an open speed ring, a short needle, and one satellite point.
 It is an adaptive vector icon with a monochrome layer for themed icons. `PROGRESS.html` uses the same mark as its favicon.
 
+## Trip polish on 23 October 2026
+
+Times below one minute show seconds only. Values and units do not break across lines at large text.
+Saved trip titles and list entries show the date and time. An unknown activity shows **Activity unknown**.
+The empty Trips tab tells you how to record a trip. Current trip shows the recorded distance.
+Saved trips show the maximum speed. The notification title shows **Recording trip** or **Trip paused**.
+While recording, the Android chronometer in the notification shows the time without extra notification updates.
+
+Debug build, Android lint, 13 calculation tests, and all 9 `TrackingDeviceTest` tests passed on the API 36 emulator.
+Captures use simulated emulator locations. The notification on a physical device, TalkBack, other languages, and a
+release build remain unchecked. See [the report](PROGRESS.html#trip-polish).
+
 ## UI polish on 22 October 2026
 
 Recording continues while the main GPS screen or Trips is open. The GPS card reduces to its bar

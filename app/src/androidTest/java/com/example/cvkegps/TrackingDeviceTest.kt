@@ -1,6 +1,7 @@
 package com.example.cvkegps
 
 import android.Manifest
+import android.app.Notification
 import android.app.NotificationManager
 import android.location.Location
 import android.location.LocationManager
@@ -93,8 +94,17 @@ class TrackingDeviceTest {
         deliver(id, 3)
         assertEquals(1, requestCount())
         val notification = context.getSystemService(NotificationManager::class.java).activeNotifications.single { it.id == 100 }
+        // Android shows the app name. The title shows the state, and the system counts the recording time.
+        assertEquals("Recording trip", notification.notification.extras.getString(Notification.EXTRA_TITLE))
+        assertTrue(notification.notification.extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER))
         notification.notification.actions[0].actionIntent.send()
         waitUntil { app.recorder.state.value.trip?.status == TripStatus.Paused }
+        waitUntil {
+            val paused = context.getSystemService(NotificationManager::class.java).activeNotifications.single { it.id == 100 }.notification
+            paused.extras.getString(Notification.EXTRA_TITLE) == "Trip paused" &&
+                paused.extras.getCharSequence(Notification.EXTRA_TEXT)?.startsWith("Recording time: ") == true &&
+                !paused.extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER)
+        }
         assertEquals(0, requestCount())
         val before = savedCount(id)
         inject()
@@ -150,6 +160,7 @@ class TrackingDeviceTest {
         waitUntil { runBlocking { app.database.trips().trip(id) } == null }
         assertEquals(0, savedCount(id))
         compose.onNodeWithTag("trips_content").assertIsDisplayed()
+        compose.onNodeWithTag("trips_empty", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test fun disabledLocationBlocksStartAndRecoversWithoutRestart() {
@@ -180,7 +191,7 @@ class TrackingDeviceTest {
 
     @Test fun automaticActivityUsesLiveEvidenceAndManualCorrectionSurvivesResume() {
         launch()
-        compose.onNodeWithTag("activity_estimate", useUnmergedTree = true).assertTextEquals("Estimate: Activity unknown")
+        compose.onNodeWithTag("activity_estimate", useUnmergedTree = true).assertTextEquals("Activity unknown")
         val deadline = SystemClock.elapsedRealtime() + 18_000
         while (SystemClock.elapsedRealtime() < deadline) { inject(); Thread.sleep(1_100) }
         compose.onNodeWithTag("activity_estimate", useUnmergedTree = true).assertTextEquals("Estimate: Bike or ski")
@@ -267,6 +278,7 @@ class TrackingDeviceTest {
                     compose.onNodeWithTag("route_map").assertIsDisplayed()
                     compose.onNodeWithTag("trip_pause").performScrollTo().assertIsDisplayed()
                     compose.onNodeWithTag("trip_stop").performScrollTo().assertIsDisplayed()
+                    compose.onNodeWithTag("live_distance").assertIsDisplayed()
                     Thread.sleep(500)
                     shell("screencap -p /sdcard/Download/cvkegps-tracker-$name-$landscape.png")
                 }

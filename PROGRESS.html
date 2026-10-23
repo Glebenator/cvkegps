@@ -166,18 +166,19 @@
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-10-23">23 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>14bfce9</code> + trip opening without loading messages (not committed)</dd></div>
+          <div><dt>App code baseline</dt><dd><code>825af99</code> + trip text and status polish</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
       </aside>
     </div>
     <div class="metrics" aria-label="Last verified results">
-      <div class="metric"><strong>24 / 24</strong><span>Emulator device tests passed</span><span class="small">API 36 · Trip opening change · One flaky setup wait passed on rerun</span></div>
-      <div class="metric"><strong>13 / 13</strong><span>Calculation tests passed</span><span class="small">Calculations unchanged</span></div>
+      <div class="metric"><strong>9 / 9</strong><span>Tracking device tests passed</span><span class="small">API 36 · Trip polish change · Other device tests last passed on <code>825af99</code></span></div>
+      <div class="metric"><strong>13 / 13</strong><span>Calculation tests passed</span><span class="small">Run again for this change</span></div>
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, and debug lint</span><span class="small">No release build for this change</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#trip-polish">Trip polish</a>
       <a href="#navigation">Navigation</a>
       <a href="#map-attribution">Map attribution</a>
       <a href="#ui-polish">UI polish</a>
@@ -191,6 +192,57 @@
       <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
     </nav>
+
+    <section id="trip-polish" aria-labelledby="trip-polish-heading">
+      <div class="section-head"><h2 id="trip-polish-heading">Trip text and status polish · 23 October 2026</h2><span class="tag done">Implemented and checked</span></div>
+      <p class="section-intro">A review on the emulator found small problems in trip text, empty states, and the recording notification. This change corrects them. It adds no new feature.</p>
+      <div class="grid">
+        <article class="panel"><h3>Text and values</h3><ul>
+          <li>Times below one minute show seconds only, for example "21 s" instead of "0 min 21 s".</li>
+          <li>Values and units use non-breaking spaces. At 200% text, "1 min 5 s" no longer breaks across two lines.</li>
+          <li>Saved trip titles and list entries show the date and time. The year shows only for earlier years. Two trips on one day have different titles.</li>
+          <li>An unknown activity shows "Activity unknown", not "Estimate: Activity unknown".</li>
+          <li>Horizontal and vertical uncertainty in Trip details use "±", as in GPS details.</li>
+          <li>The recording dialog no longer states twice that trips stay on this device.</li>
+        </ul></article>
+        <article class="panel"><h3>Screens and notification</h3><ul>
+          <li>The empty Trips tab shows a centred icon, "No trips", and the step to record a trip.</li>
+          <li>Current trip shows the recorded distance below the recording time. The value fades in when the route summary is ready.</li>
+          <li>Saved trips show the maximum speed beside distance and recording time.</li>
+          <li>The recording bar uses a 16 dp end margin, the same as the screen content.</li>
+          <li>The notification title shows "Recording trip" or "Trip paused". Android already shows the app name.
+          While recording, the Android chronometer shows the time. The app does not update the notification each second. A paused trip shows its recording time.</li>
+        </ul></article>
+      </div>
+      <div class="screens"><figure class="shot"><a href="docs/progress/images/2026-10-23-polish2-trips-empty-light.png"><img src="docs/progress/images/2026-10-23-polish2-trips-empty-light.png" loading="lazy" alt="Trips tab with a centred route icon, the text No trips, and an instruction."></a>
+      <figcaption><strong>Trips with no saved trips, light theme</strong>23 October 2026. Baseline <code>825af99</code> plus this change. Debug APK <code>d111f808</code>. API 36 emulator. Position and speed use simulated emulator locations.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-23-polish2-trips-empty-dark.png"><img src="docs/progress/images/2026-10-23-polish2-trips-empty-dark.png" loading="lazy" alt="The same empty Trips tab in the dark theme."></a>
+      <figcaption><strong>Trips with no saved trips, dark theme</strong>23 October 2026. Baseline <code>825af99</code> plus this change. Debug APK <code>d111f808</code>. API 36 emulator. Position and speed use simulated emulator locations.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-23-polish2-recording-speed-light.png"><img src="docs/progress/images/2026-10-23-polish2-recording-speed-light.png" loading="lazy" alt="Speed tab while recording. The recording bar shows 21 s and has a 16 dp end margin."></a>
+      <figcaption><strong>Recording bar with seconds only</strong>23 October 2026. Baseline <code>825af99</code> plus this change. Debug APK <code>d111f808</code>. API 36 emulator. Position and speed use simulated emulator locations.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-23-polish2-notification.png"><img src="docs/progress/images/2026-10-23-polish2-notification.png" loading="lazy" alt="Notification shade with Recording trip and a running time of 00:24."></a>
+      <figcaption><strong>Recording notification with a running time</strong>23 October 2026. Baseline <code>825af99</code> plus this change. Debug APK <code>d111f808</code>. API 36 emulator. Position and speed use simulated emulator locations.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-23-polish2-live-trip-light.png"><img src="docs/progress/images/2026-10-23-polish2-live-trip-light.png" loading="lazy" alt="Current trip panel with speed, recording time 32 s, and distance 400 m."></a>
+      <figcaption><strong>Current trip with distance</strong>23 October 2026. Baseline <code>825af99</code> plus this change. Debug APK <code>d111f808</code>. API 36 emulator. Position and speed use simulated emulator locations.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-23-polish2-saved-trip-light.png"><img src="docs/progress/images/2026-10-23-polish2-saved-trip-light.png" loading="lazy" alt="Saved trip titled Oct 23, 2:00 PM with distance, recording time, and maximum speed below the map."></a>
+      <figcaption><strong>Saved trip with time in the title</strong>23 October 2026. Baseline <code>825af99</code> plus this change. Debug APK <code>d111f808</code>. API 36 emulator. Position and speed use simulated emulator locations.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-23-polish2-trips-list-large-text.png"><img src="docs/progress/images/2026-10-23-polish2-trips-list-large-text.png" loading="lazy" alt="Trip list at 200% text. The entry keeps 33 s on one line."></a>
+      <figcaption><strong>Trip list at 200% text</strong>23 October 2026. Baseline <code>825af99</code> plus this change. Debug APK <code>d111f808</code>. API 36 emulator. Position and speed use simulated emulator locations.</figcaption></figure></div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <p>The debug build, test APK build, Android lint, and 13 calculation tests passed. All 9 <code>TrackingDeviceTest</code> tests passed on the API 36 emulator.
+        New checks cover the notification title and chronometer while recording, the paused title and recording time, the empty Trips state after delete,
+        and the live distance in light, dark, landscape, and 200% text.</p>
+        <p>Light, dark, landscape, and 200% text were inspected on the emulator. Screenshots above use emulator locations.
+        The speedometer and GPS details tests were not run again: their code did not change.</p>
+        <p class="test-note"><strong>Not checked:</strong> the notification on a physical device, other languages and date formats, TalkBack, and a release build.</p>
+        <p class="source">Debug APK SHA-256: <code>d111f808b9ea9e70b453ad7e4f19f9983a8a249c03af5f8e2662bc09f3c00bea</code>. Local evidence: <code>artifacts/polish-captures/</code>,
+        <code>artifacts/polish-build.log</code>, <code>artifacts/polish-tracking-test.log</code>, and <code>artifacts/polish-tracking-test.xml</code>.
+        Sources: <a href="app/src/main/java/com/example/cvkegps/tracking/TrackingScreen.kt">TrackingScreen.kt</a>,
+        <a href="app/src/main/java/com/example/cvkegps/tracking/RecordingService.kt">RecordingService.kt</a>,
+        <a href="app/src/main/java/com/example/cvkegps/tracking/RecordingBar.kt">RecordingBar.kt</a>,
+        <a href="app/src/main/res/values/tracking_strings.xml">tracking_strings.xml</a>.</p>
+      </article>
+      <details style="margin-top:18px">
+        <summary>Notification: the system counts the recording time</summary>
+        <pre><code>val elapsedMillis = (state.segmentBaseDurationNanos + SystemClock.elapsedRealtimeNanos() - segmentStart) / 1_000_000
+builder.setWhen(System.currentTimeMillis() - elapsedMillis.coerceAtLeast(0)).setUsesChronometer(true).setShowWhen(true)</code></pre>
+        <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/tracking/RecordingService.kt">RecordingService.kt</a>.</p>
+      </details>
+    </section>
 
     <section id="navigation" aria-labelledby="navigation-heading">
       <div class="section-head"><h2 id="navigation-heading">Navigation and buttons · 23 October 2026</h2><span class="tag done">Implemented and checked</span></div>
@@ -1132,6 +1184,9 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-23">23 October 2026</time><div><h3>Trip text and status polish</h3>
+<p>Shorter times, no split values at large text, date and time in trip titles, a clear empty Trips state, live distance, maximum speed on saved trips, and a notification with a running time.
+Debug build, lint, 13 calculation tests, and 9 tracking emulator tests passed. See <a href="#trip-polish">screenshots and evidence</a>.</p></div></li>
 <li><time datetime="2026-10-23">23 October 2026</time><div><h3>Saved trips open without loading messages</h3>
 <p>The trip screen now shows its known values at once and loads the route during the transition. Removed the "Loading trip…" text and early empty-state messages.
 Debug build, lint, 13 calculation tests, and 24 emulator tests passed (one flaky setup wait passed on rerun). See <a href="#trip-opening">evidence and limits</a>.</p></div></li>
