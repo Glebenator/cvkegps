@@ -164,19 +164,21 @@
       </div>
       <aside class="meta" aria-label="Report details">
         <dl>
-          <div><dt>Report updated</dt><dd><time datetime="2026-10-21">21 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>d9e7ae3</code> + constellation work in this commit</dd></div>
+          <div><dt>Report updated</dt><dd><time datetime="2026-10-22">22 October 2026</time></dd></div>
+          <div><dt>App code baseline</dt><dd><code>5303e43</code> + existing GPS display changes + UI polish + smaller map attribution</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
       </aside>
     </div>
     <div class="metrics" aria-label="Last verified results">
-      <div class="metric"><strong>8 / 8</strong><span>Emulator tests passed</span><span class="small">API 36 · Working-tree APK</span></div>
-      <div class="metric"><strong>3 / 3</strong><span>Calculation tests passed</span><span class="small">Route distance and quality rules</span></div>
-      <div class="metric"><strong>Passed</strong><span>Debug and release builds and lint</span><span class="small">Release APK is unsigned</span></div>
+      <div class="metric"><strong>2 / 2</strong><span>Map layout tests passed</span><span class="small">API 36 · Earlier 12-test check recorded below</span></div>
+      <div class="metric"><strong>13 / 13</strong><span>Calculation tests passed</span><span class="small">Earlier UI milestone · Calculations unchanged</span></div>
+      <div class="metric"><strong>Passed</strong><span>Debug build, test build, and debug lint</span><span class="small">Release evidence is from the earlier milestone</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#map-attribution">Map attribution</a>
+      <a href="#ui-polish">UI polish</a>
       <a href="#status">Current scope</a>
       <a href="#tracking">Tracking</a>
       <a href="#screens">Screenshots</a>
@@ -187,6 +189,82 @@
       <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
     </nav>
+
+    <section id="map-attribution" aria-labelledby="attribution-heading">
+      <div class="section-head"><h2 id="attribution-heading">Smaller map attribution · 22 October 2026</h2><span class="tag done">Implemented and checked</span></div>
+      <p class="section-intro">The OpenStreetMap credit now uses a small caption. Its background covers only the text and a narrow margin.
+      A transparent touch area remains at least 48 dp high. The full credit and its link remain visible. Text follows the system font size.</p>
+      <div class="screens"><figure class="shot"><a href="docs/progress/images/2026-10-22-attribution-saved-light.png"><img src="docs/progress/images/2026-10-22-attribution-saved-light.png" loading="lazy" alt="Saved map, light theme, with a smaller map attribution caption."></a>
+      <figcaption><strong>Saved map, light theme</strong>22 October 2026. Baseline <code>5303e43</code> plus existing GPS changes, UI polish, and smaller attribution.
+      Debug APK <code>3fb007ca</code>. Position and speed use simulated Android test locations.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-22-attribution-saved-dark.png"><img src="docs/progress/images/2026-10-22-attribution-saved-dark.png" loading="lazy" alt="Saved map, dark theme, with a smaller map attribution caption."></a>
+      <figcaption><strong>Saved map, dark theme</strong>22 October 2026. Baseline <code>5303e43</code> plus existing GPS changes, UI polish, and smaller attribution.
+      Debug APK <code>3fb007ca</code>. Position and speed use simulated Android test locations.</figcaption></figure><figure class="shot landscape"><a href="docs/progress/images/2026-10-22-attribution-saved-large-text.png"><img src="docs/progress/images/2026-10-22-attribution-saved-large-text.png" loading="lazy" alt="Saved map, landscape at 200% text, with a smaller map attribution caption."></a>
+      <figcaption><strong>Saved map, landscape at 200% text</strong>22 October 2026. Baseline <code>5303e43</code> plus existing GPS changes, UI polish, and smaller attribution.
+      Debug APK <code>3fb007ca</code>. Position and speed use simulated Android test locations.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-22-attribution-live-light.png"><img src="docs/progress/images/2026-10-22-attribution-live-light.png" loading="lazy" alt="Live map, light theme, with a smaller map attribution caption."></a>
+      <figcaption><strong>Live map, light theme</strong>22 October 2026. Baseline <code>5303e43</code> plus existing GPS changes, UI polish, and smaller attribution.
+      Debug APK <code>3fb007ca</code>. Position and speed use simulated Android test locations.</figcaption></figure></div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <p>The debug app build, test APK build, and Android lint passed. Two existing API 36 layout tests passed for the main screen, saved maps,
+        and live maps. Screenshots were checked in light and dark themes, portrait and landscape, and at 200% text.</p>
+        <p>The initial streamed APK installation failed its signature check. Local signature verification passed.
+        A direct APK copy installed successfully; both layout checks then passed.</p>
+        <p>This update changes the caption layout only. Earlier functional and calculation checks are recorded below.
+        Physical-device and TalkBack checks remain open. No release check was run for this update.</p>
+        <p class="source">Debug APK SHA-256: <code>3fb007cafe44ca3e495742a3e9c3073aa5526c9f3850b99ebf3f1c2a11371eac</code>. Local evidence: <code>artifacts/map-attribution/</code> and <code>artifacts/map-attribution-build.log</code>.
+        Source: <a href="app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt">map attribution</a>.</p>
+      </article>
+    </section>
+
+    <section id="ui-polish" aria-labelledby="polish-heading">
+      <div class="section-head"><h2 id="polish-heading">Tracking and map review · 22 October 2026</h2><span class="tag done">Implemented and checked</span></div>
+      <p class="section-intro">Recording stays on the main GPS screen. Saved trips open on a large map. Trip measurements scroll in a separate panel.</p>
+      <div class="grid">
+        <article class="panel"><h3>Main display while recording</h3><ul>
+          <li>Start recording and keep the speed display visible. View route opens the live map. Speedometer and Android Back return to the main display.</li>
+          <li>Pause, Resume, and Stop remain available. Open Trips while recording continues. Screen lock and notification controls use the existing recording service.</li>
+          <li>A fresh position with an accuracy estimate of 5 m or better reduces the GPS card to its bar and navigation controls. Poor, missing, or old readings expand the card.</li>
+          <li>GPS details retains accuracy values, scale labels, and satellite reports. The compact bar has an accuracy description for screen readers.</li>
+        </ul></article>
+        <article class="panel"><h3>Map and trip controls</h3><ul>
+          <li>Saved trips show the map first. Map gestures have no scrolling page around them. Trip details opens a separate panel.</li>
+          <li>Fit route restores the route bounds. Zoom buttons supplement pinch gestures. Review keeps the camera while details open and after activity recreation.</li>
+          <li>Short routes have a maximum initial zoom of 17. The map has larger edge margins. A wide screen places the trip panel beside the map.</li>
+          <li>The trip list keeps Back outside its scroll area. Entries show the date, activity, state, and recording time.</li>
+          <li>Distances below 1 km use metres. Durations use minutes and seconds, or hours and minutes.</li>
+        </ul></article>
+      </div>
+      <h3 style="margin-top:24px">Earlier UI polish screenshots</h3><div class="screens"><figure class="shot"><a href="docs/progress/images/2026-10-22-polish-recording-home-light.png"><img src="docs/progress/images/2026-10-22-polish-recording-home-light.png" loading="lazy" alt="Recording on the main screen, light theme."></a>
+      <figcaption><strong>Recording on the main screen, light theme</strong>22 October 2026. Baseline <code>5303e43</code> plus existing GPS display changes and UI polish.
+      Debug APK <code>6e0db435</code>. Android test locations supply simulated position and speed data.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-22-polish-recording-home-dark.png"><img src="docs/progress/images/2026-10-22-polish-recording-home-dark.png" loading="lazy" alt="Recording on the main screen, dark theme."></a>
+      <figcaption><strong>Recording on the main screen, dark theme</strong>22 October 2026. Baseline <code>5303e43</code> plus existing GPS display changes and UI polish.
+      Debug APK <code>6e0db435</code>. Android test locations supply simulated position and speed data.</figcaption></figure><figure class="shot landscape"><a href="docs/progress/images/2026-10-22-polish-recording-home-large-text.png"><img src="docs/progress/images/2026-10-22-polish-recording-home-large-text.png" loading="lazy" alt="Recording on the main screen, landscape at 200% text."></a>
+      <figcaption><strong>Recording on the main screen, landscape at 200% text</strong>22 October 2026. Baseline <code>5303e43</code> plus existing GPS display changes and UI polish.
+      Debug APK <code>6e0db435</code>. Android test locations supply simulated position and speed data.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-22-polish-saved-map-light.png"><img src="docs/progress/images/2026-10-22-polish-saved-map-light.png" loading="lazy" alt="Saved route with a large map, light theme."></a>
+      <figcaption><strong>Saved route with a large map, light theme</strong>22 October 2026. Baseline <code>5303e43</code> plus existing GPS display changes and UI polish.
+      Debug APK <code>6e0db435</code>. Android test locations supply simulated position and speed data.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-22-polish-saved-map-dark.png"><img src="docs/progress/images/2026-10-22-polish-saved-map-dark.png" loading="lazy" alt="Saved route with a large map, dark theme."></a>
+      <figcaption><strong>Saved route with a large map, dark theme</strong>22 October 2026. Baseline <code>5303e43</code> plus existing GPS display changes and UI polish.
+      Debug APK <code>6e0db435</code>. Android test locations supply simulated position and speed data.</figcaption></figure><figure class="shot landscape"><a href="docs/progress/images/2026-10-22-polish-saved-map-large-text.png"><img src="docs/progress/images/2026-10-22-polish-saved-map-large-text.png" loading="lazy" alt="Saved route with a separate panel, landscape at 200% text."></a>
+      <figcaption><strong>Saved route with a separate panel, landscape at 200% text</strong>22 October 2026. Baseline <code>5303e43</code> plus existing GPS display changes and UI polish.
+      Debug APK <code>6e0db435</code>. Android test locations supply simulated position and speed data.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-22-polish-live-map-light.png"><img src="docs/progress/images/2026-10-22-polish-live-map-light.png" loading="lazy" alt="Live route with Pause and Stop controls."></a>
+      <figcaption><strong>Live route with Pause and Stop controls</strong>22 October 2026. Baseline <code>5303e43</code> plus existing GPS display changes and UI polish.
+      Debug APK <code>6e0db435</code>. Android test locations supply simulated position and speed data.</figcaption></figure></div>
+      <article class="panel" style="margin-top:24px"><h3>Verification and limits</h3>
+        <p>Debug app build, test APK build, Android lint, 13 calculation tests, and 12 API 36 emulator checks passed on this source.
+        Checks cover recording on the main screen, a single GPS request, poor and old readings, map pan and zoom, camera restoration,
+        deletion, signal gaps, notification Pause and Resume, screen lock, activity correction, and existing GPS display behaviour.</p>
+        <p>Main, live-map, and saved-map layouts were checked in light and dark themes, portrait and landscape, and at 200% text.
+        Selected screenshots above were inspected. Simulated locations give functional evidence. They do not measure receiver accuracy or battery use.</p>
+        <p>Initial checks exposed a narrow landscape panel, excessive zoom for short routes, and a clipped Start button when location was off. These were corrected.
+        Java crashed during two build attempts. The final build used a fresh Gradle process, two workers, Serial GC,
+        and first-tier compilation. Kotlin ran in the Gradle process without incremental compilation. These options affect the local build command only.</p>
+        <p>Physical-device accuracy, power use, TalkBack operation, long trips, Doze, Battery Saver, and API 29/37 flows still need checks.
+        Offline map failure remains unverified. Release results below refer to earlier code; no release check is claimed for this update.</p>
+        <p class="source">Debug APK SHA-256: <code>6e0db4357b1f3903b98b7c08cf8c7a125d0710b67ec3a24337662bde92c1e1dc</code>. Local evidence: <code>artifacts/ui-polish/</code> and <code>artifacts/ui-polish-build.log</code>.
+        Source: <a href="app/src/main/java/com/example/cvkegps/tracking/TrackingScreen.kt">tracking screens</a>,
+        <a href="app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt">map controls</a>, and
+        <a href="app/src/androidTest/java/com/example/cvkegps/TrackingDeviceTest.kt">device tests</a>.</p>
+      </article>
+    </section>
 
     <section id="status" aria-labelledby="status-heading">
       <div class="section-head"><h2 id="status-heading"><span class="number">01</span>Current scope</h2><span class="tag done">Implemented</span></div>
@@ -201,7 +279,8 @@
             <li>No home-screen scroll area. The speed display uses the space left by the readings and GPS controls.</li>
             <li>Precise-location permission, automatic speed display, and recovery actions.</li>
             <li>An information button beside GPS status opens a scrollable GPS details screen.</li>
-            <li>One constellation marker per satellite. System shapes and brightness show satellite type and use.</li>
+            <li>An abstract satellite ring around the speed uses reported direction and elevation and turns with the phone. A small N marks north.
+              GPS details has a full sky map with direction labels. Brighter markers have stronger signals. Filled markers are used in the position.</li>
             <li>The position accuracy bar fills from 50 m to 1 m, with a 5 m notch. It does not guarantee accuracy.</li>
           </ul>
         </article>
@@ -215,6 +294,7 @@
             <li>Trips use a location foreground service and local storage. No wake lock or route upload.</li>
             <li>Home and details share one satellite callback while resumed and GPS is active. Share one location request.</li>
             <li>Clear old satellite reports after 10 seconds. Animate data changes for 650 ms, with no continuous animation.</li>
+            <li>Run the compass only while a sky display shows satellites and the activity is resumed. Ignore heading changes below one degree.</li>
           </ul>
         </article>
       </div>
@@ -257,7 +337,7 @@
       <div class="section-head"><h2 id="correction-heading">Tracker design correction</h2><span class="tag done">21 October 2026</span></div>
       <p>Design 2a is now the basis of the tracker. Speed starts when location access is available.
         Home has one Start map tracking button. Permission and location recovery controls remain available.
-        Recording opens the live map with speed, distance, duration, Pause, Resume, and Stop.
+        At this earlier milestone, recording opened the live map. The UI polish update above replaces this entry flow.
         The activity label opens an optional correction. Saved trips use a separate view.</p>
       <p>The estimate uses at least six valid readings over 15 seconds. At least 80% of the recent readings
         must support the category. The window holds at most 30 seconds and 60 readings.
@@ -302,6 +382,46 @@
     </section>
     <section id="screens" aria-labelledby="screens-heading">
       <div class="section-head"><h2 id="screens-heading"><span class="number">02</span>Screen evidence</h2><span class="small">Captures dated below</span></div>
+<h3>Satellite ring around the speed &middot; 22 October 2026</h3><p>The home ring keeps the earlier abstract style. Reported direction and elevation set each position, and the ring turns with the phone. A small N marks north. Brighter markers have stronger signals. GPS details keeps the full sky map with direction labels.</p><div class="screens"><figure class="shot"><a href="docs/progress/images/2026-10-22-home-sky-ring-light.png">
+      <img src="docs/progress/images/2026-10-22-home-sky-ring-light.png" loading="lazy" alt="Home satellite ring facing east. A small N is on the left, and strong satellites glow. Light theme."></a>
+      <figcaption><strong>Home &middot; light theme</strong>22 October 2026. Baseline <code>5303e43</code> plus the sky map, phone heading, and home sky ring.
+      Debug APK <code>a8c15a93</code>. Controlled position, satellite, and compass reports. Simulated true heading: 90 degrees.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-22-home-sky-ring-dark.png">
+      <img src="docs/progress/images/2026-10-22-home-sky-ring-dark.png" loading="lazy" alt="Home satellite ring facing east with glowing strong satellites and dim weak satellites. Dark theme."></a>
+      <figcaption><strong>Home &middot; dark theme</strong>22 October 2026. Baseline <code>5303e43</code> plus the sky map, phone heading, and home sky ring.
+      Debug APK <code>a8c15a93</code>. Controlled position, satellite, and compass reports. Simulated true heading: 90 degrees.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-22-home-sky-ring-large-text.png">
+      <img src="docs/progress/images/2026-10-22-home-sky-ring-large-text.png" loading="lazy" alt="Home satellite ring facing east at 200% text."></a>
+      <figcaption><strong>Home &middot; 200% text</strong>22 October 2026. Baseline <code>5303e43</code> plus the sky map, phone heading, and home sky ring.
+      Debug APK <code>a8c15a93</code>. Controlled position, satellite, and compass reports. Simulated true heading: 90 degrees.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-22-sky-map-brightness-dark.png">
+      <img src="docs/progress/images/2026-10-22-sky-map-brightness-dark.png" loading="lazy" alt="GPS details sky map facing east with brightness set by signal strength. Dark theme."></a>
+      <figcaption><strong>GPS details &middot; dark theme</strong>22 October 2026. Baseline <code>5303e43</code> plus the sky map, phone heading, and home sky ring.
+      Debug APK <code>a8c15a93</code>. Controlled position, satellite, and compass reports. Simulated true heading: 90 degrees.</figcaption></figure><figure class="shot landscape"><a href="docs/progress/images/2026-10-22-home-sky-ring-landscape.png">
+      <img src="docs/progress/images/2026-10-22-home-sky-ring-landscape.png" loading="lazy" alt="Home in landscape. The dial is too short for the ring, so speed uses the space and the compass is off."></a>
+      <figcaption><strong>Home &middot; landscape</strong>22 October 2026. Baseline <code>5303e43</code> plus the sky map, phone heading, and home sky ring.
+      Debug APK <code>a8c15a93</code>. Controlled reports. The ring is hidden because the dial is shorter than 300 dp.</figcaption></figure></div><h3>Sky map follows the phone &middot; 21 October 2026</h3><p>The screen's upper edge sets the direction at the top. The compass is corrected to true north with the current GPS fix.</p><div class="screens"><figure class="shot"><a href="docs/progress/images/2026-10-21-phone-heading-light.png">
+      <img src="docs/progress/images/2026-10-21-phone-heading-light.png" loading="lazy" alt="Satellite sky map facing east. East is at the top and north is on the left. Light theme."></a>
+      <figcaption><strong>Light theme</strong>21 October 2026. Baseline <code>5303e43</code> plus the sky map and phone heading.
+      Debug APK <code>704f1f5c</code>. Controlled satellite, position, and compass reports. Simulated true heading: 90 degrees.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-21-phone-heading-dark.png">
+      <img src="docs/progress/images/2026-10-21-phone-heading-dark.png" loading="lazy" alt="Satellite sky map facing east. East is at the top and north is on the left. Dark theme."></a>
+      <figcaption><strong>Dark theme</strong>21 October 2026. Baseline <code>5303e43</code> plus the sky map and phone heading.
+      Debug APK <code>704f1f5c</code>. Controlled satellite, position, and compass reports. Simulated true heading: 90 degrees.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-21-phone-heading-large-text.png">
+      <img src="docs/progress/images/2026-10-21-phone-heading-large-text.png" loading="lazy" alt="Satellite sky map facing east. East is at the top and north is on the left. 200% text."></a>
+      <figcaption><strong>200% text</strong>21 October 2026. Baseline <code>5303e43</code> plus the sky map and phone heading.
+      Debug APK <code>704f1f5c</code>. Controlled satellite, position, and compass reports. Simulated true heading: 90 degrees.</figcaption></figure><figure class="shot landscape"><a href="docs/progress/images/2026-10-21-phone-heading-landscape-large-text.png">
+      <img src="docs/progress/images/2026-10-21-phone-heading-landscape-large-text.png" loading="lazy" alt="Satellite sky map facing east. East is at the top and north is on the left. Landscape at 200% text."></a>
+      <figcaption><strong>Landscape at 200% text</strong>21 October 2026. Baseline <code>5303e43</code> plus the sky map and phone heading.
+      Debug APK <code>704f1f5c</code>. Controlled satellite, position, and compass reports. Simulated true heading: 90 degrees.</figcaption></figure></div><h3>Earlier map with north at the top &middot; 21 October 2026</h3><p>Baseline <code>5303e43</code> plus the sky map. Debug APK <code>d319a9ef</code>. Native API 36 emulator captures use controlled satellite reports.</p><div class="screens"><figure class="shot"><a href="docs/progress/images/2026-10-21-sky-map-light.png">
+      <img src="docs/progress/images/2026-10-21-sky-map-light.png" loading="lazy" alt="Satellite sky map with north at the top and controlled satellite positions. Light theme."></a>
+      <figcaption><strong>Light theme</strong>21 October 2026. Baseline <code>5303e43</code> plus the sky map.
+      Debug APK <code>d319a9ef</code>. Controlled satellite reports; no receiver hardware test.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-21-sky-map-dark.png">
+      <img src="docs/progress/images/2026-10-21-sky-map-dark.png" loading="lazy" alt="Satellite sky map with north at the top and controlled satellite positions. Dark theme."></a>
+      <figcaption><strong>Dark theme</strong>21 October 2026. Baseline <code>5303e43</code> plus the sky map.
+      Debug APK <code>d319a9ef</code>. Controlled satellite reports; no receiver hardware test.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-21-sky-map-large-text.png">
+      <img src="docs/progress/images/2026-10-21-sky-map-large-text.png" loading="lazy" alt="Satellite sky map with north at the top and controlled satellite positions. 200% text."></a>
+      <figcaption><strong>200% text</strong>21 October 2026. Baseline <code>5303e43</code> plus the sky map.
+      Debug APK <code>d319a9ef</code>. Controlled satellite reports; no receiver hardware test.</figcaption></figure><figure class="shot landscape"><a href="docs/progress/images/2026-10-21-sky-map-landscape-large-text.png">
+      <img src="docs/progress/images/2026-10-21-sky-map-landscape-large-text.png" loading="lazy" alt="Satellite sky map with north at the top and controlled satellite positions. Landscape at 200% text."></a>
+      <figcaption><strong>Landscape at 200% text</strong>21 October 2026. Baseline <code>5303e43</code> plus the sky map.
+      Debug APK <code>d319a9ef</code>. Controlled satellite reports; no receiver hardware test.</figcaption></figure></div>
       <p class="section-intro">Earlier tracking update, 21 October 2026. Source: <code>e0717e7</code>
         and the earlier GPS display work. Final debug APK: <code>fbfd19f0</code>. These native API 36 emulator captures use
         simulated location data. The route has two segments separated by process loss. Online tiles loaded from OpenStreetMap.</p>
@@ -457,6 +577,89 @@
 
     <section id="verification" aria-labelledby="verification-heading">
       <div class="section-head"><h2 id="verification-heading"><span class="number">03</span>Verification</h2><span class="tag done">Debug build and lint passed</span></div>
+      <article id="home-sky-ring-verification" class="panel" style="margin-bottom:22px">
+        <span class="tag done">Home satellite ring &middot; 22 October 2026</span>
+        <h3>Satellites around the speed are in their reported directions</h3>
+        <p>Baseline <code>5303e43</code> plus the sky map, phone heading, and home sky ring. The home ring keeps the earlier abstract style: two faint rings, small system shapes,
+          and short links between satellites of one system. Positions now use the reported azimuth and elevation and the phone heading.
+          The outer ring is the horizon and the inner ring is overhead. Radius changes in direct proportion to elevation.
+          A small N marks north. There are no other direction labels or elevation guides on home. GPS details keeps the full sky map.</p>
+        <p>Marker brightness and glow follow C/N0: dim at 15 dB-Hz or less and full at 45 dB-Hz or more. Filled markers are used in the position.
+          Heading changes below one degree do not redraw the ring. Larger changes turn it with a short spring that stops.
+          The last true-north correction stays in memory while GPS searches. It is not stored. The ring reports the phone direction to screen readers.</p>
+        <p>A first version on this date put a compass bezel and direction text on home. After review, home returned to the abstract style.
+          The bezel, ticks, and direction labels remain only in GPS details.</p>
+        <ul>
+          <li>Debug app, test APK, and release builds passed. Debug lint found no errors or warnings; one existing optional state-boxing hint remains.</li>
+          <li>Thirteen calculation tests passed. New cases cover the clear centre, a satellite ahead when facing east, heading degrees at north, angle wrap, and the signal scale.</li>
+          <li>Eight API 36 emulator tests passed on the final APKs. A new home test covers the phone direction, the kept correction, compass expiry,
+            background cleanup, return, GPS details, paused GPS, 200% text, and landscape. It passed three more times in a row.
+            The compass listener exists only while the ring shows satellites and the activity is resumed.</li>
+          <li>The existing sky map, compass, satellite display, home layout, and GPS details tests passed. The home layout test uses production location delivery.</li>
+          <li>Light and dark themes, 200% text, and landscape were inspected. Device display and animation settings were restored.</li>
+        </ul>
+        <p>Known limits: the ring needs a dial of at least 300 dp in both directions. Smaller dials, such as landscape on a typical phone,
+          show speed without the ring, because the digits would cover satellites. The previous decorative ring overlapped the digits there.
+          Text labels inside the dial can overlap markers near overhead. Hardware compass accuracy, calibration, magnetic interference,
+          TalkBack, and battery use with the compass on home need physical-device checks. Release lint was not repeated.</p>
+        <p class="source">Local evidence: <code>artifacts/sky-ring-test-results.json</code>, <code>artifacts/sky-ring-captures/</code>,
+          and <code>app/build/test-results/testDebugUnitTest/</code>. Debug APK SHA-256: <code>a8c15a930b153e3da1e439b28ab5c89f30b1568e4cbbf337a4de73f204dd3934</code>.</p>
+      </article>
+      <article id="phone-heading-verification" class="panel" style="margin-bottom:22px">
+        <span class="tag done">Phone heading &middot; 21 October 2026</span>
+        <h3>The map turns with the screen's upper edge</h3>
+        <p>Baseline <code>5303e43</code> plus the sky map and this change. Satellite markers and cardinal labels
+          turn together. Android rotation vector data supplies the magnetic heading. The geomagnetic rotation
+          vector is a fallback. Display axes are remapped in portrait and landscape.</p>
+        <p>The existing GPS fix supplies a correction from magnetic north to true north. This adds no location request,
+          coordinate storage, network request, or permission. A 100 ms sensor request exists only while the map is composed
+          and the activity is resumed. Cancellation removes the listener. Compass readings expire after two seconds.</p>
+        <ul>
+          <li>Debug app and test APK builds passed. Debug lint found no errors or warnings; one existing optional state-boxing hint remains.</li>
+          <li>Ten calculation tests passed. New cases cover a satellite ahead of the phone, north on the left when facing east,
+            crossing north, the sign of magnetic declination, and invalid headings.</li>
+          <li>Four API 36 emulator tests passed: Android coordinate transforms and GPS correction; the controlled map;
+            production GPS permission, delivery, and listener cleanup; and GPS details layout.</li>
+          <li>Android transform checks cover all four display rotations and a vertical upper edge. The controlled map covers
+            90- and 180-degree headings, missing correction, old heading data, background cleanup, return, and leaving details.</li>
+          <li>Light and dark themes, 200% text, and landscape passed. The full map fits in the visible list.
+            Device settings were restored and GPS test providers were removed.</li>
+        </ul>
+        <p>Known limits: hardware compass accuracy, calibration, magnetic interference, TalkBack, and battery use need physical-device checks.
+          The controlled source proves subscription cleanup; it does not measure sensor hardware. Hold the phone approximately flat.
+          If the compass or current GPS correction is unavailable, the map clearly states that north is at the top.
+          Release build and release lint were not repeated.</p>
+        <p class="source">Local evidence: <code>artifacts/phone-heading-build.log</code>,
+          <code>artifacts/phone-heading-test-build.log</code>, <code>artifacts/phone-heading-test-results.json</code>,
+          and <code>app/build/test-results/testDebugUnitTest/</code>. Debug APK SHA-256: <code>704f1f5c66db317086bfbf496cd2aea60d529f9df6ea3e64ff987a51d502af5b</code>.
+          Android reference: <a href="https://developer.android.com/develop/sensors-and-location/sensors/sensors_position">position sensors</a>.</p>
+      </article>
+      <article id="sky-map-verification" class="panel" style="margin-bottom:22px">
+        <span class="tag done">Earlier map with north at the top &middot; 21 October 2026</span>
+        <h3>Reported satellite positions</h3>
+        <p>Baseline <code>5303e43</code> plus this change. The map uses Android azimuth and elevation.
+          North stays at the top. The horizon is the edge; the point overhead is the centre.
+          Rings mark 30 and 60 degrees. No connecting lines, predicted satellites, or compass rotation.
+          The decorative pattern behind speed was removed. GPS details gives the map a clear centre.</p>
+        <ul>
+          <li>Debug app and test APK builds passed. Debug lint found no errors or warnings; one existing optional state-boxing hint remains.</li>
+          <li>Eight unit tests passed. Three new tests cover cardinal directions, 360-degree north, elevation, overhead positions, and invalid angles.</li>
+          <li>Five focused API 36 emulator tests passed. They cover the sky map, grouping and accuracy rules, report expiry and recovery, home layout, and GPS details layout.</li>
+          <li>Controlled reports include all system shapes, duplicate bands, invalid angles, and a satellite below the horizon.
+            The map test checks light and dark themes, 200% text, and landscape. It checks that the full map fits in the visible list.</li>
+          <li>The existing layout tests check production location delivery, rotation, themes, and large text.
+            The dedicated emulator settings were restored and GPS test providers were removed.</li>
+        </ul>
+        <p>The first regression run found a text encoding error. It was fixed before the final build and five-test pass.
+          Visual review found an oversized map in landscape. The final map uses the current window height.</p>
+        <p>Known limits: only satellites reported by the phone can appear. Invalid angles and satellites below the horizon are omitted.
+          Markers can overlap. The map does not turn with the phone. Physical-device satellite accuracy, TalkBack, and battery use remain untested.
+          Release build and release lint were not repeated for this change.</p>
+        <p class="source">Local evidence: <code>artifacts/sky-map-final-build.log</code>, <code>artifacts/sky-map-test-results.json</code>,
+          <code>artifacts/sky-map-capture-test-results.json</code> (capture-helper check),
+          and <code>app/build/test-results/testDebugUnitTest/</code>. Debug APK SHA-256: <code>d319a9ef3bd2b786a41b02badc31268070d48fa9925d54c5eb4fadbe38ff2bc7</code>.
+          API: <a href="https://developer.android.com/reference/android/location/GnssStatus">Android satellite status</a>.</p>
+      </article>
       <article id="tracking-verification" class="panel" style="margin-bottom:22px">
         <span class="tag done">Tracking checks · 21 October 2026</span>
         <h3>Builds, tests, and visual checks</h3>
@@ -695,13 +898,21 @@ const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
         <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/location/AndroidGnssSource.kt">AndroidGnssSource.kt</a>.</p>
       </details>
       <details>
-        <summary>Constellation: finite motion and distinct satellite counts</summary>
+        <summary>Sky ring and map: reported angles, signal brightness, and distinct satellites</summary>
         <p>Multiple bands with the same system and satellite ID become one marker. Any used band marks that
-          satellite as used. The strongest band supplies the marker position. The pattern leaves the speed clear.
-          GPS uses circles, GLONASS diamonds, Galileo triangles, and BeiDou squares. Other systems have separate shapes.
-          Short links between markers are decorative. Position and opacity transitions last 650 ms and then stop.</p>
-        <p class="source">Sources: <a href="app/src/main/java/com/example/cvkegps/location/SatelliteDisplay.kt">satellite grouping and bar scale</a>,
-          <a href="app/src/main/java/com/example/cvkegps/ui/SatelliteConstellation.kt">constellation drawing</a>,
+          satellite as used. The strongest band supplies the angles. Invalid angles and satellites below the horizon are omitted.
+          The phone heading is subtracted from satellite azimuth and direction-label angles. The home ring keeps the centre clear and adds short links
+          between satellites of one system; the links have no measurement meaning. The details map puts overhead at the centre. Stronger signals are brighter, glow more, and are drawn last.
+          GPS uses circles, GLONASS diamonds, Galileo triangles, and BeiDou squares. Other systems have separate shapes.</p>
+        <pre><code>val radius = zenithRadius + (1 - zenithRadius) * (1 - elevationRadians / (PI / 2))
+val angle = azimuthRadians - headingRadians</code></pre>
+        <pre><code>fun signalStrength(cn0DbHz: Float): Float =
+    if (!cn0DbHz.isFinite()) 0f
+    else ((cn0DbHz - SIGNAL_WEAK_DBHZ) / (SIGNAL_STRONG_DBHZ - SIGNAL_WEAK_DBHZ)).coerceIn(0f, 1f)</code></pre>
+        <p class="source">Sources: <a href="app/src/main/java/com/example/cvkegps/location/SkyPosition.kt">sky projection</a>,
+          <a href="app/src/main/java/com/example/cvkegps/location/SatelliteDisplay.kt">satellite grouping, signal scale, and bar scale</a>,
+          <a href="app/src/main/java/com/example/cvkegps/ui/SatelliteConstellation.kt">sky ring and map drawing</a>,
+          <a href="app/src/main/java/com/example/cvkegps/ui/CompassViewModel.kt">heading states and one-degree filter</a>,
           <a href="app/src/main/java/com/example/cvkegps/ui/SpeedometerViewModel.kt">report expiry</a>.</p>
       </details>
     </section>
@@ -783,6 +994,7 @@ const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
           <ol>
             <li>Repeat release lint and verify the final release build. The emulator layout check and final debug lint passed.</li>
             <li>Test GPS outdoors on physical devices. Include stationary use, movement, weak signal, and signal recovery.</li>
+            <li>Compare the home ring and the sky map with a known direction on physical devices. Check compass calibration, magnetic interference, and power use with the ring on home.</li>
             <li>Measure battery use against an idle baseline. Measure cold start and frame timing in a release build.</li>
             <li>Test TalkBack, denied and approximate permission, permission revocation, and screen lock.
               Extend coverage to the minimum supported API and current devices.</li>
@@ -831,6 +1043,39 @@ const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-22">22 October 2026</time><div><h3>Smaller OpenStreetMap credit</h3>
+<p>Reduced the text and background area. Kept the full credit, link, and a 48 dp touch area.
+Debug build, lint, and two map layout checks passed. See <a href="#map-attribution">screenshots and evidence</a>.</p></div></li>
+<li><time datetime="2026-10-22">22 October 2026</time><div><h3>Recording on the main screen and larger trip maps</h3>
+<p>Added the compact GPS bar, a return from the live map, separate trip details, zoom and Fit route, and clearer measurements.
+Debug build, lint, 13 calculation tests, and 12 emulator checks passed. See <a href="#ui-polish">current screenshots and evidence</a>.</p></div></li>
+        <li><time datetime="2026-10-22">22 October 2026</time>
+          <div><h3>Satellite ring on home uses real directions</h3>
+            <p>Satellites around the speed now use the reported direction and elevation and turn with the phone heading.
+              The ring keeps the earlier abstract style and adds only a small N. Brighter markers have stronger signals.
+              GPS details keeps the full sky map with a bezel, direction labels, and elevation guides.
+              The last true-north correction stays in use while GPS searches.</p>
+            <p>Baseline <code>5303e43</code> plus the sky map, phone heading, and home sky ring; debug APK <code>a8c15a93</code>. Debug and release builds, debug lint, 13 calculation tests,
+              and 8 emulator tests passed. Five new captures use controlled reports. Physical compass and battery checks remain open.
+              See <a href="#home-sky-ring-verification">evidence and limits</a>.</p></div>
+        </li>
+        <li><time datetime="2026-10-21">21 October 2026</time>
+          <div><h3>Sky map follows the phone heading</h3>
+            <p>Added compass data, display-axis remapping, true-north correction from the existing GPS fix,
+              a stated fallback, and lifecycle cleanup. Baseline <code>5303e43</code> plus the sky map and phone heading.
+              Debug APK <code>704f1f5c</code>. Debug builds, lint, ten calculation tests, and four emulator tests passed.</p>
+            <p>Four new native captures use controlled compass and satellite reports.
+              Physical compass accuracy and battery checks remain open. See <a href="#phone-heading-verification">evidence and limits</a>.</p></div>
+        </li>
+        <li><time datetime="2026-10-21">21 October 2026</time>
+          <div><h3>Satellite sky map added</h3>
+            <p>Replaced the decorative home pattern with a sky map in GPS details. It uses reported angles,
+              cardinal directions, and elevation rings. Invalid angles and satellites below the horizon are omitted.
+              Baseline <code>5303e43</code> plus this change; debug APK <code>d319a9ef</code>.</p>
+            <p>Debug builds, debug lint, eight unit tests, and five focused emulator tests passed.
+              Added four native captures. A physical-device satellite check and release checks remain open.
+              See <a href="#sky-map-verification">the current evidence and limits</a>.</p></div>
+        </li>
         <li><time datetime="2026-10-21">21 October 2026</time>
           <div><h3>Constellation and GPS details added to Git</h3>
             <p>Added the existing GPS details, satellite markers, accuracy scale, device tests, and ten selected

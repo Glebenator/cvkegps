@@ -11,10 +11,13 @@ Update the report with each completed change, as specified in `AGENTS.md`.
 
 1. Open the app. Allow precise location when requested. Speed starts without a GPS button.
 2. Select **Start map tracking**. Read the recording and map notice. Allow notifications.
-3. View the live route and measurements. Use **Pause trip**, **Resume trip**, or **Stop and save**.
+3. Recording stays on the main GPS screen. Use **Pause trip**, **Resume trip**, or **Stop and save**.
+   Select **View route** to open the live map. Select **Speedometer** or Android Back to return.
    A map gesture stops following. Select **Follow route** to follow the latest position again.
-4. Select the activity label to correct the estimate. The correction applies to the whole trip.
-5. Select **Trips** to review saved routes. Confirm deletion to remove a trip.
+4. In the live map, select **Trip details**, then select the activity label to correct the estimate.
+   The correction applies to the whole trip.
+5. Select **Trips**, then select a trip. Pan or pinch its map, use the zoom buttons, or select **Fit route**.
+   **Trip details** opens a separate scrolling panel. Select **Delete trip** there and confirm deletion.
 
 Activity estimation uses recent GPS speed. The initial categories are **Bike or ski**, **Car or transit**,
 and a possible **Plane** trip. The app shows **Activity unknown** until it has enough valid evidence.
@@ -47,6 +50,22 @@ python scripts/check-interrupted-trip.py --adb <path-to-adb> --serial emulator-5
 This check clears emulator app data. It uses Android test locations, restores location and mock-location settings, and removes its test provider.
 Keep the output in the ignored `artifacts/` folder. Use `TrackingDeviceTest` for recording, activity correction, and tracker layout checks.
 
+## UI polish on 22 October 2026
+
+Recording continues while the main GPS screen or Trips is open. The GPS card reduces to its bar
+when a fresh position has an accuracy estimate of 5 m or better. Poor or old readings expand the card.
+Select the information button for the full accuracy scale and satellite reports.
+
+Saved trips open on a large map. Map gestures and trip-detail scrolling are separate.
+The camera stays in place when details open and after activity recreation. Short routes use an initial
+zoom no greater than 17. In landscape, the summary sits beside the map. The trip list keeps Back visible.
+Distances below 1 km use metres. Durations show minutes and seconds, or hours and minutes.
+
+Debug build, test build, Android lint, 13 calculation tests, and 12 API 36 emulator checks passed.
+Checks cover recording, screen lock, notification controls, GPS recovery, map gestures, camera restoration,
+light and dark themes, rotation, and 200% text. These checks use simulated locations. Physical-device
+accuracy, battery use, TalkBack, and long trips remain unverified. See [the report](PROGRESS.html#ui-polish).
+
 ## Current scope
 
 - Show current GPS speed in km/h.
@@ -56,7 +75,8 @@ Keep the output in the ignored `artifacts/` folder. Use `TrackingDeviceTest` for
 - Handle denied permission, disabled GPS, missing hardware, and loss of signal.
 - Use system light or dark mode and dynamic colour on Android 12 and later.
 - Open GPS details for reading quality, receiver events, and satellite signals.
-- Show a constellation behind the speed display, with live satellite counts and system markers.
+- Show an abstract satellite ring around the speed. Satellites are in their reported directions and turn with the phone.
+  A small N marks north, and brighter markers have stronger signals.
 - Show a position accuracy bar that fills at 1 m or better, with a 5 m reference notch.
 
 The app saves trips locally and estimates the activity from GPS speed. It does not upload trip records.
@@ -90,23 +110,65 @@ request and counts callbacks before display conflation. It includes rejected rea
 Receiver events describe the shared Android receiver and can include use by other apps.
 First-position time can be unavailable when its event preceded callback registration.
 
-## Satellite display experiment
+## Satellite ring and sky map
 
-The home display has one marker per satellite. Multiple frequency bands do not add
-markers or increase the count. A bright, filled marker means that Android used the
-satellite in the latest position. A dim, open marker means that Android reported it
-but did not use it. The count shows both used and reported satellites.
+The home screen shows an abstract satellite ring around the speed. **GPS details** shows a
+full sky map. Both use the direction and elevation reported by Android for each satellite.
+The top follows the direction of the screen's upper edge. Hold the phone approximately flat.
+This is a flat sky projection, not a view through the camera.
 
-GPS uses circles, GLONASS uses diamonds, Galileo uses triangles, and BeiDou uses squares.
-QZSS uses pentagons, NavIC uses hexagons, and SBAS uses crosses. Unknown systems use
-circles with a centre mark. GPS details shows these shapes beside the system names.
-Colours follow the Material theme. Shape and text also identify each system.
+The home ring has two faint rings. The outer ring is the horizon and the inner ring is
+directly overhead, so the speed cannot hide a satellite. Radius changes in direct proportion
+to elevation. A small N marks north and turns with the satellites. The ring has no other
+direction text, ticks, or elevation guides. Short links join satellites of one system; they
+have no measurement meaning. The ring reports the phone direction to screen readers. It needs
+a dial of at least 300 dp in both directions. A smaller dial, such as landscape on a typical
+phone, shows the speed without the ring.
 
-The pattern is decorative. Azimuth sets each marker's direction. Elevation sets its
-distance within an outer band that keeps the speed clear. Short lines join markers
-from the same system. This is not a sky map. Invalid angles use a stable decorative
-position. Marker changes and the accuracy bar animate for 650 ms, then stop. Compose
-uses the Android animation duration setting. There is no continuous animation.
+The details map puts the horizon at the edge and overhead at the centre. Dotted rings mark 30
+and 60 degrees of elevation. Ticks and direction labels turn with the satellites. A fixed index
+at the top marks the phone direction, and text states the direction in degrees.
+
+Brighter markers have stronger signals. Brightness and glow follow C/N0 on a linear display
+scale: dim at 15 dB-Hz or less and full at 45 dB-Hz or more. A missing value is dim. Stronger
+markers are drawn on top. These references are display limits, not receiver limits.
+
+Only satellites reported by the receiver are shown. The map does not predict all satellites
+in orbit. Invalid angles and satellites below the horizon are omitted. The text below the
+map shows how many reported satellites could be plotted. Reports expire after 10 seconds.
+An empty report and a missing report have different states. The map shares the existing
+GPS request and satellite callback. It adds no location or network request.
+
+The compass uses Android's rotation vector sensor, with the geomagnetic rotation vector
+as a fallback. It requests readings every 100 ms only while the details map or a home ring
+with satellites is composed and the activity is resumed. Paused GPS, a hidden ring, leaving
+the map, or putting the app in the background removes the sensor listener. Compass readings
+expire after two seconds. Unreliable readings and a nearly vertical upper edge cannot set the
+direction. A new listener has one second to report before the display states that the compass
+is unavailable. Heading changes below one degree do not redraw the display. Larger changes
+turn it with a short spring that stops when the heading stops changing.
+
+Android compass readings use magnetic north. The existing GPS fix supplies a magnetic
+correction from Android's geomagnetic model. No coordinates are added to the display
+model or stored for this correction. The correction uses a current position with an
+accuracy estimate of 50 m or better. The last correction stays in memory while GPS
+searches, because it changes slowly with position. It is not stored. The displays state when
+the compass or correction is unavailable; they then show north at the top. They do not use
+direction of travel as a phone heading. Physical-device calibration, interference, and power
+use need checks.
+
+The ring and the map have one marker per satellite. Multiple frequency bands do not add
+markers or increase the count. The strongest band supplies the angles. A filled marker means
+that Android used the satellite in the latest position. An open marker means that Android
+reported it but did not use it. GPS uses circles, GLONASS uses diamonds, Galileo uses
+triangles, and BeiDou uses squares. QZSS uses pentagons, NavIC uses hexagons, and SBAS uses
+crosses. Unknown systems use circles with a centre mark. The signal list gives the system,
+ID, angles, and use in text. Colours follow the Material theme.
+
+The home ring keeps the style of the earlier decorative pattern, but positions now use the
+reported angles and the phone heading. Markers can overlap when satellites have the same
+direction and elevation. Text inside the dial can overlap markers near overhead. The accuracy bar still has a finite 650 ms transition. There
+is no continuous animation.
 
 The position bar uses Android's horizontal accuracy estimate. It is empty at 50 m or
 more and full at 1 m or less. A notch marks 5 m. The scale is logarithmic, so it gives
@@ -168,12 +230,15 @@ app/src/main/java/com/example/cvkegps/
     AndroidGpsSource.kt          Android GPS registration and cleanup
     GnssSource.kt                Satellite and receiver models
     AndroidGnssSource.kt         Satellite status registration and cleanup
+    AndroidHeadingSource.kt      Compass registration and display axes
   ui/
     SpeedometerViewModel.kt      Immutable state, freshness, and session maximum
+    CompassViewModel.kt          Heading states, freshness, correction, and screen rotation
     SpeedometerRoute.kt          Permission and lifecycle integration
     SpeedometerScreen.kt         Stateless Material screen
     GpsDetailsScreen.kt          Reading quality and satellite status
-    SatelliteConstellation.kt    Satellite markers and finite transitions
+    PhoneSkyPlot.kt              Compass collection and the details sky map
+    SatelliteConstellation.kt    Sky ring and map drawing and system markers
     PositionAccuracy.kt          Accuracy scale, notch, and labels
     theme/Theme.kt               Dynamic colour and fallback palettes
 ```
@@ -266,6 +331,13 @@ The tests cover:
 11. Use controlled GNSS reports to check multiple bands, zero and missing reports,
     expiry, recovery, invalid accuracy, and pause. Capture native UI in both themes
     and with large text. These reports are supplied only by the test source.
+12. Use controlled satellite and compass reports on the details sky map. Check angles,
+    heading text, true-north correction, compass expiry, background cleanup, themes,
+    200% text, and landscape.
+13. Use controlled position, satellite, and compass reports on the home satellite ring.
+    Check the reported phone direction, the kept correction, compass expiry, background
+    cleanup, GPS details, paused GPS, 200% text, and landscape. The compass listener must
+    exist only while the ring shows satellites and the activity is resumed.
 
 The tests inject locations into the Android location service. They do not replace the
 production source or ViewModel. Listener checks inspect current Android registrations.
@@ -286,7 +358,63 @@ Lint treats warnings as errors. Dependency update notices are excluded from this
 Review dependency updates separately so a new remote release cannot break an unchanged
 build. The Compose compiler version matches the Kotlin version supplied by AGP.
 
+## Verification on 2026-10-22
+
+### Home satellite ring
+
+- Satellites around the speed use reported direction and elevation and turn with the phone
+  heading. The ring keeps the earlier abstract style and adds a small N. Brighter markers have
+  stronger signals. GPS details keeps the full sky map. The last true-north correction stays in
+  memory while GPS searches.
+- A first version on this date put a compass bezel and direction text on home. After review,
+  home returned to the abstract style. The bezel remains only in GPS details.
+- Baseline: `5303e43` plus the sky map, phone heading, and home satellite ring. Debug app, test
+  APK, and release builds passed. Debug lint found no errors or warnings; one existing optional
+  state-boxing hint remains. Release lint was not repeated.
+- Thirteen calculation tests passed. Eight API 36 emulator tests passed on the final APKs: the
+  new home ring test, the details sky map, compass transforms, satellite display, home layout
+  with production location delivery, and both GPS details tests.
+- Selected captures use simulated position, satellite, and compass data with a true heading of
+  90 degrees. Landscape on the test phone shows speed without the ring. Hardware compass
+  accuracy, calibration, interference, TalkBack, and battery use remain untested.
+- Debug APK SHA-256: `a8c15a930b153e3da1e439b28ab5c89f30b1568e4cbbf337a4de73f204dd3934`.
+  Local evidence: `artifacts/sky-ring-test-results.json` and `artifacts/sky-ring-captures/`.
+
 ## Verification on 2026-10-21
+
+### Phone heading
+
+- The top of the sky map now follows the upper edge of the screen. Markers and direction
+  labels turn together. The existing GPS fix supplies the magnetic correction. A missing
+  compass or correction produces a stated fallback with north at the top.
+- Baseline: `5303e43` plus the sky map and phone heading. Debug app and test APK builds,
+  debug lint, ten calculation tests, and four API 36 emulator tests passed. One existing
+  optional state-boxing lint hint remains; there are no lint errors or warnings.
+- Android coordinate checks cover all display rotations, a vertical edge, and the GPS
+  correction. Controlled map checks cover heading changes, two-second expiry, missing
+  correction, background cleanup, return, and disposal. Production GPS delivery and
+  listener cleanup passed. The details layout passed in both themes, landscape, and 200% text.
+- Selected captures use simulated position, satellite, and compass data. They show a
+  true heading of 90 degrees. Hardware compass accuracy, calibration, magnetic interference,
+  TalkBack, and battery use remain untested. Release checks were not repeated.
+- Debug APK SHA-256: `704f1f5c66db317086bfbf496cd2aea60d529f9df6ea3e64ff987a51d502af5b`.
+  Local evidence: `artifacts/phone-heading-test-results.json` and `artifacts/phone-heading-build.log`.
+
+### Earlier map with north at the top
+
+- Baseline: `5303e43` plus this change. Debug app and test APK builds and debug lint passed.
+  Lint reported no errors or warnings and one existing optional state-boxing hint.
+- Eight unit tests and five focused API 36 emulator tests passed. Three new unit tests cover
+  direction, elevation, and invalid angles. Device checks cover the map, grouping, accuracy,
+  report expiry and recovery, home layout, and details layout. The map was checked in both
+  themes, with 200% text, and in landscape. The full map fits inside the visible list.
+- The first regression run found a text encoding error. The final build fixes it.
+  Visual review found an oversized map in landscape. The final map uses window height.
+- Debug APK SHA-256: `d319a9ef3bd2b786a41b02badc31268070d48fa9925d54c5eb4fadbe38ff2bc7`.
+  Selected captures use controlled satellite reports. Local results are in
+  `artifacts/sky-map-test-results.json`. Device settings were restored and GPS test providers
+  were removed. Hardware satellite accuracy, TalkBack, and battery use remain untested.
+  Release build and release lint were not repeated for this change.
 
 ### Accuracy scale update
 

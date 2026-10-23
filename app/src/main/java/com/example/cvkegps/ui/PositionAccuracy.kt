@@ -34,7 +34,7 @@ import java.text.NumberFormat
 import kotlin.math.roundToInt
 
 @Composable
-internal fun PositionAccuracy(accuracyMeters: Float?) {
+internal fun PositionAccuracy(accuracyMeters: Float?, compact: Boolean = false) {
     val locale = LocalConfiguration.current.locales[0]
     val format = remember(locale) {
         NumberFormat.getNumberInstance(locale).apply { maximumFractionDigits = 1 }
@@ -47,12 +47,12 @@ internal fun PositionAccuracy(accuracyMeters: Float?) {
         else -> stringResource(R.string.position_accuracy, format.format(accuracyMeters))
     }
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(description, Modifier.testTag("position_accuracy"), style = MaterialTheme.typography.labelMedium)
+        if (!compact) Text(description, Modifier.testTag("position_accuracy"), style = MaterialTheme.typography.labelMedium)
         if (progress != null) {
             val animated by animateFloatAsState(progress, tween(650), label = "position accuracy")
             val reference = positionAccuracyProgress(POSITION_ACCURACY_REFERENCE_METERS)!!
             val notchColor = MaterialTheme.colorScheme.onSecondaryContainer
-            Box(Modifier.fillMaxWidth().height(12.dp).testTag("accuracy_bar").clearAndSetSemantics { }) {
+            Box(Modifier.fillMaxWidth().height(12.dp).testTag("accuracy_bar").clearAndSetSemantics { contentDescription = description }) {
                 LinearProgressIndicator(
                     progress = { animated },
                     modifier = Modifier.fillMaxWidth().height(4.dp).align(Alignment.Center),
@@ -71,7 +71,7 @@ internal fun PositionAccuracy(accuracyMeters: Float?) {
             val mark = format.format(POSITION_ACCURACY_REFERENCE_METERS)
             val full = format.format(POSITION_ACCURACY_FULL_METERS)
             val scaleDescription = stringResource(R.string.accuracy_scale_description, empty, mark, full)
-            Layout(
+            if (!compact) Layout(
                 modifier = Modifier.fillMaxWidth().testTag("accuracy_scale")
                     .clearAndSetSemantics { contentDescription = scaleDescription },
                 content = {

@@ -104,5 +104,19 @@
     <string name="position_accuracy_below">Position estimate below %1$s m</string>
     <string name="accuracy_scale_metres">%1$s m</string>
     <string name="accuracy_scale_description">Accuracy scale: empty at %1$s metres, reference mark at %2$s metres, full at %3$s metre or better. Smaller estimates are better.</string>
-    <string name="constellation_note">The home display has one marker per satellite. Bright, filled markers are used in the position. Each system has a different shape, as shown below. The pattern is decorative, not a sky map. The position bar is empty at 50 m or more and full at 1 m or less. The notch marks 5 m. The scale gives more space to small estimates. These are display references, not receiver limits. Android does not report a best possible accuracy. A full bar does not guarantee accuracy.</string>
+    <string name="constellation_note">The home ring and the sky map have one marker per satellite. Brighter markers have stronger signals. The brightness scale goes from 15 dB-Hz or less to 45 dB-Hz or more. Filled markers are used in the position; open markers are not. Each system has a different shape, as shown below. The position bar is empty at 50 m or more and full at 1 m or less. The notch marks 5 m. The scale gives more space to small estimates. These are display references, not receiver limits. Android does not report a best possible accuracy. A full bar does not guarantee accuracy.</string>
+    <string name="sky_map_title">Satellite sky map</string>
+    <string name="sky_map_note">The top of the map follows the direction of the screen’s upper edge. Hold the phone approximately flat. Direction labels use true north. The edge is the horizon. The centre is directly overhead. The dotted rings mark 30° and 60° elevation. Brighter markers have stronger signals. Only reported satellites with valid angles above the horizon are shown.</string>
+    <string name="sky_map_description">Satellite sky map. Satellites and direction labels turn with the phone when compass and position data are available. The centre is directly overhead. Brighter markers have stronger signals. Satellite angles are listed below.</string>
+    <string name="sky_heading_current">Phone direction: %1$s° from true north</string>
+    <string name="sky_heading_unavailable">Compass unavailable. North is at the top. Hold the phone flat and away from magnets. A compass sensor is required.</string>
+    <string name="sky_heading_starting">Starting the compass.</string>
+    <string name="sky_heading_waiting_position">Waiting for a GPS position to align the compass. North is at the top.</string>
+    <string name="sky_map_count">%1$s of %2$s reported satellites plotted</string>
+    <string name="sky_north">N</string>
+    <string name="sky_east">E</string>
+    <string name="sky_south">S</string>
+    <string name="sky_west">W</string>
+    <string name="sky_ring_description">Satellite ring around the speed. Satellite positions turn with the phone, and N marks north. The outer ring is the horizon. The inner ring is directly overhead. Brighter markers have stronger signals. Filled markers are used in the position.</string>
+    <string name="sky_north_up">Compass unavailable. North is at the top.</string>
 </resources>

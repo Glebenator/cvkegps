@@ -23,8 +23,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 fun SpeedometerRoute(
     viewModel: SpeedometerViewModel,
-    trackerControls: @Composable () -> Unit = {},
+    trackerControls: @Composable (canStartTrip: Boolean) -> Unit = {},
     onTrips: (() -> Unit)? = null,
+    compassViewModel: CompassViewModel? = null,
 ) {
     val activity = LocalActivity.current ?: return
     val state by viewModel.uiState.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
@@ -77,7 +78,7 @@ fun SpeedometerRoute(
     }
     BackHandler(enabled = showDetails) { showDetails = false }
     if (showDetails) {
-        GpsDetailsRoute(state, gnss, permissionNeedsSettings, onAction, onBack = { showDetails = false })
+        GpsDetailsRoute(state, gnss, permissionNeedsSettings, onAction, onBack = { showDetails = false }, compassViewModel = compassViewModel)
     } else {
         SpeedometerScreen(
             state = state,
@@ -87,6 +88,10 @@ fun SpeedometerRoute(
             gnss = gnss,
             trackerControls = trackerControls,
             onTrips = onTrips,
+            heading = {
+                compassViewModel?.let { collectPhoneHeading(it, state.reading?.magneticDeclinationRadians) }
+                    ?: PhoneHeading.Unavailable
+            },
         )
     }
 }

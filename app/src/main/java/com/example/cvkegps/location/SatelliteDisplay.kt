@@ -9,6 +9,14 @@ fun List<SatelliteSignal>.distinctSatellites(): List<SatelliteSignal> =
         strongest.copy(usedInFix = bands.any { it.usedInFix })
     }.sortedWith(compareBy({ it.system.ordinal }, { it.id }))
 
+const val SIGNAL_WEAK_DBHZ = 15f
+const val SIGNAL_STRONG_DBHZ = 45f
+
+/** A linear display scale for C/N0: 0 at 15 dB-Hz or less, 1 at 45 dB-Hz or more. Missing values are 0. */
+fun signalStrength(cn0DbHz: Float): Float =
+    if (!cn0DbHz.isFinite()) 0f
+    else ((cn0DbHz - SIGNAL_WEAK_DBHZ) / (SIGNAL_STRONG_DBHZ - SIGNAL_WEAK_DBHZ)).coerceIn(0f, 1f)
+
 const val POSITION_ACCURACY_EMPTY_METERS = 50f
 const val POSITION_ACCURACY_REFERENCE_METERS = 5f
 const val POSITION_ACCURACY_FULL_METERS = 1f

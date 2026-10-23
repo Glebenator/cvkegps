@@ -40,6 +40,8 @@ import com.example.cvkegps.location.GnssSnapshot
 import com.example.cvkegps.location.ReceiverEvent
 import com.example.cvkegps.location.SatelliteSignal
 import com.example.cvkegps.location.SatelliteSystem
+import com.example.cvkegps.location.distinctSatellites
+import com.example.cvkegps.location.skyPosition
 import com.example.cvkegps.location.SpeedIssue
 import java.text.NumberFormat
 import kotlinx.coroutines.delay
@@ -51,6 +53,7 @@ fun GpsDetailsRoute(
     permissionNeedsSettings: Boolean,
     onAction: () -> Unit,
     onBack: () -> Unit,
+    compassViewModel: CompassViewModel? = null,
 ) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     // Refresh ages only while this screen is visible. This timer does not request GPS data.
@@ -62,7 +65,7 @@ fun GpsDetailsRoute(
             }
         }
     }
-    GpsDetailsScreen(state, gnss, maxOf(now, SystemClock.elapsedRealtimeNanos()), permissionNeedsSettings, onAction, onBack)
+    GpsDetailsScreen(state, gnss, maxOf(now, SystemClock.elapsedRealtimeNanos()), permissionNeedsSettings, onAction, onBack, compassViewModel)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -74,6 +77,7 @@ private fun GpsDetailsScreen(
     permissionNeedsSettings: Boolean,
     onAction: () -> Unit,
     onBack: () -> Unit,
+    compassViewModel: CompassViewModel?,
 ) {
     val locale = LocalConfiguration.current.locales[0]
     val decimal = remember(locale) { NumberFormat.getNumberInstance(locale).apply { maximumFractionDigits = 1 } }
@@ -119,6 +123,21 @@ private fun GpsDetailsScreen(
         ) {
             item {
                 GpsControls(state, permissionNeedsSettings, whole, onAction)
+            }
+            item {
+                DetailCard(R.string.sky_map_title) {
+                    if (signals != null) {
+                        PhoneSkyPlot(signals, reading?.magneticDeclinationRadians, compassViewModel)
+                        val satellites = signals.distinctSatellites()
+                        val plotted = satellites.count { skyPosition(it.azimuthRadians, it.elevationRadians) != null }
+                        Text(stringResource(R.string.sky_map_count, whole.format(plotted), whole.format(satellites.size)),
+                            Modifier.testTag("sky_map_count"), style = MaterialTheme.typography.bodySmall)
+                        if (signals.isEmpty()) Text(stringResource(R.string.details_no_signals))
+                    } else {
+                        Text(stringResource(reportState), Modifier.testTag("sky_map_unavailable"))
+                    }
+                    Text(stringResource(R.string.sky_map_note), style = MaterialTheme.typography.bodySmall)
+                }
             }
             item {
                 DetailCard(R.string.details_request) {

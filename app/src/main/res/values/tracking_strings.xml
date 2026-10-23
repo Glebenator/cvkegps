@@ -33,7 +33,9 @@
     <string name="trip_segments">Recording segments</string>
     <string name="trip_gaps">Signal and quality gaps</string>
     <string name="trip_distance_value">%1$s km</string>
-    <string name="trip_duration_value">%1$s min</string>
+    <string name="trip_metres_value">%1$s m</string>
+    <string name="trip_hours_minutes">%1$s h %2$s min</string>
+    <string name="trip_minutes_seconds">%1$s min %2$s s</string>
     <string name="trip_speed_value">%1$s km/h</string>
     <string name="trip_altitude_value">%1$s m</string>
     <string name="trip_track_value">%1$s° true</string>
@@ -52,7 +54,6 @@
     <string name="trip_loading">Loading trip…</string>
     <string name="recording_channel">Trip recording</string>
     <string name="recording_notification_title">CVKE GPS · Trip</string>
-    <string name="trip_map">Route map</string>
     <string name="map_attribution">© OpenStreetMap contributors</string>
     <string name="map_privacy">Online map tiles disclose the viewed area to OpenStreetMap. The saved trip stays on this device. Offline downloads are not included.</string>
     <string name="map_unavailable">Map tiles are unavailable or incomplete. Your trip measurements are still available.</string>
@@ -71,4 +72,13 @@
     <string name="tracker_access_title">Record a route</string>
     <string name="tracker_return">Back to tracker</string>
     <string name="map_follow">Follow route</string>
+    <string name="trip_view_route">View route</string>
+    <string name="trip_speedometer">Speedometer</string>
+    <string name="trip_details">Trip details</string>
+    <string name="trip_close">Close</string>
+    <string name="map_fit">Fit route</string>
+    <string name="map_zoom_in">Zoom in</string>
+    <string name="map_zoom_out">Zoom out</string>
+    <string name="map_plus">+</string>
+    <string name="map_minus">−</string>
 </resources>

@@ -63,8 +63,9 @@ fun SpeedometerScreen(
     onDetails: () -> Unit,
     modifier: Modifier = Modifier,
     gnss: GnssSnapshot = GnssSnapshot(),
-    trackerControls: @Composable () -> Unit = {},
+    trackerControls: @Composable (canStartTrip: Boolean) -> Unit = {},
     onTrips: (() -> Unit)? = null,
+    heading: @Composable () -> PhoneHeading = { PhoneHeading.Unavailable },
 ) {
     val locale = LocalConfiguration.current.locales[0]
     val speedFormat = remember(locale) {
@@ -102,15 +103,15 @@ fun SpeedometerScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        SpeedDial(speed, state.reading?.speedMetersPerSecond != null, satellites.orEmpty(), Modifier.weight(1f))
+                        SpeedDial(speed, state.reading?.speedMetersPerSecond != null, satellites, heading, Modifier.weight(1f))
                         Metrics(altitude, maximum)
                     }
                     Column(
                         Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        GpsControls(state, permissionNeedsSettings, wholeFormat, onAction, onDetails, satellites, onTrips, compact = wide)
-                    if (state.status != GpsStatus.PermissionRequired && state.status != GpsStatus.Disabled && state.status != GpsStatus.Unavailable) trackerControls()
+                        GpsControls(state, permissionNeedsSettings, wholeFormat, onAction, onDetails, satellites, onTrips, compact = wide, collapseWhenReady = true)
+                    trackerControls(state.status != GpsStatus.PermissionRequired && state.status != GpsStatus.Disabled && state.status != GpsStatus.Unavailable)
                     }
                 }
             } else {
@@ -119,10 +120,10 @@ fun SpeedometerScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    SpeedDial(speed, state.reading?.speedMetersPerSecond != null, satellites.orEmpty(), Modifier.weight(1f))
+                    SpeedDial(speed, state.reading?.speedMetersPerSecond != null, satellites, heading, Modifier.weight(1f))
                     Metrics(altitude, maximum)
-                    GpsControls(state, permissionNeedsSettings, wholeFormat, onAction, onDetails, satellites, onTrips, compact = wide)
-                    if (state.status != GpsStatus.PermissionRequired && state.status != GpsStatus.Disabled && state.status != GpsStatus.Unavailable) trackerControls()
+                    GpsControls(state, permissionNeedsSettings, wholeFormat, onAction, onDetails, satellites, onTrips, compact = wide, collapseWhenReady = true)
+                    trackerControls(state.status != GpsStatus.PermissionRequired && state.status != GpsStatus.Disabled && state.status != GpsStatus.Unavailable)
                 }
             }
         }
@@ -130,7 +131,13 @@ fun SpeedometerScreen(
 }
 
 @Composable
-private fun SpeedDial(speed: String, available: Boolean, satellites: List<SatelliteSignal>, modifier: Modifier = Modifier) {
+private fun SpeedDial(
+    speed: String,
+    available: Boolean,
+    satellites: List<SatelliteSignal>?,
+    heading: @Composable () -> PhoneHeading,
+    modifier: Modifier = Modifier,
+) {
     val ring = MaterialTheme.colorScheme.outlineVariant
     val description = if (available) stringResource(R.string.speed_accessibility, speed)
     else stringResource(R.string.speed_unavailable_accessibility)
@@ -138,7 +145,6 @@ private fun SpeedDial(speed: String, available: Boolean, satellites: List<Satell
         modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center,
     ) {
-        SatelliteConstellation(satellites, Modifier.fillMaxSize())
         // The controls and measurements take their natural height. Speed uses the remaining space.
         if (maxHeight < 200.dp) {
             // A short window needs the full width for speed, without a circle or stacked unit.
@@ -156,6 +162,12 @@ private fun SpeedDial(speed: String, available: Boolean, satellites: List<Satell
                 )
             }
         } else {
+            // A smaller dial puts the speed digits over the satellite band. Show speed only.
+            if (minOf(maxWidth, maxHeight) >= 300.dp) {
+                // Collect compass data only while the ring shows satellites.
+                val sky = if (satellites != null) heading() else null
+                SatelliteConstellation(satellites, sky ?: PhoneHeading.Unavailable, Modifier.fillMaxSize().testTag("home_sky_ring"))
+            }
             val diameter = minOf(maxWidth, maxHeight, 320.dp)
             val showLabel = diameter >= 240.dp
             Column(
@@ -273,6 +285,7 @@ internal fun GpsControls(
     satellites: List<SatelliteSignal>? = null,
     onTrips: (() -> Unit)? = null,
     compact: Boolean = false,
+    collapseWhenReady: Boolean = false,
 ) {
     val title = when (state.status) {
         GpsStatus.PermissionRequired -> R.string.gps_permission
@@ -299,6 +312,23 @@ internal fun GpsControls(
         GpsStatus.Disabled -> R.string.enable_location
         GpsStatus.Error -> R.string.retry_gps
         else -> null
+    }
+    val ready = collapseWhenReady && state.status == GpsStatus.Live &&
+        state.reading?.accuracyMeters?.let { it.isFinite() && it in 0f..5f } == true
+    if (ready) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("gps_compact"),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(Modifier.weight(1f).testTag("gps_status")) {
+                PositionAccuracy(state.reading?.accuracyMeters, compact = true)
+            }
+            if (onDetails != null) IconButton(onClick = onDetails, modifier = Modifier.size(48.dp).testTag("gps_details")) {
+                Icon(painterResource(R.drawable.ic_info), contentDescription = stringResource(R.string.gps_details))
+            }
+            if (onTrips != null) androidx.compose.material3.TextButton(onClick = onTrips, modifier = Modifier.testTag("nav_trips")) {
+                Text(stringResource(R.string.tracking_trips))
+            }
+        }
+        return
     }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.large) {

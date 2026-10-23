@@ -2,12 +2,19 @@ package com.example.cvkegps.tracking
 
 import android.content.Intent
 import android.os.Bundle
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -24,6 +31,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -79,24 +87,15 @@ private object OnlineMap {
 }
 
 @Composable
-fun RouteMap(lines: List<List<TrackSample>>) {
-    var retry by remember { mutableIntStateOf(0) }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(stringResource(R.string.trip_map), style = MaterialTheme.typography.titleLarge)
-        Text(stringResource(R.string.map_privacy), style = MaterialTheme.typography.bodySmall)
-        if (lines.all { it.isEmpty() }) {
-            Text(stringResource(R.string.map_no_points))
-        } else {
-            key(retry) { MapSurface(lines, Modifier.fillMaxWidth().height(320.dp)) }
-            Text(stringResource(R.string.map_start_end), style = MaterialTheme.typography.bodySmall)
-            TextButton(onClick = { retry++ }, modifier = Modifier.testTag("map_retry")) { Text(stringResource(R.string.map_retry)) }
-        }
-    }
+internal fun MapSurface(lines: List<List<TrackSample>>, modifier: Modifier = Modifier, live: Boolean = false) {
+    var retry by rememberSaveable { mutableIntStateOf(0) }
+    key(retry) { MapCanvas(lines, modifier, live, onRetry = { retry++ }) }
 }
 
 @Composable
-internal fun MapSurface(lines: List<List<TrackSample>>, modifier: Modifier = Modifier, live: Boolean = false) {
+private fun MapCanvas(lines: List<List<TrackSample>>, modifier: Modifier, live: Boolean, onRetry: () -> Unit) {
     val context = LocalContext.current
+    val routePadding = with(LocalDensity.current) { 48.dp.roundToPx() }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val description = stringResource(R.string.map_accessibility)
     var loaded by remember { mutableStateOf(false) }
@@ -104,6 +103,7 @@ internal fun MapSurface(lines: List<List<TrackSample>>, modifier: Modifier = Mod
     var latitude by rememberSaveable { mutableStateOf<Double?>(null) }
     var longitude by rememberSaveable { mutableStateOf<Double?>(null) }
     var zoom by rememberSaveable { mutableStateOf(12.0) }
+    var bearing by rememberSaveable { mutableStateOf(0.0) }
     val mapView = remember {
         OnlineMap.initialize(context)
         MapView(context, MapLibreMapOptions.createFromAttributes(context).textureMode(true)
@@ -139,6 +139,7 @@ internal fun MapSurface(lines: List<List<TrackSample>>, modifier: Modifier = Mod
     var mapStyle by remember { mutableStateOf<Style?>(null) }
     var nativeMap by remember { mutableStateOf<org.maplibre.android.maps.MapLibreMap?>(null) }
     var positioned by remember { mutableStateOf(false) }
+    var fitRequest by remember { mutableIntStateOf(0) }
     var following by rememberSaveable { mutableStateOf(live) }
     DisposableEffect(mapView) {
         val failed = MapView.OnDidFailLoadingMapListener { unavailable = true }
@@ -157,6 +158,7 @@ internal fun MapSurface(lines: List<List<TrackSample>>, modifier: Modifier = Mod
                 latitude = map.cameraPosition.target?.latitude
                 longitude = map.cameraPosition.target?.longitude
                 zoom = map.cameraPosition.zoom
+                bearing = map.cameraPosition.bearing
                 }
             }
             map.setStyle(Style.Builder().fromJson(OnlineMap.style)) { style ->
@@ -174,7 +176,7 @@ internal fun MapSurface(lines: List<List<TrackSample>>, modifier: Modifier = Mod
             mapView.removeOnDidFinishRenderingMapListener(rendered)
         }
     }
-    LaunchedEffect(mapStyle, lines, following) {
+    LaunchedEffect(mapStyle, lines, following, fitRequest) {
         val style = mapStyle ?: return@LaunchedEffect
         val geometry = withContext(Dispatchers.Default) {
             FeatureCollection.fromFeatures(lines.flatMap { line ->
@@ -202,14 +204,19 @@ internal fun MapSurface(lines: List<List<TrackSample>>, modifier: Modifier = Mod
                 if (positioned) zoom.coerceIn(3.0, 18.0) else 14.0))
             positioned = true
         }
+        if (fitRequest > 0 && !positioned) { latitude = null; longitude = null }
         // Review fits once. Route updates must not reset a user pan or reload the map style.
         if (!positioned && first != null) {
             val map = nativeMap ?: return@LaunchedEffect
             if (latitude != null && longitude != null) {
-                map.moveCamera(CameraUpdateFactory.newCameraPosition(CameraPosition.Builder().target(LatLng(latitude!!, longitude!!)).zoom(zoom).build()))
+                map.moveCamera(CameraUpdateFactory.newCameraPosition(CameraPosition.Builder().target(LatLng(latitude!!, longitude!!)).zoom(zoom).bearing(bearing).build()))
             } else {
                 val bounds = withContext(Dispatchers.Default) { lines.flatten().map { LatLng(Math.toDegrees(it.latitudeRadians), Math.toDegrees(it.longitudeRadians)) } }
-                if (bounds.distinct().size > 1) map.moveCamera(CameraUpdateFactory.newLatLngBounds(LatLngBounds.Builder().includes(bounds).build(), 48))
+                if (bounds.distinct().size > 1) {
+                    map.moveCamera(CameraUpdateFactory.newLatLngBounds(LatLngBounds.Builder().includes(bounds).build(), routePadding))
+                    // Keep short routes at a useful street scale.
+                    if (map.cameraPosition.zoom > 17.0) map.moveCamera(CameraUpdateFactory.zoomTo(17.0))
+                }
                 else map.moveCamera(CameraUpdateFactory.newLatLngZoom(bounds.first(), 14.0))
             }
             positioned = true
@@ -217,17 +224,50 @@ internal fun MapSurface(lines: List<List<TrackSample>>, modifier: Modifier = Mod
     }
     Box(modifier.testTag("route_map")) {
         AndroidView(factory = { mapView }, modifier = Modifier.matchParentSize())
-        // Keep attribution on the map, including at large text sizes.
-        Surface(Modifier.align(Alignment.BottomStart), color = MaterialTheme.colorScheme.surface) {
-            TextButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, "https://www.openstreetmap.org/copyright".toUri())) }) {
-                Text(stringResource(R.string.map_attribution))
+        // Keep the visible caption small and the touch target at least 48 dp high.
+        Box(Modifier.align(Alignment.BottomStart).heightIn(min = 48.dp)
+            .clickable(role = Role.Button) {
+                context.startActivity(Intent(Intent.ACTION_VIEW, "https://www.openstreetmap.org/copyright".toUri()))
+            }, contentAlignment = Alignment.BottomStart) {
+            Surface(color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)) {
+                Text(stringResource(R.string.map_attribution),
+                    Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.bodySmall)
             }
         }
-        if (live && !following) Surface(Modifier.align(Alignment.TopEnd).padding(8.dp), shape = MaterialTheme.shapes.small) {
-            TextButton(onClick = { following = true }, modifier = Modifier.testTag("map_follow")) { Text(stringResource(R.string.map_follow)) }
+        Surface(Modifier.align(Alignment.TopEnd).padding(8.dp), shape = MaterialTheme.shapes.medium,
+            tonalElevation = 3.dp) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                if (live) TextButton(onClick = { following = true }, enabled = !following && lines.any { it.isNotEmpty() },
+                    modifier = Modifier.testTag("map_follow")) { Text(stringResource(R.string.map_follow)) }
+                else TextButton(onClick = { positioned = false; fitRequest++ }, enabled = lines.any { it.isNotEmpty() },
+                    modifier = Modifier.testTag("map_fit")) { Text(stringResource(R.string.map_fit)) }
+                val zoomIn = stringResource(R.string.map_zoom_in)
+                val zoomOut = stringResource(R.string.map_zoom_out)
+                IconButton(onClick = { nativeMap?.animateCamera(CameraUpdateFactory.zoomIn()) },
+                    modifier = Modifier.size(48.dp).semantics { contentDescription = zoomIn }.testTag("map_zoom_in")) {
+                    Text(stringResource(R.string.map_plus), style = MaterialTheme.typography.headlineSmall)
+                }
+                IconButton(onClick = { nativeMap?.animateCamera(CameraUpdateFactory.zoomOut()) },
+                    modifier = Modifier.size(48.dp).semantics { contentDescription = zoomOut }.testTag("map_zoom_out")) {
+                    Text(stringResource(R.string.map_minus), style = MaterialTheme.typography.headlineSmall)
+                }
+            }
         }
-        if (!loaded || unavailable) Surface(Modifier.align(Alignment.TopCenter).padding(8.dp), shape = MaterialTheme.shapes.small) {
-            Text(stringResource(if (unavailable) R.string.map_unavailable else R.string.map_loading), Modifier.padding(8.dp), style = MaterialTheme.typography.bodySmall)
+        if (lines.all { it.isEmpty() } || !loaded || unavailable) Surface(
+            Modifier.align(Alignment.BottomCenter).padding(start = 8.dp, end = 8.dp, bottom = 56.dp),
+            shape = MaterialTheme.shapes.small) {
+            Column(Modifier.padding(8.dp)) {
+                Text(stringResource(when {
+                    lines.all { it.isEmpty() } -> R.string.map_no_points
+                    unavailable -> R.string.map_unavailable
+                    else -> R.string.map_loading
+                }), style = MaterialTheme.typography.bodySmall)
+                if (unavailable) TextButton(onClick = onRetry, modifier = Modifier.testTag("map_retry")) {
+                    Text(stringResource(R.string.map_retry))
+                }
+            }
         }
     }
 }

@@ -14,6 +14,7 @@ data class GpsReading(
     val bearingAccuracyRadians: Double? = null,
     val isMock: Boolean = false,
     val speedIssue: SpeedIssue? = null,
+    val magneticDeclinationRadians: Double? = null,
 )
 
 enum class SpeedIssue { Missing, PositionAccuracy, SpeedAccuracy, Invalid }

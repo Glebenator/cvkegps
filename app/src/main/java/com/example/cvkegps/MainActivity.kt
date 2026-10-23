@@ -16,11 +16,16 @@ import com.example.cvkegps.tracking.TrackingApplication
 import com.example.cvkegps.tracking.TrackingApp
 import com.example.cvkegps.tracking.RecordingService
 import com.example.cvkegps.location.AndroidGnssSource
+import com.example.cvkegps.location.AndroidHeadingSource
+import com.example.cvkegps.ui.CompassViewModel
 import com.example.cvkegps.ui.SpeedometerRoute
 import com.example.cvkegps.ui.SpeedometerViewModel
 import com.example.cvkegps.ui.theme.CvkeGpsTheme
 
 class MainActivity : ComponentActivity() {
+    private val compassViewModel: CompassViewModel by viewModels {
+        viewModelFactory { initializer { CompassViewModel(AndroidHeadingSource(applicationContext)) } }
+    }
     private val tripsRequest = mutableIntStateOf(0)
     private val tracking get() = application as TrackingApplication
     private val viewModel: SpeedometerViewModel by viewModels {
@@ -36,7 +41,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             CvkeGpsTheme {
                 TrackingApp(tracking, tripsRequest.intValue) { controls, onTrips ->
-                    SpeedometerRoute(viewModel, trackerControls = controls, onTrips = onTrips)
+                    SpeedometerRoute(viewModel, trackerControls = controls, onTrips = onTrips, compassViewModel = compassViewModel)
                 }
             }
         }

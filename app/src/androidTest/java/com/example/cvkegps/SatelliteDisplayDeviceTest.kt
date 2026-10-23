@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
@@ -100,7 +101,7 @@ class SatelliteDisplayDeviceTest {
                 reports.value = GnssSnapshot(GnssObservation.Waiting, signals = signals,
                     reportedAtNanos = SystemClock.elapsedRealtimeNanos() - ageNanos)
             }
-            fun fix(accuracy: Float = 2.5f) {
+            fun fix(accuracy: Float = 6f) {
                 fixes.value = GpsEvent.Fix(GpsReading(8.2f, 451.0, accuracy, SystemClock.elapsedRealtimeNanos()))
             }
             fun awaitCount(text: String) {
@@ -115,7 +116,7 @@ class SatelliteDisplayDeviceTest {
             report()
             awaitCount("Satellites: 9 used / 12 seen")
             compose.onNodeWithTag("accuracy_bar").assertIsDisplayed()
-            compose.onNodeWithTag("position_accuracy").assertTextEquals("Position estimate ±2.5 m")
+            compose.onNodeWithTag("position_accuracy").assertTextEquals("Position estimate ±6 m")
             compose.onNodeWithTag("accuracy_scale").assertIsDisplayed()
             capture("light")
             compose.runOnIdle { dark = true }
@@ -130,14 +131,15 @@ class SatelliteDisplayDeviceTest {
 
             fix(0.5f)
             compose.waitUntil(5_000) {
-                runCatching { compose.onNodeWithTag("position_accuracy").assertTextEquals("Position estimate ±0.5 m") }.isSuccess
+                runCatching { compose.onNodeWithTag("accuracy_bar").assertContentDescriptionEquals("Position estimate ±0.5 m") }.isSuccess
             }
             capture("full")
             fix(0.04f)
             compose.waitUntil(5_000) {
-                runCatching { compose.onNodeWithTag("position_accuracy").assertTextEquals("Position estimate below 0.1 m") }.isSuccess
+                runCatching { compose.onNodeWithTag("accuracy_bar").assertContentDescriptionEquals("Position estimate below 0.1 m") }.isSuccess
             }
 
+            fix()
             // Exercise the freshness deadline without waiting for an entire new report period.
             report(ageNanos = 9_000_000_000)
             awaitCount("Satellites: 9 used / 12 seen")

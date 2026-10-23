@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationManager
+import android.hardware.GeomagneticField
 import androidx.core.content.ContextCompat
 import androidx.core.location.LocationListenerCompat
 import androidx.core.location.LocationManagerCompat
@@ -104,6 +105,11 @@ class AndroidGpsSource(context: Context) : GpsSource {
             }?.let { Math.toRadians(it.toDouble()) },
             isMock = LocationCompat.isMock(this),
             speedIssue = speedIssue,
+            magneticDeclinationRadians = if (usableFix && latitude.isFinite() && longitude.isFinite() &&
+                latitude in -90.0..90.0 && longitude in -180.0..180.0
+            ) Math.toRadians(GeomagneticField(latitude.toFloat(), longitude.toFloat(),
+                altitude.takeIf { hasAltitude() && it.isFinite() }?.toFloat() ?: 0f,
+                time).declination.toDouble()) else null,
         )
     }
 
