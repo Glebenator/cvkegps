@@ -166,7 +166,7 @@
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-10-23">23 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>5036b47</code> + GPX export and share</dd></div>
+          <div><dt>App code baseline</dt><dd><code>2605396</code> + review fixes</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
@@ -178,6 +178,7 @@
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, and debug lint</span><span class="small">No release build for this change</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#ux-review">Review fixes</a>
       <a href="#gpx-export">GPX export</a>
       <a href="#transitions">Transitions</a>
       <a href="#trip-polish">Trip polish</a>
@@ -194,6 +195,28 @@
       <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
     </nav>
+
+    <section id="ux-review" aria-labelledby="ux-review-heading">
+      <div class="section-head"><h2 id="ux-review-heading">UX and code review fixes · 23 October 2026</h2><span class="tag pending">In progress</span></div>
+      <p class="section-intro">A review found that the code is well layered and well tested, but the trip screens use technical words and do not show
+      everyday information. The user approved eight fixes. Each fix is a separate local commit. This section shows only completed and tested fixes as done.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th scope="col">Fix</th><th scope="col">Status</th><th scope="col">Evidence</th></tr></thead>
+        <tbody>
+          <tr><td>Replace the <code>!!</code> operator in the activity estimate with an explicit null check</td><td><span class="tag done">Done</span></td>
+            <td>Debug build, lint, 15 calculation tests, and the activity estimate device test passed. Behaviour does not change:
+            a usable speed already needs a known accuracy.</td></tr>
+          <tr><td>One shared display formatter for speed, distance, and time</td><td><span class="tag pending">Planned</span></td><td>—</td></tr>
+          <tr><td>One file for each trip screen, and a plain controller for recording commands and access</td><td><span class="tag pending">Planned</span></td><td>—</td></tr>
+          <tr><td>Distance on each trip card, stored with the trip</td><td><span class="tag pending">Planned</span></td><td>—</td></tr>
+          <tr><td>Trip details lead with distance, time, and speeds. Technical details are collapsed</td><td><span class="tag pending">Planned</span></td><td>—</td></tr>
+          <tr><td>Average speed on the current trip and saved trips</td><td><span class="tag pending">Planned</span></td><td>—</td></tr>
+          <tr><td>Speed tab before the first reading: normal-size dash, no satellite text without permission</td><td><span class="tag pending">Planned</span></td><td>—</td></tr>
+          <tr><td>Friendlier trip wording in Simplified Technical English</td><td><span class="tag pending">Planned</span></td><td>—</td></tr>
+        </tbody>
+      </table></div>
+      <p class="source">Local evidence: <code>artifacts/ux-review/</code>. Source: <a href="app/src/main/java/com/example/cvkegps/tracking/ActivityEstimate.kt">ActivityEstimate.kt</a>.</p>
+    </section>
 
     <section id="gpx-export" aria-labelledby="gpx-heading">
       <div class="section-head"><h2 id="gpx-heading">Share a saved trip as GPX · 23 October 2026</h2><span class="tag done">Implemented and checked</span></div>
@@ -1266,6 +1289,9 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-23">23 October 2026</time><div><h3>UX and code review fixes</h3>
+<p>Started the eight approved review fixes. Done: an explicit null check in the activity estimate.
+Debug build, lint, 15 calculation tests, and the activity estimate device test passed. See <a href="#ux-review">the fix list</a>.</p></div></li>
 <li><time datetime="2026-10-23">23 October 2026</time><div><h3>Share a saved trip as GPX</h3>
 <p>Added Share as GPX to the saved trip menu. The app writes a private GPX 1.1 file and opens the Android share sheet; it uploads nothing.
 Debug build, lint, 15 calculation tests, and 11 tracking emulator tests passed. See <a href="#gpx-export">evidence and limits</a>.</p></div></li>

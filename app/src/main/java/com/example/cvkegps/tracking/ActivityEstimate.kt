@@ -19,7 +19,8 @@ class ActivityEstimator {
         if (sample.elapsedNanos - lastTime >= 10_000_000_000L) window.clear()
         lastTime = sample.elapsedNanos
         val speed = sample.usableSpeed
-        if (speed == null || sample.accuracyMeters!! > 20f ||
+        val accuracy = sample.accuracyMeters
+        if (speed == null || accuracy == null || accuracy > 20f ||
             sample.speedAccuracyMetersPerSecond?.let { it <= 1f } != true || speed < 2f) {
             window.clear()
             return ActivityEstimate(elapsedNanos = lastTime)

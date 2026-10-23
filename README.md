@@ -62,6 +62,13 @@ The recording notification opens the current trip. Navigation uses Navigation 3 
 The launcher icon uses the confirmed Signal dial mark: an open speed ring, a short needle, and one satellite point.
 It is an adaptive vector icon with a monochrome layer for themed icons. `PROGRESS.html` uses the same mark as its favicon.
 
+## Review fixes on 23 October 2026
+
+The user approved eight fixes from a UX and code review. Each fix is a separate local commit.
+See [the fix list](PROGRESS.html#ux-review) for status and evidence.
+
+- The activity estimate uses an explicit null check instead of the `!!` operator. Behaviour does not change.
+
 ## GPX export on 23 October 2026
 
 Select **Share as GPX** in the saved trip menu. The app writes a GPX 1.1 file and opens the Android share sheet.
