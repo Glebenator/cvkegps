@@ -232,7 +232,11 @@
             It shows as unavailable when the distance is unknown or the time is below 1 s.
             Debug build, lint, 18 calculation tests (one new), and all 12 tracking emulator tests passed. The trip card test now also checks the average speed
             and the collapsed section. After a card width correction, that test passed again.</td></tr>
-          <tr><td>Speed tab before the first reading: normal-size dash, no satellite text without permission</td><td><span class="tag pending">Planned</span></td><td>—</td></tr>
+          <tr><td>Speed tab before the first reading: normal-size dash, no satellite text without permission</td><td><span class="tag done">Done</span></td>
+            <td>Without a reading, the dash uses the normal display size and a muted colour, not the size that fills the dial. A reading still fills the dial.
+            While location permission is missing, the GPS card does not show "Satellite count unavailable". The permission text gives the next step.
+            Debug build, lint, all 10 Speed tab emulator tests, and both satellite display tests passed. The home layout test now also checks that the satellite text is absent
+            at 100%, 110%, and 200% text in portrait and landscape, and captures the dark theme.</td></tr>
           <tr><td>Friendlier trip wording in Simplified Technical English</td><td><span class="tag pending">Planned</span></td><td>—</td></tr>
         </tbody>
       </table></div>
@@ -249,6 +253,10 @@
       <figcaption><strong>Technical details open</strong>23 October 2026. Baseline <code>6efb233</code> plus the details change. Debug APK <code>497f6eb0</code>. API 36 emulator. The trip was recorded from simulated Android test locations. Captured by the device test.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-23-review-live-details-light.png"><img src="docs/progress/images/2026-10-23-review-live-details-light.png" loading="lazy" alt="Current trip details: speed now, the four trip values, activity with Change, and collapsed Technical details."></a>
       <figcaption><strong>Current trip details</strong>23 October 2026. Baseline <code>6efb233</code> plus the details change. Debug APK <code>497f6eb0</code>. API 36 emulator. The trip was recorded from simulated Android test locations. Captured by the device test.</figcaption></figure><figure class="shot landscape"><a href="docs/progress/images/2026-10-23-review-saved-trip-landscape-large-text.png"><img src="docs/progress/images/2026-10-23-review-saved-trip-landscape-large-text.png" loading="lazy" alt="Saved trip in landscape at 200% text. The side panel scrolls to show all values."></a>
       <figcaption><strong>Saved trip, landscape and 200% text</strong>23 October 2026. Baseline <code>6efb233</code> plus the details change. Debug build before the card width correction; this view did not change. API 36 emulator. The side panel scrolls. The trip was recorded from simulated Android test locations. Captured by the device test.</figcaption></figure></div>
+      <h3 style="margin-top:24px">Speed tab before location permission · 23 October 2026</h3>
+      <div class="screens"><figure class="shot"><a href="docs/progress/images/2026-10-23-review-first-launch-light.png"><img src="docs/progress/images/2026-10-23-review-first-launch-light.png" loading="lazy" alt="Speed tab without permission: a normal-size dash in the dial, no satellite text, and Allow precise location."></a>
+      <figcaption><strong>First launch, light theme</strong>23 October 2026. Baseline <code>3d50f2c</code> plus the Speed tab change. API 36 emulator. Location permission is not granted, so no reading exists. Captured by the device test.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-23-review-first-launch-dark.png"><img src="docs/progress/images/2026-10-23-review-first-launch-dark.png" loading="lazy" alt="The same first-launch Speed tab in the dark theme."></a>
+      <figcaption><strong>First launch, dark theme</strong>23 October 2026. Baseline <code>3d50f2c</code> plus the Speed tab change. API 36 emulator. Location permission is not granted, so no reading exists. Captured by the device test.</figcaption></figure></div>
       <p class="note"><strong>Emulator restarts:</strong> during the distance change, the emulator's Android system stopped twice in
       <code>homeAndSavedMapFitThemesLargeTextAndRotation</code> (<code>DeadSystemException</code> in system apps, load average 36 with 2.5 GB of emulator memory), and then the emulator closed.
       The app process was not the cause in the logs. After a cold start of the emulator, the remaining tests passed one at a time.</p>
@@ -1337,7 +1345,7 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <ol class="history">
 <li><time datetime="2026-10-23">23 October 2026</time><div><h3>UX and code review fixes</h3>
 <p>Started the eight approved review fixes. Done: an explicit null check in the activity estimate, one shared display formatter, one file for each trip screen with a plain recording controller,
-stored trip distance on the trip cards, clearer trip details, and average speed.
+stored trip distance on the trip cards, clearer trip details, average speed, and a calmer Speed tab before the first reading.
 Debug build, lint, 17 calculation tests, and the emulator device tests for each fix passed. See <a href="#ux-review">the fix list</a>.</p></div></li>
 <li><time datetime="2026-10-23">23 October 2026</time><div><h3>Share a saved trip as GPX</h3>
 <p>Added Share as GPX to the saved trip menu. The app writes a private GPX 1.1 file and opens the Android share sheet; it uploads nothing.

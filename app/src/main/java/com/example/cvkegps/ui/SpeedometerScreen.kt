@@ -153,7 +153,7 @@ private fun SpeedDial(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                SpeedValue(speed, description, Modifier.weight(1f).alignByBaseline(), minFontSize = 16.sp)
+                SpeedValue(speed, available, description, Modifier.weight(1f).alignByBaseline(), minFontSize = 16.sp)
                 Text(
                     stringResource(R.string.speed_unit),
                     Modifier.alignByBaseline(),
@@ -186,7 +186,7 @@ private fun SpeedDial(
                     )
                 }
                 Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                    SpeedValue(speed, description, Modifier.fillMaxWidth())
+                    SpeedValue(speed, available, description, Modifier.fillMaxWidth())
                 }
                 Text(
                     stringResource(R.string.speed_unit),
@@ -201,23 +201,26 @@ private fun SpeedDial(
 @Composable
 private fun SpeedValue(
     speed: String,
+    available: Boolean,
     description: String,
     modifier: Modifier,
     minFontSize: TextUnit = 24.sp,
 ) {
+    // Auto-size fills the dial with digits. A dash at that size looks like a bar, so the unavailable mark keeps the normal display size.
+    val maxFontSize = if (available) 104.sp else MaterialTheme.typography.displayLarge.fontSize
     BasicText(
         text = speed,
         modifier = modifier.testTag("current_speed")
             .clearAndSetSemantics { contentDescription = description },
         style = MaterialTheme.typography.displayLarge.copy(
-            color = MaterialTheme.colorScheme.onSurface,
+            color = if (available) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = FontWeight.Medium,
             textAlign = TextAlign.Center,
             fontFeatureSettings = "tnum",
             lineHeight = TextUnit.Unspecified,
         ),
         maxLines = 1,
-        autoSize = TextAutoSize.StepBased(minFontSize = minFontSize, maxFontSize = 104.sp),
+        autoSize = TextAutoSize.StepBased(minFontSize = minFontSize, maxFontSize = maxFontSize),
     )
 }
 
@@ -340,7 +343,8 @@ internal fun GpsControls(
                     Text(stringResource(title), Modifier.weight(1f).testTag("gps_status"), style = MaterialTheme.typography.titleSmall)
                     if (onDetails != null) DetailsChevron()
                 }
-                if (onDetails != null && (!compact || satellites != null)) {
+                // Without location permission, the app cannot count satellites. The permission text explains the next step.
+                if (onDetails != null && state.status != GpsStatus.PermissionRequired && (!compact || satellites != null)) {
                     Text(
                         satellites?.let {
                             stringResource(R.string.satellite_count, format.format(it.count { satellite -> satellite.usedInFix }),

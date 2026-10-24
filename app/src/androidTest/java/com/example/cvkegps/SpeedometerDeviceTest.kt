@@ -350,10 +350,17 @@ class SpeedometerDeviceTest {
                 for (landscape in listOf(false, true)) {
                     setDisplay(scale, landscape)
                     awaitText("Location access")
+                    // Without permission, the app cannot count satellites. The permission text gives the next step.
+                    compose.onNodeWithTag("satellite_count", useUnmergedTree = true).assertDoesNotExist()
                     captureLayout("permission-$scale-$landscape")
                     assertHomeFits()
                 }
             }
+            setDisplay(1f, landscape = false)
+            setNight(true)
+            awaitText("Location access")
+            captureLayout("permission-dark")
+            setNight(false)
             instrumentation.uiAutomation.grantRuntimePermission(packageName, Manifest.permission.ACCESS_COARSE_LOCATION)
             instrumentation.uiAutomation.grantRuntimePermission(packageName, Manifest.permission.ACCESS_FINE_LOCATION)
             scenario!!.recreate()
@@ -373,15 +380,7 @@ class SpeedometerDeviceTest {
                 }
             }
             setDisplay(1.1f, landscape = false)
-            shell("cmd uimode night yes")
-            compose.waitUntil(5_000) {
-                var dark = false
-                scenario!!.onActivity {
-                    dark = it.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
-                        Configuration.UI_MODE_NIGHT_YES
-                }
-                dark
-            }
+            setNight(true)
             awaitSpeed(34.3f, "123.5")
             captureLayout("live-dark")
             assertHomeFits()
@@ -403,6 +402,19 @@ class SpeedometerDeviceTest {
                 val config = it.resources.configuration
                 matches = config.fontScale == scale &&
                     (config.screenWidthDp > config.screenHeightDp) == landscape
+            }
+            matches
+        }
+        compose.waitForIdle()
+    }
+
+    private fun setNight(dark: Boolean) {
+        shell("cmd uimode night ${if (dark) "yes" else "no"}")
+        compose.waitUntil(5_000) {
+            var matches = false
+            scenario!!.onActivity {
+                matches = (it.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
+                    Configuration.UI_MODE_NIGHT_YES) == dark
             }
             matches
         }
@@ -456,6 +468,8 @@ class SpeedometerDeviceTest {
     private fun captureLayout(name: String) {
         // Keep captures after Orchestrator clears app data. Pull and remove them after the run.
         compose.waitForIdle()
+        // The window rotation animation is not part of Compose. Let it end before the capture.
+        Thread.sleep(800)
         shell("screencap -p /sdcard/Download/cvkegps-layout-$name.png")
     }
 

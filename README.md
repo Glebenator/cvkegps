@@ -74,6 +74,7 @@ See [the fix list](PROGRESS.html#ux-review) for status and evidence.
   Older trips get it in the background after the app starts. Until then, the card shows the distance as unavailable.
 - Trip details lead with distance, recording time, average speed, and maximum speed. Technical values are in a collapsed section.
   Average speed is distance divided by recording time, so its label says that it includes stops.
+- Before the first reading, the Speed tab shows a normal-size dash. Without location permission, it does not show satellite text.
 
 ## GPX export on 23 October 2026
 
