@@ -166,16 +166,16 @@
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-10-23">23 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>2605396</code> + review fixes</dd></div>
+          <div><dt>App code baseline</dt><dd><code>53403bf</code> + friendlier trip wording</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
       </aside>
     </div>
     <div class="metrics" aria-label="Last verified results">
-      <div class="metric"><strong>11 / 11</strong><span>Tracking device tests passed</span><span class="small">API 36 · GPX change · All 25 earlier device tests passed on <code>5036b47</code> (one flaky setup wait passed on rerun)</span></div>
-      <div class="metric"><strong>15 / 15</strong><span>Calculation tests passed</span><span class="small">Two new GPX tests</span></div>
-      <div class="metric"><strong>Passed</strong><span>Debug build, test build, and debug lint</span><span class="small">No release build for this change</span></div>
+      <div class="metric"><strong>28 / 28</strong><span>Emulator device tests passed</span><span class="small">API 36 · Final review-fix code · Each test class run on its own · Process-loss script also passed</span></div>
+      <div class="metric"><strong>18 / 18</strong><span>Calculation tests passed</span><span class="small">Three new: formatter (2) and average speed</span></div>
+      <div class="metric"><strong>Passed</strong><span>Debug build, test build, and debug lint</span><span class="small">No release build for these changes</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
       <a href="#ux-review">Review fixes</a>
@@ -197,47 +197,59 @@
     </nav>
 
     <section id="ux-review" aria-labelledby="ux-review-heading">
-      <div class="section-head"><h2 id="ux-review-heading">UX and code review fixes · 23 October 2026</h2><span class="tag pending">In progress</span></div>
+      <div class="section-head"><h2 id="ux-review-heading">UX and code review fixes · 23 October 2026</h2><span class="tag done">Implemented and checked</span></div>
       <p class="section-intro">A review found that the code is well layered and well tested, but the trip screens use technical words and do not show
       everyday information. The user approved eight fixes. Each fix is a separate local commit. This section shows only completed and tested fixes as done.</p>
       <div class="table-wrap"><table>
-        <thead><tr><th scope="col">Fix</th><th scope="col">Status</th><th scope="col">Evidence</th></tr></thead>
+        <thead><tr><th scope="col">Fix</th><th scope="col">Evidence</th><th scope="col">Status</th></tr></thead>
         <tbody>
-          <tr><td>Replace the <code>!!</code> operator in the activity estimate with an explicit null check</td><td><span class="tag done">Done</span></td>
+          <tr><td>Replace the <code>!!</code> operator in the activity estimate with an explicit null check</td>
             <td>Debug build, lint, 15 calculation tests, and the activity estimate device test passed. Behaviour does not change:
-            a usable speed already needs a known accuracy.</td></tr>
-          <tr><td>One shared display formatter for speed, distance, and time</td><td><span class="tag done">Done</span></td>
+            a usable speed already needs a known accuracy.</td>
+            <td><span class="tag done">Done</span></td></tr>
+          <tr><td>One shared display formatter for speed, distance, and time</td>
             <td><code>DisplayFormat</code> takes SI values and the user's locale. It replaces six <code>* 3.6</code> conversions and the private
             <code>number()</code>, <code>duration()</code>, and <code>distance()</code> helpers. The notification uses the same class.
-            Debug build, lint, 17 calculation tests (two new tests with a German locale), and all 26 emulator device tests passed. Displayed text does not change.</td></tr>
-          <tr><td>One file for each trip screen, and a plain controller for recording commands and access</td><td><span class="tag done">Done</span></td>
+            Debug build, lint, 17 calculation tests (two new tests with a German locale), and all 26 emulator device tests passed. Displayed text does not change.</td>
+            <td><span class="tag done">Done</span></td></tr>
+          <tr><td>One file for each trip screen, and a plain controller for recording commands and access</td>
             <td>The 670-line <code>TrackingScreen.kt</code> is now <code>TripsScreen.kt</code>, <code>LiveTripScreen.kt</code>, <code>SavedTripScreen.kt</code>,
             <code>TripComponents.kt</code>, and <code>TrackingHost.kt</code>. <code>TrackingController</code> is a plain Kotlin class. It reads access,
             starts the recording service, keeps the access dialog state through rotation, and opens settings and the share sheet.
             No line in these files is longer than 140 characters. Behaviour does not change.
-            Debug build, lint, 17 calculation tests, and all 11 tracking emulator tests passed.</td></tr>
-          <tr><td>Distance on each trip card, stored with the trip</td><td><span class="tag done">Done</span></td>
+            Debug build, lint, 17 calculation tests, and all 11 tracking emulator tests passed.</td>
+            <td><span class="tag done">Done</span></td></tr>
+          <tr><td>Distance on each trip card, stored with the trip</td>
             <td>Trip cards show distance, recording time, and activity. The list reads a stored value and does not calculate routes.
             Room version 3 adds a nullable <code>distanceMeters</code> column. The recorder adds each saved sample to the open segment's distance
             with the same rules as the trip summary, and saves the total with each batch. A late sample makes the segment close calculate the distance again from all saved samples.
             Trips saved before version 3 get their distance in the background after the app starts. Until then, the card shows the distance as unavailable, not as 0.
             Debug build, lint, and 17 calculation tests passed. On the emulator, 9 of the 11 earlier tracking tests passed in the first run, and the other tracking tests,
-            a new trip card test, and a new migration test passed when run again. See the note below.</td></tr>
-          <tr><td>Trip details lead with distance, time, and speeds. Technical details are collapsed</td><td><span class="tag done">Done</span></td>
+            a new trip card test, and a new migration test passed when run again. See the note below.</td>
+            <td><span class="tag done">Done</span></td></tr>
+          <tr><td>Trip details lead with distance, time, and speeds. Technical details are collapsed</td>
             <td>Saved trips and trip details show distance, recording time, average speed, and maximum speed first. Saved positions, segments, gaps,
             and the distance and map notes are in a collapsed <strong>Technical details</strong> section. On the current trip, altitude and accuracy also move there.
-            The three notices became one short privacy paragraph. The current trip uses the saved distance, so it does not wait for the route.</td></tr>
-          <tr><td>Average speed on the current trip and saved trips</td><td><span class="tag done">Done</span></td>
+            The three notices became one short privacy paragraph. The current trip uses the saved distance, so it does not wait for the route.</td>
+            <td><span class="tag done">Done</span></td></tr>
+          <tr><td>Average speed on the current trip and saved trips</td>
             <td>Average speed is distance divided by recording time. The app does not measure moving time, so the label is <strong>Average speed, including stops</strong>.
             It shows as unavailable when the distance is unknown or the time is below 1 s.
             Debug build, lint, 18 calculation tests (one new), and all 12 tracking emulator tests passed. The trip card test now also checks the average speed
-            and the collapsed section. After a card width correction, that test passed again.</td></tr>
-          <tr><td>Speed tab before the first reading: normal-size dash, no satellite text without permission</td><td><span class="tag done">Done</span></td>
+            and the collapsed section. After a card width correction, that test passed again.</td>
+            <td><span class="tag done">Done</span></td></tr>
+          <tr><td>Speed tab before the first reading: normal-size dash, no satellite text without permission</td>
             <td>Without a reading, the dash uses the normal display size and a muted colour, not the size that fills the dial. A reading still fills the dial.
             While location permission is missing, the GPS card does not show "Satellite count unavailable". The permission text gives the next step.
             Debug build, lint, all 10 Speed tab emulator tests, and both satellite display tests passed. The home layout test now also checks that the satellite text is absent
-            at 100%, 110%, and 200% text in portrait and landscape, and captures the dark theme.</td></tr>
-          <tr><td>Friendlier trip wording in Simplified Technical English</td><td><span class="tag pending">Planned</span></td><td>—</td></tr>
+            at 100%, 110%, and 200% text in portrait and landscape, and captures the dark theme.</td>
+            <td><span class="tag done">Done</span></td></tr>
+          <tr><td>Friendlier trip wording in Simplified Technical English</td>
+            <td>21 trip strings are shorter and use everyday words. Examples: <strong>Start trip</strong> (was Start map tracking), <strong>End trip</strong>
+            (was Finish saved trip), <strong>Distance</strong> (was Recorded distance), <strong>Position accuracy</strong> (was Horizontal uncertainty), and
+            <strong>Record a trip</strong> (was Record a route). Error and notice texts say what happened and what is saved. The process-loss script uses the new button text.
+            Debug build, lint, 18 calculation tests, all 28 emulator device tests, and the external process-loss script passed on this code.</td>
+            <td><span class="tag done">Done</span></td></tr>
         </tbody>
       </table></div>
       <h3 style="margin-top:24px">Trip cards with distance · 23 October 2026</h3>
@@ -257,6 +269,19 @@
       <div class="screens"><figure class="shot"><a href="docs/progress/images/2026-10-23-review-first-launch-light.png"><img src="docs/progress/images/2026-10-23-review-first-launch-light.png" loading="lazy" alt="Speed tab without permission: a normal-size dash in the dial, no satellite text, and Allow precise location."></a>
       <figcaption><strong>First launch, light theme</strong>23 October 2026. Baseline <code>3d50f2c</code> plus the Speed tab change. API 36 emulator. Location permission is not granted, so no reading exists. Captured by the device test.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-23-review-first-launch-dark.png"><img src="docs/progress/images/2026-10-23-review-first-launch-dark.png" loading="lazy" alt="The same first-launch Speed tab in the dark theme."></a>
       <figcaption><strong>First launch, dark theme</strong>23 October 2026. Baseline <code>3d50f2c</code> plus the Speed tab change. API 36 emulator. Location permission is not granted, so no reading exists. Captured by the device test.</figcaption></figure></div>
+      <h3 style="margin-top:24px">New wording and 200% text · 23 October 2026</h3>
+      <div class="screens"><figure class="shot"><a href="docs/progress/images/2026-10-23-review-start-trip-dialog-light.png"><img src="docs/progress/images/2026-10-23-review-start-trip-dialog-light.png" loading="lazy" alt="Record a trip dialog with a short explanation, a short map privacy sentence, Cancel, and Start trip."></a>
+      <figcaption><strong>Start trip and its explanation</strong>23 October 2026. Baseline <code>53403bf</code> plus the wording change. Debug APK <code>5f8c9749</code>. API 36 emulator. The emulator reported a GPS position with speed 0. Captured by hand after the device tests.</figcaption></figure><figure class="shot landscape"><a href="docs/progress/images/2026-10-23-review-first-launch-landscape-large-text.png"><img src="docs/progress/images/2026-10-23-review-first-launch-landscape-large-text.png" loading="lazy" alt="Speed tab in landscape at 200% text without permission: a normal-size dash, the cards, and Allow precise location."></a>
+      <figcaption><strong>First launch, landscape and 200% text</strong>23 October 2026. Baseline <code>53403bf</code> plus the wording change</code>. API 36 emulator. No location permission, so no reading exists. Captured by the device test after the rotation ended.</figcaption></figure></div>
+      <article class="panel" style="margin-top:24px"><h3>Final verification and limits</h3>
+        <p>On the final code, the debug build, Android lint, all 18 calculation tests, and all 28 emulator device tests passed. Each test class ran on its own:
+        12 trip tests, 1 migration test, 10 Speed tab tests, 2 satellite display tests, 2 sky map tests, and 1 compass test. The external process-loss script also passed.
+        Light, dark, landscape, and 200% text were checked through device-test assertions and the captures in this section. All trip positions are simulated.</p>
+        <p class="test-note"><strong>Still needs a real device:</strong> the stored distance and average speed on long outdoor trips with real GPS noise and signal loss,
+        the migration with real trips saved by the earlier version, TalkBack on the collapsed Technical details section and the trip cards,
+        the notification on a physical device, battery use, and right-to-left languages. No release build was made for these changes.</p>
+        <p class="source">Final debug APK SHA-256: <code>5f8c974926cc501c715ba7081406f737fe20da52f9555a436979757843cda9c3</code>.</p>
+      </article>
       <p class="note"><strong>Emulator restarts:</strong> during the distance change, the emulator's Android system stopped twice in
       <code>homeAndSavedMapFitThemesLargeTextAndRotation</code> (<code>DeadSystemException</code> in system apps, load average 36 with 2.5 GB of emulator memory), and then the emulator closed.
       The app process was not the cause in the logs. After a cold start of the emulator, the remaining tests passed one at a time.</p>
@@ -602,7 +627,7 @@ builder.setWhen(System.currentTimeMillis() - elapsedMillis.coerceAtLeast(0)).set
       <div class="section-head"><h2 id="tracking-heading">Trip recording</h2><span class="tag done">First functional scope implemented</span></div>
       <div class="grid">
         <article class="panel"><h3>Record and save</h3><ul>
-          <li>Start map tracking from home. Estimate the activity from GPS speed. Correct the trip label if required.</li>
+          <li>Start a trip from home with <strong>Start trip</strong>. Before 23 October 2026, this button was named Start map tracking. Estimate the activity from GPS speed. Correct the trip label if required.</li>
           <li>Start, Pause, Resume, and Stop. Record after Home or screen lock through a location foreground service.</li>
           <li>View the live route above the measurements and trip controls. Use the notification after screen lock.</li>
           <li>Save route points, timestamps, quality fields, and segment boundaries in local Room storage.</li>
@@ -1344,9 +1369,10 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
 <li><time datetime="2026-10-23">23 October 2026</time><div><h3>UX and code review fixes</h3>
-<p>Started the eight approved review fixes. Done: an explicit null check in the activity estimate, one shared display formatter, one file for each trip screen with a plain recording controller,
-stored trip distance on the trip cards, clearer trip details, average speed, and a calmer Speed tab before the first reading.
-Debug build, lint, 17 calculation tests, and the emulator device tests for each fix passed. See <a href="#ux-review">the fix list</a>.</p></div></li>
+<p>Completed the eight approved review fixes in seven local commits: an explicit null check in the activity estimate, one shared display formatter,
+one file for each trip screen with a plain recording controller, stored trip distance on the trip cards, clearer trip details with average speed,
+a calmer Speed tab before the first reading, and friendlier trip wording.
+Debug build, lint, 18 calculation tests, all 28 emulator device tests, and the process-loss script passed on the final code. See <a href="#ux-review">the fix list</a>.</p></div></li>
 <li><time datetime="2026-10-23">23 October 2026</time><div><h3>Share a saved trip as GPX</h3>
 <p>Added Share as GPX to the saved trip menu. The app writes a private GPX 1.1 file and opens the Android share sheet; it uploads nothing.
 Debug build, lint, 15 calculation tests, and 11 tracking emulator tests passed. See <a href="#gpx-export">evidence and limits</a>.</p></div></li>

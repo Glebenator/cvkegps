@@ -10,7 +10,7 @@ Update the report with each completed change, as specified in `AGENTS.md`.
 ## Trip recording
 
 1. Open the app. Allow precise location when requested. Speed starts without a GPS button.
-2. Select **Start map tracking**. Read the recording and map notice. Allow notifications.
+2. Select **Start trip**. Read the recording and map notice. Allow location and notifications.
 3. A recording bar shows above the navigation bar. Use its **Pause trip**, **Resume trip**, or **Stop and save** buttons.
    Select the bar text to open **Current trip** with the live map. Use the back arrow or Android Back to return.
    A map gesture stops following. Select the **Follow route** button to follow the latest position again.
@@ -75,6 +75,10 @@ See [the fix list](PROGRESS.html#ux-review) for status and evidence.
 - Trip details lead with distance, recording time, average speed, and maximum speed. Technical values are in a collapsed section.
   Average speed is distance divided by recording time, so its label says that it includes stops.
 - Before the first reading, the Speed tab shows a normal-size dash. Without location permission, it does not show satellite text.
+- Trip wording is shorter and friendlier, for example **Start trip**, **End trip**, and **Distance**.
+
+On the final code, the debug build, Android lint, 18 calculation tests, all 28 emulator device tests, and the process-loss script passed.
+Real-device checks remain open: long outdoor trips, the migration with real saved trips, TalkBack, the notification, battery use, and right-to-left languages.
 
 ## GPX export on 23 October 2026
 
@@ -130,7 +134,7 @@ accuracy, battery use, TalkBack, and long trips remain unverified. See [the repo
 - Show current GPS speed in km/h.
 - Show GPS altitude, horizontal accuracy, and maximum speed since app launch.
 - Request precise location through the Android permission dialog.
-- Start map tracking from home. Pause and resume the trip.
+- Start a trip from home. Pause and resume the trip.
 - Handle denied permission, disabled GPS, missing hardware, and loss of signal.
 - Use system light or dark mode and dynamic colour on Android 12 and later.
 - Open GPS details for reading quality, receiver events, and satellite signals.

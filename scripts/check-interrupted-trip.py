@@ -47,14 +47,14 @@ def check_start_enabled(expected):
     tree = ET.fromstring(shell('cat', '/sdcard/tracking-check.xml'))
     parents = {child: parent for parent in tree.iter() for child in parent}
     for node in tree.iter('node'):
-        if node.get('text') != 'Start map tracking':
+        if node.get('text') != 'Start trip':
             continue
         while node is not None:
             if node.get('clickable') == 'true':
                 assert (node.get('enabled') == 'true') == expected, node.attrib
                 return
             node = parents.get(node)
-    raise AssertionError('Start map tracking button is not visible')
+    raise AssertionError('Start trip button is not visible')
 
 def snapshot_db():
     for name in ('trips.db', 'trips.db-wal', 'trips.db-shm'):
@@ -92,13 +92,13 @@ try:
     shell('input', 'keyevent', 'KEYCODE_WAKEUP')
     shell('wm', 'dismiss-keyguard')
     shell('am', 'start', '-W', '-n', package+'/.MainActivity')
-    click('Start map tracking')
+    click('Start trip')
     check_start_enabled(False)
     shell('pm', 'grant', package, 'android.permission.POST_NOTIFICATIONS')
     shell('input', 'keyevent', 'KEYCODE_HOME')
     shell('am', 'start', '-W', '-n', package+'/.MainActivity')
     check_start_enabled(True)
-    click('Start map tracking')
+    click('Start trip')
     deliver(0)
     before = saved_counts()
     assert before and before[0] == 'Recording' and before[1] >= 2, before
