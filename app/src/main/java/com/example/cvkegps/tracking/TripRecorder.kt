@@ -2,10 +2,12 @@ package com.example.cvkegps.tracking
 
 import android.os.SystemClock
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.UUID
 
 enum class RecordingError { Access, Storage, Queue, Service }
@@ -40,12 +42,22 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
     private var segment: TripSegment? = null
     private var segments = listOf<TripSegment>()
     private var baseDuration = 0L
+    // Distance of the closed segments, and the open segment's distance added sample by sample.
+    private var baseDistance = 0.0
+    private var track: SegmentTrack? = null
+    // False after a late sample. The segment close then calculates the distance again from all saved samples.
+    private var trackInOrder = true
     private var overflow = false
 
     init {
         scope.launch {
             try { dao.markInterrupted() }
             catch (_: Exception) { mutableState.value = RecordingState(error = RecordingError.Storage) }
+            // Trips saved before database version 3 get their distance. Commands do not wait for it.
+            launch {
+                try { TripDistances.fillMissing(dao) }
+                catch (_: Exception) { } // The distance stays unavailable. The next start tries again.
+            }
             for (command in commands) {
                 try {
                     if (overflow) {
@@ -89,13 +101,15 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
         when (command) {
             is RecordingCommand.Start -> {
                 if (current != null) { publish(); return }
-                val trip = TripRecord(UUID.randomUUID().toString(), command.mode, TripStatus.Recording, System.currentTimeMillis(), automaticMode = command.automatic)
+                val trip = TripRecord(UUID.randomUUID().toString(), command.mode, TripStatus.Recording, System.currentTimeMillis(),
+                    automaticMode = command.automatic, distanceMeters = 0.0)
                 val next = newSegment(trip.id, BreakReason.Start, 0)
                 dao.start(trip, next)
                 current = trip
                 segment = next
                 segments = listOf(next)
                 baseDuration = 0
+                startTrack(0.0)
                 publish()
                 request(trip.id)
             }
@@ -111,14 +125,17 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
                 if (saved == null || saved.status == TripStatus.Finished || current?.status == TripStatus.Recording) {
                     publish(); return
                 }
-                val trip = saved.copy(status = TripStatus.Recording, endedMillis = null)
+                val distance = saved.distanceMeters ?: routeDistance(saved.id)
+                val trip = saved.copy(status = TripStatus.Recording, endedMillis = null, distanceMeters = distance)
                 val priorSegments = dao.segments(trip.id)
-                val next = newSegment(trip.id, if (saved.status == TripStatus.Interrupted) BreakReason.ProcessLost else BreakReason.Resume, priorSegments.size)
+                val reason = if (saved.status == TripStatus.Interrupted) BreakReason.ProcessLost else BreakReason.Resume
+                val next = newSegment(trip.id, reason, priorSegments.size)
                 dao.resume(trip, next)
                 current = trip
                 segment = next
                 segments = dao.segments(trip.id)
                 baseDuration = trip.durationNanos
+                startTrack(distance)
                 publish()
                 request(trip.id)
             }
@@ -154,8 +171,10 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
                     TripPoint(trip.id, target.id, sample)
                 }
                 if (points.isNotEmpty()) {
+                    addToTrack(points)
                     val updated = trip.copy(durationNanos = duration(), lastSavedMillis = System.currentTimeMillis(),
-                        mode = if (trip.automaticMode && command.estimate != TripMode.Unknown) command.estimate else trip.mode)
+                        mode = if (trip.automaticMode && command.estimate != TripMode.Unknown) command.estimate else trip.mode,
+                        distanceMeters = baseDistance + (track?.distanceMeters ?: 0.0))
                     dao.save(updated, points)
                     current = updated
                     publish()
@@ -170,8 +189,32 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
     )
 
     private fun newSegment(id: String, reason: BreakReason, sequence: Int) = TripSegment(
-        UUID.randomUUID().toString(), id, processRunId, sequence, SystemClock.elapsedRealtimeNanos(), System.currentTimeMillis(), reason = reason,
+        UUID.randomUUID().toString(), id, processRunId, sequence, SystemClock.elapsedRealtimeNanos(), System.currentTimeMillis(),
+        reason = reason,
     )
+
+    private fun startTrack(distance: Double) {
+        baseDistance = distance
+        track = SegmentTrack()
+        trackInOrder = true
+    }
+
+    /** Adds the open segment's new samples. A repeated sample changes nothing. Other samples need a full calculation. */
+    private fun addToTrack(points: List<TripPoint>) {
+        val open = track ?: return
+        for (point in points.sortedBy { it.sample.elapsedNanos }) {
+            val last = open.lastElapsedNanos
+            when {
+                point.segmentId != segment?.id || (last != null && point.sample.elapsedNanos < last) -> trackInOrder = false
+                point.sample.elapsedNanos != last -> open.add(point.sample)
+            }
+        }
+    }
+
+    private suspend fun routeDistance(id: String): Double {
+        val route = dao.route(id)
+        return withContext(Dispatchers.Default) { RouteMath.summarize(route).distanceMeters }
+    }
 
     private fun duration(): Long = segment?.let {
         baseDuration + (SystemClock.elapsedRealtimeNanos() - it.startedElapsedNanos).coerceAtLeast(0)
@@ -180,8 +223,10 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
     private suspend fun close(status: TripStatus, reason: BreakReason) {
         val trip = current ?: return
         val now = System.currentTimeMillis()
+        val running = baseDistance + (track?.distanceMeters ?: 0.0)
+        val distance = if (trackInOrder) running else try { routeDistance(trip.id) } catch (_: Exception) { running }
         val updated = trip.copy(status = status, durationNanos = duration(), lastSavedMillis = now,
-            endedMillis = if (status == TripStatus.Finished) now else null)
+            endedMillis = if (status == TripStatus.Finished) now else null, distanceMeters = distance)
         val closed = segment?.copy(endedElapsedNanos = SystemClock.elapsedRealtimeNanos(), endReason = reason)
         if (closed != null) {
             dao.closeSegment(updated, closed)
@@ -190,6 +235,9 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
         current = updated
         segment = null
         baseDuration = updated.durationNanos
+        baseDistance = distance
+        track = null
+        trackInOrder = true
     }
 
     private suspend fun interrupt(error: RecordingError) {

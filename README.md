@@ -70,6 +70,8 @@ See [the fix list](PROGRESS.html#ux-review) for status and evidence.
 - The activity estimate uses an explicit null check instead of the `!!` operator. Behaviour does not change.
 - `ui/DisplayFormat.kt` formats speed, distance, and time from SI values in the user's locale. Screens and the notification use it.
 - Each trip screen has its own file. `TrackingController` is a plain Kotlin class for recording commands, access checks, and settings actions.
+- Trip cards show the distance. Room version 3 stores it with each trip. The recorder updates it with each save.
+  Older trips get it in the background after the app starts. Until then, the card shows the distance as unavailable.
 
 ## GPX export on 23 October 2026
 

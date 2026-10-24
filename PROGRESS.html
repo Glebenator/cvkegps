@@ -216,13 +216,27 @@
             starts the recording service, keeps the access dialog state through rotation, and opens settings and the share sheet.
             No line in these files is longer than 140 characters. Behaviour does not change.
             Debug build, lint, 17 calculation tests, and all 11 tracking emulator tests passed.</td></tr>
-          <tr><td>Distance on each trip card, stored with the trip</td><td><span class="tag pending">Planned</span></td><td>—</td></tr>
+          <tr><td>Distance on each trip card, stored with the trip</td><td><span class="tag done">Done</span></td>
+            <td>Trip cards show distance, recording time, and activity. The list reads a stored value and does not calculate routes.
+            Room version 3 adds a nullable <code>distanceMeters</code> column. The recorder adds each saved sample to the open segment's distance
+            with the same rules as the trip summary, and saves the total with each batch. A late sample makes the segment close calculate the distance again from all saved samples.
+            Trips saved before version 3 get their distance in the background after the app starts. Until then, the card shows the distance as unavailable, not as 0.
+            Debug build, lint, and 17 calculation tests passed. On the emulator, 9 of the 11 earlier tracking tests passed in the first run, and the other tracking tests,
+            a new trip card test, and a new migration test passed when run again. See the note below.</td></tr>
           <tr><td>Trip details lead with distance, time, and speeds. Technical details are collapsed</td><td><span class="tag pending">Planned</span></td><td>—</td></tr>
           <tr><td>Average speed on the current trip and saved trips</td><td><span class="tag pending">Planned</span></td><td>—</td></tr>
           <tr><td>Speed tab before the first reading: normal-size dash, no satellite text without permission</td><td><span class="tag pending">Planned</span></td><td>—</td></tr>
           <tr><td>Friendlier trip wording in Simplified Technical English</td><td><span class="tag pending">Planned</span></td><td>—</td></tr>
         </tbody>
       </table></div>
+      <h3 style="margin-top:24px">Trip cards with distance · 23 October 2026</h3>
+      <div class="screens"><figure class="shot"><a href="docs/progress/images/2026-10-23-review-trips-distance-light.png"><img src="docs/progress/images/2026-10-23-review-trips-distance-light.png" loading="lazy" alt="Trips tab with one card dated 23 October: 22 m, 6 s, Activity unknown."></a>
+      <figcaption><strong>Trip card, light theme</strong>23 October 2026. Baseline <code>16e8b01</code> plus the stored distance. Debug APK <code>fa9397c5</code>. API 36 emulator.  The trip was recorded from simulated Android test locations. Captured by the device test.</figcaption></figure><figure class="shot"><a href="docs/progress/images/2026-10-23-review-trips-distance-dark.png"><img src="docs/progress/images/2026-10-23-review-trips-distance-dark.png" loading="lazy" alt="The same trip card in the dark theme."></a>
+      <figcaption><strong>Trip card, dark theme</strong>23 October 2026. Baseline <code>16e8b01</code> plus the stored distance. Debug APK <code>fa9397c5</code>. API 36 emulator.  The trip was recorded from simulated Android test locations. Captured by the device test.</figcaption></figure><figure class="shot landscape"><a href="docs/progress/images/2026-10-23-review-trips-distance-landscape-large-text.png"><img src="docs/progress/images/2026-10-23-review-trips-distance-landscape-large-text.png" loading="lazy" alt="Trips tab in landscape at 200% text with the navigation rail and the trip card."></a>
+      <figcaption><strong>Trip card, landscape and 200% text</strong>23 October 2026. Baseline <code>16e8b01</code> plus the stored distance. Debug APK <code>fa9397c5</code>. API 36 emulator.  The trip was recorded from simulated Android test locations. Captured by the device test.</figcaption></figure></div>
+      <p class="note"><strong>Emulator restarts:</strong> during the distance change, the emulator's Android system stopped twice in
+      <code>homeAndSavedMapFitThemesLargeTextAndRotation</code> (<code>DeadSystemException</code> in system apps, load average 36 with 2.5 GB of emulator memory), and then the emulator closed.
+      The app process was not the cause in the logs. After a cold start of the emulator, the remaining tests passed one at a time.</p>
       <p class="source">Local evidence: <code>artifacts/ux-review/</code>. Sources: <a href="app/src/main/java/com/example/cvkegps/tracking/ActivityEstimate.kt">ActivityEstimate.kt</a>,
       <a href="app/src/main/java/com/example/cvkegps/ui/DisplayFormat.kt">DisplayFormat.kt</a>, <a href="app/src/test/java/com/example/cvkegps/ui/DisplayFormatTest.kt">DisplayFormatTest.kt</a>,
       <a href="app/src/main/java/com/example/cvkegps/tracking/TrackingController.kt">TrackingController.kt</a>, <a href="app/src/main/java/com/example/cvkegps/tracking/TrackingHost.kt">TrackingHost.kt</a>.</p>

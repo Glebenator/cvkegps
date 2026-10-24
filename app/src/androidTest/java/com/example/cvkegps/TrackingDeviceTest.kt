@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.assertIsEnabled
@@ -29,6 +30,7 @@ import com.example.cvkegps.tracking.RouteMath
 import com.example.cvkegps.tracking.TripMode
 import com.example.cvkegps.tracking.TripStatus
 import com.example.cvkegps.tracking.TrackingApplication
+import com.example.cvkegps.ui.DisplayFormat
 import kotlinx.coroutines.runBlocking
 import java.io.File
 import org.junit.After
@@ -177,6 +179,49 @@ class TrackingDeviceTest {
         compose.onNodeWithTag("confirm_start").performClick()
         waitUntil { app.recorder.state.value.trip != null }
         deliver(app.recorder.state.value.trip!!.id, 1)
+    }
+
+    @Test fun savedDistanceMatchesTheRouteAndShowsOnTheTripCard() {
+        launch()
+        startTrip()
+        waitUntil { app.recorder.state.value.trip?.status == TripStatus.Recording }
+        val id = app.recorder.state.value.trip!!.id
+        deliver(id, 4)
+        // The recorder saves the distance with each batch, not only when the trip stops.
+        waitUntil { (runBlocking { app.database.trips().trip(id) }?.distanceMeters ?: 0.0) > 0.0 }
+        compose.onNodeWithTag("trip_stop").performScrollTo()
+        compose.onNodeWithTag("trip_stop").performClick()
+        waitUntil { !app.recorder.state.value.needsService }
+        val saved = runBlocking { app.database.trips().trip(id) }!!.distanceMeters!!
+        val exact = RouteMath.summarize(runBlocking { app.database.trips().route(id) }).distanceMeters
+        assertTrue(exact > 0)
+        assertEquals(exact, saved, 0.001)
+        compose.onNodeWithTag("route_map").assertIsDisplayed()
+        compose.onNodeWithTag("top_back").performClick()
+        val distance = DisplayFormat(context.resources).distance(saved)
+        compose.waitUntil(5_000) {
+            runCatching {
+                compose.onNodeWithTag("trip_card_summary", useUnmergedTree = true).assertTextContains(distance, substring = true)
+            }.isSuccess
+        }
+        val font = shell("settings get system font_scale").trim()
+        val rotation = shell("settings get system user_rotation").trim()
+        val auto = shell("settings get system accelerometer_rotation").trim()
+        val night = shell("cmd uimode night").substringAfter(":").trim()
+        try {
+            for ((name, scale, dark) in listOf(Triple("light", 1f, false), Triple("dark", 1f, true), Triple("large-text", 2f, false))) {
+                for (landscape in listOf(false, true)) {
+                    setDisplay(scale, landscape, dark)
+                    compose.onNodeWithTag("trip_card_summary", useUnmergedTree = true).assertIsDisplayed()
+                    capture("trips-distance-$name-$landscape")
+                }
+            }
+        } finally {
+            shell("settings put system font_scale $font")
+            shell("settings put system user_rotation $rotation")
+            shell("settings put system accelerometer_rotation $auto")
+            shell("cmd uimode night $night")
+        }
     }
 
     private fun launch() {

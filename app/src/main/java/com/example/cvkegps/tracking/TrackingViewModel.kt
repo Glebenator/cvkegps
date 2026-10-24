@@ -28,7 +28,12 @@ data class TripDetail(val trip: TripRecord, val positions: Int, val segments: In
 
 /** [exports] is a private cache folder for shared GPX files. */
 @OptIn(ExperimentalCoroutinesApi::class)
-class TrackingViewModel(private val dao: TripDao, val recorder: TripRecorder, source: SharedLocationSource, private val exports: File) : ViewModel() {
+class TrackingViewModel(
+    private val dao: TripDao,
+    val recorder: TripRecorder,
+    source: SharedLocationSource,
+    private val exports: File,
+) : ViewModel() {
     // Null until Room answers, so the list never claims that there are no trips before it knows.
     val trips = dao.trips().stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), null as List<TripRecord>?)
     private val selection = MutableStateFlow<String?>(null)
@@ -99,8 +104,7 @@ class TrackingViewModel(private val dao: TripDao, val recorder: TripRecorder, so
     suspend fun exportGpx(id: String, name: String): File? = withContext(Dispatchers.IO) {
         try {
             val trip = dao.trip(id) ?: return@withContext null
-            val grouped = dao.savedPoints(id).groupBy { it.segmentId }
-            val lines = RouteMath.summarize(dao.segments(id).map { grouped[it.id].orEmpty().map(TripPoint::sample) }).lines
+            val lines = RouteMath.summarize(dao.route(id)).lines
             clearExports()
             if (!exports.mkdirs() && !exports.isDirectory) return@withContext null
             File(exports, Gpx.fileName(trip.startedMillis)).also { file -> file.bufferedWriter().use { Gpx.write(it, name, lines) } }

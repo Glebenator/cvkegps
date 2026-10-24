@@ -83,7 +83,7 @@
     <string name="trip_live_title">Current trip</string>
     <string name="trip_open_live">Open current trip</string>
     <string name="trip_activity">Activity</string>
-    <string name="trip_summary_line">%1$s · %2$s</string>
+    <string name="trip_card_summary">%1$s · %2$s · %3$s</string>
     <string name="mode_change_short">Change</string>
     <string name="more_options">More options</string>
     <string name="trip_share_gpx">Share as GPX</string>

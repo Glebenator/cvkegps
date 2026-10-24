@@ -16,7 +16,9 @@ import androidx.room.Query
 import androidx.room.RoomDatabase
 import androidx.room.Transaction
 import androidx.room.Update
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
 
 @Entity(tableName = "trips")
 data class TripRecord(
@@ -29,6 +31,8 @@ data class TripRecord(
     val lastSavedMillis: Long = startedMillis,
     val policyVersion: Int = 1,
     @ColumnInfo(defaultValue = "0") val automaticMode: Boolean = false,
+    /** Null until it is known. Trips saved before database version 3 get it from a background calculation. */
+    val distanceMeters: Double? = null,
 )
 
 @Entity(tableName = "segments", foreignKeys = [ForeignKey(
@@ -75,6 +79,13 @@ abstract class TripDao {
     @Query("SELECT * FROM points WHERE tripId = :id ORDER BY elapsedNanos")
     abstract suspend fun savedPoints(id: String): List<TripPoint>
 
+    @Query("SELECT id FROM trips WHERE distanceMeters IS NULL AND status NOT IN ('Recording', 'Paused')")
+    abstract suspend fun tripsWithoutDistance(): List<String>
+
+    /** Never replaces a distance that the recorder has already saved. */
+    @Query("UPDATE trips SET distanceMeters = :meters WHERE id = :id AND distanceMeters IS NULL")
+    abstract suspend fun setMissingDistance(id: String, meters: Double)
+
     @Insert abstract suspend fun insert(trip: TripRecord)
     @Insert abstract suspend fun insert(segment: TripSegment)
     @Insert(onConflict = OnConflictStrategy.IGNORE) abstract suspend fun insert(points: List<TripPoint>)
@@ -86,6 +97,13 @@ abstract class TripDao {
 
     @Query("UPDATE trips SET status = 'Interrupted' WHERE status IN ('Recording', 'Paused')")
     abstract suspend fun markInterrupted()
+
+    /** The saved samples of each segment, in segment order. */
+    @Transaction
+    open suspend fun route(id: String): List<List<TrackSample>> {
+        val grouped = savedPoints(id).groupBy { it.segmentId }
+        return segments(id).map { grouped[it.id].orEmpty().map(TripPoint::sample) }
+    }
 
     @Transaction
     open suspend fun start(trip: TripRecord, segment: TripSegment) {
@@ -112,7 +130,7 @@ abstract class TripDao {
     }
 }
 
-@Database(entities = [TripRecord::class, TripSegment::class, TripPoint::class], version = 2, exportSchema = false)
+@Database(entities = [TripRecord::class, TripSegment::class, TripPoint::class], version = 3, exportSchema = false)
 abstract class TripDatabase : RoomDatabase() {
     abstract fun trips(): TripDao
 
@@ -121,6 +139,24 @@ abstract class TripDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE trips ADD COLUMN automaticMode INTEGER NOT NULL DEFAULT 0")
             }
+        }
+
+        /** Existing trips get a null distance. [TripDistances.fillMissing] calculates it after the database opens. */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE trips ADD COLUMN distanceMeters REAL")
+            }
+        }
+    }
+}
+
+/** Calculates the distance of trips that do not have one. Run it once after the database opens. */
+object TripDistances {
+    suspend fun fillMissing(dao: TripDao) {
+        for (id in dao.tripsWithoutDistance()) {
+            val route = dao.route(id)
+            val meters = withContext(Dispatchers.Default) { RouteMath.summarize(route).distanceMeters }
+            dao.setMissingDistance(id, meters)
         }
     }
 }

@@ -53,8 +53,11 @@ fun TripsScreen(actions: TrackingActions, onTrip: (String) -> Unit, onLive: () -
                     modifier = Modifier.animateItem().fillMaxWidth().testTag("saved_trip")) {
                     ListItem(
                         headlineContent = { Text(tripTime(trip.startedMillis)) },
+                        // The distance is stored with the trip, so the list does not calculate routes.
                         supportingContent = {
-                            Text(stringResource(R.string.trip_summary_line, activityText(trip), format.duration(trip.durationNanos)))
+                            Text(stringResource(R.string.trip_card_summary,
+                                trip.distanceMeters?.let(format::distance) ?: stringResource(R.string.no_value),
+                                format.duration(trip.durationNanos), activityText(trip)), Modifier.testTag("trip_card_summary"))
                         },
                         trailingContent = if (trip.status != TripStatus.Finished) { { StatusLabel(trip.status) } } else null,
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),

@@ -62,39 +62,61 @@ object RouteMath {
         var missingNanos = 0L
         val lines = mutableListOf<List<TrackSample>>()
         for (segment in segments) {
+            val track = SegmentTrack()
             var line = mutableListOf<TrackSample>()
-            var previous: TrackSample? = null
-            var previousTime: Long? = null
-            var poorFix = false
             for (sample in segment.filter { it.valid() }.distinctBy { it.elapsedNanos }.sortedBy { it.elapsedNanos }) {
                 sample.usableSpeed?.let { maximum = maxOf(maximum ?: it, it) }
-                val dt = previousTime?.let { sample.elapsedNanos - it }
-                if (dt != null && dt >= SIGNAL_GAP_NANOS) {
+                val step = track.add(sample)
+                if (step.gapNanos > 0) {
                     gaps++
-                    missingNanos += dt
+                    missingNanos += step.gapNanos
+                }
+                if (step.poorGap) gaps++
+                if (step.gapNanos > 0 || !step.joined) {
                     if (line.isNotEmpty()) lines += line
                     line = mutableListOf()
-                    previous = null
                 }
-                previousTime = sample.elapsedNanos
-                if (!sample.usablePosition) {
-                    if (!poorFix) gaps++
-                    poorFix = true
-                    if (line.isNotEmpty()) lines += line
-                    line = mutableListOf()
-                    previous = null
-                    continue
-                }
-                poorFix = false
-                previous?.let { last ->
-                    // Do not accumulate position noise while reported speed is zero.
-                    if (sample.usableSpeed != 0f || last.usableSpeed != 0f) total += distance(last, sample)
-                }
-                line += sample
-                previous = sample
+                if (step.joined) line += sample
             }
             if (line.isNotEmpty()) lines += line
+            total += track.distanceMeters
         }
         return RouteSummary(total, maximum, gaps, missingNanos, lines)
     }
 }
+
+/**
+ * One recording segment, sample by sample in time order. Trip summaries and the recorder use the same rules,
+ * so the distance on a trip card agrees with the trip details.
+ */
+class SegmentTrack {
+    /** One sample's effect: the signal gap before it, the start of a poor-position gap, and whether it joins the line. */
+    data class Step(val gapNanos: Long, val poorGap: Boolean, val joined: Boolean)
+
+    var distanceMeters = 0.0
+        private set
+    var lastElapsedNanos: Long? = null
+        private set
+    private var previous: TrackSample? = null
+    private var poorFix = false
+
+    fun add(sample: TrackSample): Step {
+        val gapNanos = lastElapsedNanos?.let { sample.elapsedNanos - it }?.takeIf { it >= RouteMath.SIGNAL_GAP_NANOS } ?: 0
+        lastElapsedNanos = sample.elapsedNanos
+        if (gapNanos > 0) previous = null
+        if (!sample.usablePosition) {
+            val poorGap = !poorFix
+            poorFix = true
+            previous = null
+            return Step(gapNanos, poorGap, joined = false)
+        }
+        poorFix = false
+        previous?.let { last ->
+            // Do not accumulate position noise while reported speed is zero.
+            if (sample.usableSpeed != 0f || last.usableSpeed != 0f) distanceMeters += RouteMath.distance(last, sample)
+        }
+        previous = sample
+        return Step(gapNanos, poorGap = false, joined = true)
+    }
+}
+
