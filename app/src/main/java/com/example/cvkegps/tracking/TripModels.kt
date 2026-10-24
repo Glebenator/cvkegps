@@ -120,3 +120,7 @@ class SegmentTrack {
     }
 }
 
+
+/** Distance divided by recording time. Recording time includes stops, because the app does not measure moving time. */
+fun averageSpeed(distanceMeters: Double?, durationNanos: Long): Float? =
+    distanceMeters?.takeIf { durationNanos >= 1_000_000_000L }?.let { (it / (durationNanos / 1e9)).toFloat() }

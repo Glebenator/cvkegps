@@ -99,12 +99,7 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
             actions.error?.let { Text(stringResource(it), Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.error) }
             Box(Modifier.weight(1f)) {
                 MapWorkspace(shown?.summary?.lines) {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Metric(R.string.trip_distance, shown?.let { format.distance(it.summary.distanceMeters) }, pending = shown == null)
-                        Metric(R.string.trip_duration, trip?.let { format.duration(it.durationNanos) }, pending = trip == null)
-                        Metric(R.string.maximum_speed, shown?.summary?.maximumSpeedMetersPerSecond?.let(format::speed),
-                            pending = shown == null)
-                    }
+                    SavedTotals(trip, shown)
                     if (trip?.status == TripStatus.Interrupted) {
                         Text(stringResource(R.string.trip_interrupted_note), style = MaterialTheme.typography.bodySmall)
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -122,27 +117,34 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
         }
     }
     if (details && shown != null) TripDetailsSheet({ details = false }) {
-        TripSummary(shown)
-        Text(stringResource(R.string.map_start_end), style = MaterialTheme.typography.bodySmall)
-        Text(stringResource(R.string.map_privacy), style = MaterialTheme.typography.bodySmall)
-        Text(stringResource(R.string.trip_share_gpx_note), style = MaterialTheme.typography.bodySmall)
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column {
+                    Text(activityText(shown.trip), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(shown.trip.status.title()), style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                SavedTotals(shown.trip, shown)
+            }
+        }
+        TechnicalDetails {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Metric(R.string.trip_points, format.whole(shown.positions))
+                Metric(R.string.trip_segments, format.whole(shown.segments))
+                Metric(R.string.trip_gaps, format.whole(shown.summary.gapCount))
+            }
+            Text(stringResource(R.string.trip_gap_note), style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.map_start_end), style = MaterialTheme.typography.bodySmall)
+        }
+        Text(stringResource(R.string.trip_privacy), style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
+/** The route summary is exact. The stored distance shows until it arrives. */
 @Composable
-private fun TripSummary(detail: TripDetail) {
-    val format = rememberDisplayFormat()
-    Card {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(activityText(detail.trip))
-            Text(stringResource(detail.trip.status.title()))
-            Metric(R.string.trip_distance, format.distance(detail.summary.distanceMeters))
-            Metric(R.string.trip_duration, format.duration(detail.trip.durationNanos))
-            Metric(R.string.maximum_speed, detail.summary.maximumSpeedMetersPerSecond?.let(format::speed))
-            Metric(R.string.trip_points, format.whole(detail.positions))
-            Metric(R.string.trip_segments, format.whole(detail.segments))
-            Metric(R.string.trip_gaps, format.whole(detail.summary.gapCount))
-            Text(stringResource(R.string.trip_gap_note), style = MaterialTheme.typography.bodySmall)
-        }
-    }
+private fun SavedTotals(trip: TripRecord?, shown: TripDetail?) {
+    val distance = shown?.summary?.distanceMeters ?: trip?.distanceMeters
+    TripTotals(distance, distancePending = trip == null || (distance == null && shown == null), durationNanos = trip?.durationNanos,
+        maximumSpeed = shown?.summary?.maximumSpeedMetersPerSecond, maximumPending = shown == null)
 }

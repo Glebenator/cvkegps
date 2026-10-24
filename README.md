@@ -72,6 +72,8 @@ See [the fix list](PROGRESS.html#ux-review) for status and evidence.
 - Each trip screen has its own file. `TrackingController` is a plain Kotlin class for recording commands, access checks, and settings actions.
 - Trip cards show the distance. Room version 3 stores it with each trip. The recorder updates it with each save.
   Older trips get it in the background after the app starts. Until then, the card shows the distance as unavailable.
+- Trip details lead with distance, recording time, average speed, and maximum speed. Technical values are in a collapsed section.
+  Average speed is distance divided by recording time, so its label says that it includes stops.
 
 ## GPX export on 23 October 2026
 

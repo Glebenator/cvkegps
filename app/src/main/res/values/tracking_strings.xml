@@ -47,7 +47,7 @@
     <string name="trip_quality">Horizontal uncertainty</string>
     <string name="trip_vertical_quality">Vertical uncertainty</string>
     <string name="trip_signal_wait">Waiting for GPS. Missing and old readings are unavailable.</string>
-    <string name="trip_gap_note">Distance is an estimate from accepted positions. Gaps are not joined. Poor reception and position noise can change this estimate.</string>
+    <string name="trip_gap_note">Distance is an estimate. It does not include gaps in the signal.</string>
     <string name="trip_interrupted_note">Recording stopped unexpectedly. The saved part is available. Resume starts a new segment.</string>
     <string name="trip_plane_note">Ground speed is not airspeed. GPS altitude is not a pressure-altimeter reading.</string>
     <string name="trip_storage_error">Recording stopped because trip data could not be saved. Check free storage. The last saved part remains available.</string>
@@ -63,7 +63,7 @@
     <string name="map_retry">Reload map</string>
     <string name="map_no_points">No accepted positions are available for the map.</string>
     <string name="map_accessibility">Recorded route. Use the trip summary for measurement values. Gaps are not connected.</string>
-    <string name="map_start_end">Green marks the start. Red marks the end. Separate lines show recording gaps.</string>
+    <string name="map_start_end">Green shows the start. Red shows the end. A break in the line is a gap in the recording.</string>
     <string name="map_loading">Loading online map…</string>
     <string name="mode_unknown">Activity unknown</string>
     <string name="mode_road">Car or transit</string>
@@ -87,6 +87,10 @@
     <string name="mode_change_short">Change</string>
     <string name="more_options">More options</string>
     <string name="trip_share_gpx">Share as GPX</string>
-    <string name="trip_share_gpx_note">Share as GPX sends the saved positions and times to the app that you select. The file does not include altitude.</string>
+    <string name="trip_privacy">Your trips stay on this device. OpenStreetMap receives the map area that you look at. Share as GPX sends positions and times only to the app that you select.</string>
+    <string name="trip_average_speed">Average speed, including stops</string>
+    <string name="trip_technical_details">Technical details</string>
+    <string name="state_expanded">Expanded</string>
+    <string name="state_collapsed">Collapsed</string>
     <string name="trip_export_error">The GPX file could not be made. Try again.</string>
 </resources>

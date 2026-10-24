@@ -1,6 +1,7 @@
 package com.example.cvkegps.tracking
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -29,6 +30,13 @@ class RouteMathTest {
         assertEquals(2, result.gapCount)
         assertEquals(4, result.lines.size)
         assertEquals(16_000_000_000L, result.gapNanos)
+    }
+
+    @Test fun averageSpeedUsesRecordingTimeAndNeedsAKnownDistance() {
+        assertEquals(5f, averageSpeed(300.0, 60_000_000_000)!!, 0f)
+        assertEquals(0f, averageSpeed(0.0, 60_000_000_000)!!, 0f)
+        assertNull(averageSpeed(null, 60_000_000_000))
+        assertNull(averageSpeed(10.0, 999_999_999))
     }
 
     @Test fun invalidTimesAndCoordinatesAreRejectedWithoutCappingPlaneSpeed() {

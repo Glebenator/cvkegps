@@ -2,10 +2,13 @@ package com.example.cvkegps.tracking
 
 import android.text.format.DateUtils
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -30,9 +33,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
@@ -40,10 +48,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import com.example.cvkegps.R
+import com.example.cvkegps.ui.rememberDisplayFormat
 
 /** The Speed tab slot. Pause and Stop move to the recording bar while a trip is active. */
 @Composable
@@ -141,10 +153,53 @@ internal fun DetailsAction(onClick: () -> Unit) {
 
 /** A pending value keeps its space and fades in, so the layout does not jump and no status message shows. */
 @Composable
-internal fun Metric(@StringRes title: Int, value: String?, pending: Boolean = false) {
+internal fun Metric(@StringRes title: Int, value: String?, pending: Boolean = false, tag: String? = null) {
     Column {
         Text(stringResource(title), style = MaterialTheme.typography.labelMedium)
-        PendingText(if (pending) null else value ?: stringResource(R.string.no_value), style = MaterialTheme.typography.titleMedium)
+        PendingText(if (pending) null else value ?: stringResource(R.string.no_value),
+            if (tag == null) Modifier else Modifier.testTag(tag), style = MaterialTheme.typography.titleMedium)
+    }
+}
+
+/**
+ * The everyday trip values: distance, recording time, average speed, and maximum speed.
+ * A missing value shows as unavailable. A pending value keeps its space until it is known.
+ */
+@Composable
+internal fun TripTotals(
+    distanceMeters: Double?,
+    distancePending: Boolean,
+    durationNanos: Long?,
+    maximumSpeed: Float?,
+    maximumPending: Boolean,
+) {
+    val format = rememberDisplayFormat()
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Metric(R.string.trip_distance, distanceMeters?.let(format::distance), distancePending, "trip_distance")
+        Metric(R.string.trip_duration, durationNanos?.let(format::duration), durationNanos == null)
+        Metric(R.string.trip_average_speed, durationNanos?.let { averageSpeed(distanceMeters, it) }?.let(format::speed),
+            distancePending || durationNanos == null, "average_speed")
+        Metric(R.string.maximum_speed, maximumSpeed?.let(format::speed), maximumPending)
+    }
+}
+
+/** A collapsed section for values that most users do not need. */
+@Composable
+internal fun TechnicalDetails(content: @Composable () -> Unit) {
+    var open by rememberSaveable { mutableStateOf(false) }
+    val state = stringResource(if (open) R.string.state_expanded else R.string.state_collapsed)
+    Column {
+        Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium)
+            .clickable(role = Role.Button) { open = !open }
+            .semantics { stateDescription = state }
+            .heightIn(min = 48.dp).testTag("technical_details"),
+            verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.trip_technical_details), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+            Icon(painterResource(R.drawable.ic_expand_more), contentDescription = null, Modifier.rotate(if (open) 180f else 0f))
+        }
+        AnimatedVisibility(open) {
+            Column(Modifier.padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { content() }
+        }
     }
 }
 

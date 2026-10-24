@@ -71,8 +71,10 @@ fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> 
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             Text(format.duration(elapsed), style = MaterialTheme.typography.titleMedium)
-                            PendingText(detail?.let { format.distance(it.summary.distanceMeters) }, Modifier.testTag("live_distance"),
-                                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            // The recorder updates the distance with each save, so it does not wait for the route.
+                            Text(trip.distanceMeters?.let(format::distance) ?: stringResource(R.string.no_value),
+                                Modifier.testTag("live_distance"), style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     TripActions(trip, actions.pause, { actions.resume(trip.id) }, { actions.stop(trip.id) })
@@ -82,28 +84,32 @@ fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> 
     }
     if (details && trip != null) TripDetailsSheet({ details = false }) {
         Metric(R.string.trip_ground_speed, reading?.speedMetersPerSecond?.let(format::speed))
+        if (reading == null && trip.status == TripStatus.Recording) Text(stringResource(R.string.trip_signal_wait))
+        TripTotals(trip.distanceMeters, distancePending = false, durationNanos = elapsed,
+            maximumSpeed = detail?.summary?.maximumSpeedMetersPerSecond, maximumPending = detail == null)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { Metric(R.string.trip_activity, activityText(trip)) }
             TextButton(onClick = { actions.chooseMode(trip.id) }, modifier = Modifier.testTag("change_activity")) {
                 Text(stringResource(R.string.mode_change_short))
             }
         }
-        Metric(R.string.trip_distance, detail?.let { format.distance(it.summary.distanceMeters) }, pending = detail == null)
-        Metric(R.string.trip_duration, format.duration(elapsed))
-        Metric(R.string.trip_altitude, reading?.altitudeMeters?.let { stringResource(R.string.trip_altitude_value, format.decimal(it)) })
-        Metric(R.string.trip_quality, reading?.accuracyMeters?.let {
-            stringResource(R.string.trip_uncertainty_value, format.decimal(it.toDouble()))
-        })
-        if (trip.mode == TripMode.Plane) {
-            Metric(R.string.trip_track, reading?.bearingRadians?.let {
-                stringResource(R.string.trip_track_value, format.decimal(Math.toDegrees(it)))
+        TechnicalDetails {
+            Metric(R.string.trip_altitude, reading?.altitudeMeters?.let {
+                stringResource(R.string.trip_altitude_value, format.decimal(it))
             })
-            Metric(R.string.trip_vertical_quality, reading?.verticalAccuracyMeters?.let {
+            Metric(R.string.trip_quality, reading?.accuracyMeters?.let {
                 stringResource(R.string.trip_uncertainty_value, format.decimal(it.toDouble()))
             })
-            Text(stringResource(R.string.trip_plane_note), style = MaterialTheme.typography.bodySmall)
+            if (trip.mode == TripMode.Plane) {
+                Metric(R.string.trip_track, reading?.bearingRadians?.let {
+                    stringResource(R.string.trip_track_value, format.decimal(Math.toDegrees(it)))
+                })
+                Metric(R.string.trip_vertical_quality, reading?.verticalAccuracyMeters?.let {
+                    stringResource(R.string.trip_uncertainty_value, format.decimal(it.toDouble()))
+                })
+                Text(stringResource(R.string.trip_plane_note), style = MaterialTheme.typography.bodySmall)
+            }
         }
-        if (reading == null && trip.status == TripStatus.Recording) Text(stringResource(R.string.trip_signal_wait))
     }
 }
 

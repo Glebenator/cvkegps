@@ -17,7 +17,10 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
@@ -30,6 +33,7 @@ import com.example.cvkegps.tracking.RouteMath
 import com.example.cvkegps.tracking.TripMode
 import com.example.cvkegps.tracking.TripStatus
 import com.example.cvkegps.tracking.TrackingApplication
+import com.example.cvkegps.tracking.averageSpeed
 import com.example.cvkegps.ui.DisplayFormat
 import kotlinx.coroutines.runBlocking
 import java.io.File
@@ -181,7 +185,7 @@ class TrackingDeviceTest {
         deliver(app.recorder.state.value.trip!!.id, 1)
     }
 
-    @Test fun savedDistanceMatchesTheRouteAndShowsOnTheTripCard() {
+    @Test fun tripCardsAndDetailsShowDistanceAndAverageSpeed() {
         launch()
         startTrip()
         waitUntil { app.recorder.state.value.trip?.status == TripStatus.Recording }
@@ -189,16 +193,38 @@ class TrackingDeviceTest {
         deliver(id, 4)
         // The recorder saves the distance with each batch, not only when the trip stops.
         waitUntil { (runBlocking { app.database.trips().trip(id) }?.distanceMeters ?: 0.0) > 0.0 }
+        compose.onNodeWithTag("trip_details").performClick()
+        compose.onNodeWithTag("average_speed", useUnmergedTree = true).assertIsDisplayed()
+        capture("live-details")
+        compose.onNodeWithTag("close_trip_details").performScrollTo().performClick()
         compose.onNodeWithTag("trip_stop").performScrollTo()
         compose.onNodeWithTag("trip_stop").performClick()
         waitUntil { !app.recorder.state.value.needsService }
-        val saved = runBlocking { app.database.trips().trip(id) }!!.distanceMeters!!
+        val trip = runBlocking { app.database.trips().trip(id) }!!
+        val saved = trip.distanceMeters!!
         val exact = RouteMath.summarize(runBlocking { app.database.trips().route(id) }).distanceMeters
         assertTrue(exact > 0)
         assertEquals(exact, saved, 0.001)
         compose.onNodeWithTag("route_map").assertIsDisplayed()
+        capture("saved-trip")
+        // Average speed is the distance divided by the recording time.
+        val format = DisplayFormat(context.resources)
+        val average = format.speed(averageSpeed(saved, trip.durationNanos)!!)
+        compose.waitUntil(5_000) {
+            runCatching { compose.onNodeWithTag("average_speed", useUnmergedTree = true).assertTextEquals(average) }.isSuccess
+        }
+        // Technical details start collapsed.
+        val positions = context.getString(R.string.trip_points)
+        compose.onNodeWithTag("trip_details").performClick()
+        compose.onNodeWithTag("trip_details_content").assertIsDisplayed()
+        compose.onAllNodesWithText(positions).assertCountEquals(0)
+        capture("saved-details")
+        compose.onNodeWithTag("technical_details").performScrollTo().performClick()
+        compose.onNodeWithText(positions).assertExists()
+        capture("saved-details-technical")
+        compose.onNodeWithTag("close_trip_details").performScrollTo().performClick()
         compose.onNodeWithTag("top_back").performClick()
-        val distance = DisplayFormat(context.resources).distance(saved)
+        val distance = format.distance(saved)
         compose.waitUntil(5_000) {
             runCatching {
                 compose.onNodeWithTag("trip_card_summary", useUnmergedTree = true).assertTextContains(distance, substring = true)
