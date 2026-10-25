@@ -55,6 +55,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import com.example.cvkegps.R
+import com.example.cvkegps.location.TrackSample
 import com.example.cvkegps.ui.rememberDisplayFormat
 
 /** The Speed tab slot. Pause and Stop move to the recording bar while a trip is active. */

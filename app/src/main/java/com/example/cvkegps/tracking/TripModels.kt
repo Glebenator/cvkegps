@@ -1,5 +1,6 @@
 package com.example.cvkegps.tracking
 
+import com.example.cvkegps.location.TrackSample
 import kotlin.math.asin
 import kotlin.math.cos
 import kotlin.math.sin
@@ -8,33 +9,6 @@ import kotlin.math.sqrt
 enum class TripMode { Car, Transit, Plane, Bike, Ski, Unknown, CarOrTransit, BikeOrSki }
 enum class TripStatus { Recording, Paused, Interrupted, Finished }
 enum class BreakReason { Start, Resume, ManualPause, Stop, SignalLoss, AccessLost, ProcessLost, StorageError }
-
-/** Linear measurements use SI units. Angular measurements use radians. */
-data class TrackSample(
-    val latitudeRadians: Double,
-    val longitudeRadians: Double,
-    val timeMillis: Long,
-    val elapsedNanos: Long,
-    val receivedElapsedNanos: Long,
-    val accuracyMeters: Float?,
-    val speedMetersPerSecond: Float?,
-    val speedAccuracyMetersPerSecond: Float?,
-    val altitudeMeters: Double?,
-    val verticalAccuracyMeters: Float?,
-    val bearingRadians: Double?,
-    val bearingAccuracyRadians: Double?,
-    val isMock: Boolean,
-) {
-    fun valid(): Boolean = latitudeRadians.isFinite() && longitudeRadians.isFinite() &&
-        latitudeRadians in -Math.PI / 2..Math.PI / 2 && longitudeRadians in -Math.PI..Math.PI &&
-        timeMillis > 0 && elapsedNanos > 0 && elapsedNanos <= receivedElapsedNanos
-
-    val usablePosition: Boolean get() = accuracyMeters?.let { it.isFinite() && it in 0f..50f } == true
-    val usableSpeed: Float? get() = speedMetersPerSecond?.takeIf { speed ->
-        usablePosition && speed.isFinite() && speed >= 0 &&
-            (speedAccuracyMetersPerSecond == null || speedAccuracyMetersPerSecond in 0f..3f)
-    }
-}
 
 data class RouteSummary(
     val distanceMeters: Double = 0.0,

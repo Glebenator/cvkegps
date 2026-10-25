@@ -151,7 +151,7 @@
       <h3>Location ownership</h3>
       <p>Keep <code>LocationManager.GPS_PROVIDER</code> as the first provider. Introduce a small batch-capable source interface.
         Android types stay in its adapter. Preserve every delivered point before producing the latest display state.</p>
-      <p>The current <a href="../app/src/main/java/com/example/cvkegps/location/AndroidGpsSource.kt">AndroidGpsSource</a>
+      <p>The current <code>AndroidGpsSource</code> (removed on 25 October 2026)
         uses <code>conflate()</code>. Its reading model has no coordinates or UTC time.
         The <a href="../app/src/main/java/com/example/cvkegps/ui/SpeedometerViewModel.kt">ViewModel</a>
         rejects readings at least ten seconds old. Keep this display rule separate from valid historical samples.</p>

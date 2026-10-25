@@ -1,5 +1,7 @@
 package com.example.cvkegps.tracking
 
+import com.example.cvkegps.location.TrackSample
+
 data class ActivityEstimate(val mode: TripMode = TripMode.Unknown, val elapsedNanos: Long = 0) {
     fun fresh(now: Long): TripMode = mode.takeIf { now - elapsedNanos in 0 until 10_000_000_000L } ?: TripMode.Unknown
 }

@@ -1,5 +1,6 @@
 package com.example.cvkegps.tracking
 
+import com.example.cvkegps.location.TrackSample
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

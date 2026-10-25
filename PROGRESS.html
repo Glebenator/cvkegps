@@ -165,19 +165,20 @@
       </div>
       <aside class="meta" aria-label="Report details">
         <dl>
-          <div><dt>Report updated</dt><dd><time datetime="2026-10-23">23 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>53403bf</code> + friendlier trip wording</dd></div>
+          <div><dt>Report updated</dt><dd><time datetime="2026-10-25">25 October 2026</time></dd></div>
+          <div><dt>App code baseline</dt><dd><code>0abf568</code> + one rule for each GPS fix</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
       </aside>
     </div>
     <div class="metrics" aria-label="Last verified results">
-      <div class="metric"><strong>28 / 28</strong><span>Emulator device tests passed</span><span class="small">API 36 · Final review-fix code · Each test class run on its own · Process-loss script also passed</span></div>
-      <div class="metric"><strong>18 / 18</strong><span>Calculation tests passed</span><span class="small">Three new: formatter (2) and average speed</span></div>
+      <div class="metric"><strong>28 / 28</strong><span>Emulator device tests passed</span><span class="small">API 36 · Fix interpreter code · Each test class run on its own · One class run again after an emulator install error</span></div>
+      <div class="metric"><strong>24 / 24</strong><span>Calculation tests passed</span><span class="small">Six new: fix interpreter</span></div>
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, and debug lint</span><span class="small">No release build for these changes</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#fix-rules">Fix rules</a>
       <a href="#ux-review">Review fixes</a>
       <a href="#gpx-export">GPX export</a>
       <a href="#transitions">Transitions</a>
@@ -195,6 +196,56 @@
       <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
     </nav>
+
+    <section id="fix-rules" aria-labelledby="fix-rules-heading">
+      <div class="section-head"><h2 id="fix-rules-heading">One rule for each GPS fix · 25 October 2026</h2><span class="tag done">Implemented and checked</span></div>
+      <p class="section-intro">An architecture review found that the Speed tab and the trip recorder converted each Android fix separately, each with its own copy of the usability rules.
+      The two copies gave different results in one case. One interpreter now applies the rules once to each fix. The user approved the design before the change.</p>
+      <div class="grid">
+        <article class="panel"><h3>Behaviour</h3><ul>
+          <li>Android can report a speed accuracy that is not a valid number. Before, the Speed tab showed no speed, but the trip used that speed for its maximum speed and distance.
+          Now the speed is not usable anywhere.</li>
+          <li>The trip stores such a speed as missing, so a saved trip gives the same result. See <a href="docs/adr/0001-store-rejected-speed-as-missing.md">ADR 0001</a>.</li>
+          <li>Trips saved before this change can contain such a speed. Their stored data cannot show it, so the app does not correct them.</li>
+          <li>Other results do not change: the 50 m position limit, the 3 m/s speed accuracy limit, the speed issues on GPS details, and declination only for a usable position.</li>
+        </ul></article>
+        <article class="panel"><h3>Structure</h3><ul>
+          <li><code>FixInterpreter</code> turns each raw fix into a track sample and a reading. It contains no Android objects.</li>
+          <li>The usable position and usable speed rules are defined once, on <code>TrackSample</code>. The reading takes its speed from the sample.</li>
+          <li><code>TrackSample</code> moved to the location package. The Room schema does not change.</li>
+          <li><code>AndroidGpsSource</code> is removed. No code used its GPS registration. A small Android file copies each fix and calculates the declination.</li>
+          <li>The terms are in <a href="GLOSSARY.md">GLOSSARY.md</a>, so the iOS app can use the same rules.</li>
+        </ul></article>
+      </div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <p>The debug build, test APK build, Android lint (0 errors, 0 warnings), and all 24 calculation tests passed. Six new calculation tests check the interpreter:
+        the 50 m and 3 m/s limits, missing and invalid speed, a speed accuracy that is not a valid number, the declination, and that the reading and the stored sample give the same speed.</p>
+        <p>All 28 device tests passed on the API 36 emulator. Each test class ran on its own. In the first run, the emulator did not install the APK for the two satellite display tests
+        (<code>INSTALL_PARSE_FAILED_NO_CERTIFICATES</code>), so those tests did not run. They passed when run again with the same APK.
+        The compass test no longer compares the declination with Android's own calculation. A calculation test now checks the declination rule.</p>
+        <p class="test-note"><strong>Still needs a real device:</strong> a receiver that reports a speed accuracy that is not a valid number, GPS accuracy, and battery use.
+        The screens did not change, so this section has no screenshots. No release build was made for this change.</p>
+        <p class="source">Debug APK SHA-256: <code>7c80ba6e58e2b7a691a724b317808831a9abb98bd9cf1919f6ff48c11c65c270</code>. Local evidence: <code>artifacts/fix-interpretation/</code>.
+        Sources: <a href="app/src/main/java/com/example/cvkegps/location/FixInterpreter.kt">FixInterpreter.kt</a>,
+        <a href="app/src/main/java/com/example/cvkegps/location/TrackSample.kt">TrackSample.kt</a>,
+        <a href="app/src/main/java/com/example/cvkegps/location/AndroidFix.kt">AndroidFix.kt</a>,
+        <a href="app/src/main/java/com/example/cvkegps/tracking/SharedLocationSource.kt">SharedLocationSource.kt</a>,
+        <a href="app/src/test/java/com/example/cvkegps/location/FixInterpreterTest.kt">FixInterpreterTest.kt</a>.</p>
+      </article>
+      <details style="margin-top:18px">
+        <summary>The reading takes its speed from the track sample</summary>
+        <pre><code>val speed = sample.usableSpeed
+val rawSpeed = raw.speedMetersPerSecond
+val issue = when {
+    !sample.usablePosition -&gt; SpeedIssue.PositionAccuracy
+    rawSpeed == null -&gt; SpeedIssue.Missing
+    !rawSpeed.isFinite() || rawSpeed &lt; 0 -&gt; SpeedIssue.Invalid
+    speed == null -&gt; SpeedIssue.SpeedAccuracy
+    else -&gt; null
+}</code></pre>
+        <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/location/FixInterpreter.kt">FixInterpreter.kt</a>.</p>
+      </details>
+    </section>
 
     <section id="ux-review" aria-labelledby="ux-review-heading">
       <div class="section-head"><h2 id="ux-review-heading">UX and code review fixes · 23 October 2026</h2><span class="tag done">Implemented and checked</span></div>
@@ -1199,12 +1250,14 @@ val elapsedRealtimeNanos: Long,</code></pre>
       </details>
       <details>
         <summary>Measurement quality: initial limits to validate outdoors</summary>
-        <p>The source rejects poor fixes and uncertain speed. The ViewModel rejects readings that are at least
+        <p>One interpreter applies the usability rules to each fix, so the Speed tab and the trip use the same speed.
+          It rejects poor fixes and uncertain speed. GPS requests one fix each second. The ViewModel rejects readings that are at least
           10 seconds old. It also clears the screen if no fresh fix follows. These thresholds need field validation.</p>
-        <pre><code>const val UPDATE_INTERVAL_MILLIS = 1_000L
-const val MAX_HORIZONTAL_ERROR_METERS = 50f
-const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
-        <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/location/AndroidGpsSource.kt">AndroidGpsSource.kt</a>.
+        <pre><code>private const val MAX_HORIZONTAL_ERROR_METERS = 50f
+private const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
+        <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/location/TrackSample.kt">TrackSample.kt</a>.
+          Interpretation: <a href="app/src/main/java/com/example/cvkegps/location/FixInterpreter.kt">FixInterpreter.kt</a>.
+          Request interval: <a href="app/src/main/java/com/example/cvkegps/tracking/SharedLocationSource.kt">SharedLocationSource.kt</a>.
           Freshness logic: <a href="app/src/main/java/com/example/cvkegps/ui/SpeedometerViewModel.kt">SpeedometerViewModel.kt</a>.</p>
       </details>
       <details>
@@ -1368,6 +1421,10 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-25">25 October 2026</time><div><h3>One rule for each GPS fix</h3>
+<p>One interpreter now applies the usability rules to each fix for the Speed tab and the trip. A speed with a speed accuracy that is not a valid number is now unusable everywhere.
+Removed the unused <code>AndroidGpsSource</code>. Added <a href="GLOSSARY.md">GLOSSARY.md</a> and the first ADR.
+Debug build, lint, 24 calculation tests, and all 28 emulator device tests passed (one class after an emulator install error). See <a href="#fix-rules">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-23">23 October 2026</time><div><h3>UX and code review fixes</h3>
 <p>Completed the eight approved review fixes in seven local commits: an explicit null check in the activity estimate, one shared display formatter,
 one file for each trip screen with a plain recording controller, stored trip distance on the trip cards, clearer trip details with average speed,

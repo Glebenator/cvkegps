@@ -290,7 +290,9 @@ app/src/main/java/com/example/cvkegps/
   MainActivity.kt                 Activity and dependency creation
   location/
     GpsSource.kt                 Flow contract and SI measurement models
-    AndroidGpsSource.kt          Android GPS registration and cleanup
+    TrackSample.kt               Stored fix with the usable position and usable speed rules
+    FixInterpreter.kt            One interpretation of each fix for the reading and the track sample
+    AndroidFix.kt                Android fix copy and magnetic declination
     GnssSource.kt                Satellite and receiver models
     AndroidGnssSource.kt         Satellite status registration and cleanup
     AndroidHeadingSource.kt      Compass registration and display axes
@@ -308,7 +310,7 @@ app/src/main/java/com/example/cvkegps/
     theme/Theme.kt               Dynamic colour and fallback palettes
     DisplayFormat.kt             Locale-aware speed, distance, and time text from SI values
   tracking/
-    TripModels.kt                Samples, route summary, and distance rules
+    TripModels.kt                Route summary and distance rules
     TripDatabase.kt              Room entities, queries, and migrations
     TripRecorder.kt              One command queue for trip changes and location demand
     RecordingService.kt          Location foreground service and notification

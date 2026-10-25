@@ -1,5 +1,6 @@
 package com.example.cvkegps.tracking
 
+import com.example.cvkegps.location.TrackSample
 import java.io.Writer
 import java.time.Instant
 import java.time.ZoneId

@@ -98,7 +98,7 @@ project proposal based on the request controls, not a platform requirement.
 
 The present app has three recording limits:
 
-1. [AndroidGpsSource.kt](../app/src/main/java/com/example/cvkegps/location/AndroidGpsSource.kt)
+1. `AndroidGpsSource.kt` (removed on 25 October 2026)
    uses `conflate()`. A slow consumer can lose intermediate readings.
 2. [SpeedometerViewModel.kt](../app/src/main/java/com/example/cvkegps/ui/SpeedometerViewModel.kt)
    rejects samples at least ten seconds old. A valid batched route point can be

@@ -1,5 +1,6 @@
 package com.example.cvkegps.tracking
 
+import com.example.cvkegps.location.TrackSample
 import java.io.StringWriter
 import java.time.ZoneOffset
 import java.util.Locale

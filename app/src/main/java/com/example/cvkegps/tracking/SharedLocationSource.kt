@@ -8,13 +8,15 @@ import android.location.Location
 import android.location.LocationManager
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
-import androidx.core.location.LocationCompat
 import androidx.core.location.LocationListenerCompat
 import androidx.core.location.LocationManagerCompat
 import androidx.core.location.LocationRequestCompat
-import com.example.cvkegps.location.AndroidGpsSource
+import com.example.cvkegps.location.FixInterpreter
 import com.example.cvkegps.location.GpsEvent
 import com.example.cvkegps.location.GpsSource
+import com.example.cvkegps.location.TrackSample
+import com.example.cvkegps.location.androidDeclination
+import com.example.cvkegps.location.toRawFix
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,7 +30,7 @@ import kotlinx.coroutines.withContext
 class SharedLocationSource(context: Context) : GpsSource {
     private val context = context.applicationContext
     private val manager = context.getSystemService(LocationManager::class.java)
-    private val converter = AndroidGpsSource(context)
+    private val interpreter = FixInterpreter(::androidDeclination)
     private val latest = MutableStateFlow<GpsEvent>(GpsEvent.Searching)
     private val estimator = ActivityEstimator()
     private val estimate = MutableStateFlow(ActivityEstimate())
@@ -117,14 +119,16 @@ class SharedLocationSource(context: Context) : GpsSource {
     private fun deliver(locations: List<Location>) {
         if (!registered) return
         val now = SystemClock.elapsedRealtimeNanos()
-        val samples = locations.map { it.sample(now) }
+        // One interpretation per fix. The recorder and the display therefore use the same usability rules.
+        val fixes = locations.map { interpreter.interpret(it.toRawFix(now)) }
+        val samples = fixes.map { it.sample }
         samples.sortedBy { it.elapsedNanos }.forEach { estimator.accept(it)?.let { value -> estimate.value = value } }
         sink?.invoke(samples)
         received += locations.size
-        locations.maxByOrNull { it.elapsedRealtimeNanos }?.let { location ->
-            if (location.elapsedRealtimeNanos >= latestNanos) {
-                latestNanos = location.elapsedRealtimeNanos
-                latest.value = GpsEvent.Fix(converter.run { location.toReading() }, received)
+        fixes.maxByOrNull { it.sample.elapsedNanos }?.let { fix ->
+            if (fix.sample.elapsedNanos >= latestNanos) {
+                latestNanos = fix.sample.elapsedNanos
+                latest.value = GpsEvent.Fix(fix.reading, received)
             }
         }
     }
@@ -133,16 +137,4 @@ class SharedLocationSource(context: Context) : GpsSource {
         estimator.reset()
         estimate.value = ActivityEstimate()
     }
-
-    private fun Location.sample(now: Long) = TrackSample(
-        Math.toRadians(latitude), Math.toRadians(longitude), time, elapsedRealtimeNanos, now,
-        accuracy.takeIf { hasAccuracy() && it.isFinite() && it >= 0 },
-        speed.takeIf { hasSpeed() && it.isFinite() && it >= 0 },
-        speedAccuracyMetersPerSecond.takeIf { hasSpeedAccuracy() && it.isFinite() && it >= 0 },
-        altitude.takeIf { hasAltitude() && it.isFinite() },
-        verticalAccuracyMeters.takeIf { hasVerticalAccuracy() && it.isFinite() && it >= 0 },
-        bearing.takeIf { hasBearing() && it.isFinite() }?.let { Math.toRadians(it.toDouble()) },
-        bearingAccuracyDegrees.takeIf { hasBearingAccuracy() && it.isFinite() && it >= 0 }?.let { Math.toRadians(it.toDouble()) },
-        LocationCompat.isMock(this),
-    )
 }
