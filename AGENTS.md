@@ -65,3 +65,17 @@
 - Keep code excerpts short and accurate. Link each excerpt to its source and update it when that code changes.
 - Keep the report usable without a network connection or build step. Use relative links to local assets.
 - Check the report layout and local links after report changes. Check narrow screens after layout changes.
+
+## Agent skills
+
+### Issue tracker
+
+Issues are in GitHub Issues for `Glebenator/cvkegps`. Use the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the five default triage labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `GLOSSARY.md` and one `docs/adr/` at the repo root. See `docs/agents/domain.md`.
