@@ -1,5 +1,10 @@
 package com.example.cvkegps.tracking
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.location.LocationManager
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -28,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -51,11 +57,16 @@ class TrackingActions(
     private val errorState: State<Int?>,
     private val readyState: State<Boolean>,
     private val estimateState: State<TripMode>,
+    private val selectedModeState: State<TripMode?>,
+    private val justSavedState: State<String?>,
     val start: () -> Unit,
     val pause: () -> Unit,
     val resume: (String) -> Unit,
     val stop: (String) -> Unit,
+    /** A trip ID changes that trip. Null chooses the activity for the next trip. */
     val chooseMode: (String?) -> Unit,
+    val reopen: (String) -> Unit,
+    val consumeJustSaved: () -> Unit,
     val finish: (String) -> Unit,
     val delete: (String) -> Unit,
     val shareGpx: suspend (String) -> Boolean,
@@ -64,6 +75,10 @@ class TrackingActions(
     @get:StringRes val error get() = errorState.value
     val ready get() = readyState.value
     val estimate get() = estimateState.value
+    /** The activity that the user chose for the next trip. Null means automatic. */
+    val selectedMode get() = selectedModeState.value
+    /** The trip that Stop and save ended a moment ago, which the saved trip offers to resume. */
+    val justSaved get() = justSavedState.value
 }
 
 @Composable
@@ -77,11 +92,13 @@ fun TrackingHost(
         initializer { TrackingViewModel(app.database.trips(), app.recorder, app.location, File(app.cacheDir, "exports")) }
     })
     val activity = LocalActivity.current ?: return
-    val controller = rememberSaveable(activity, vm, navigator, saver = TrackingController.saver(activity, vm, navigator)) {
-        TrackingController(activity, vm, navigator)
+    val controller = rememberSaveable(activity, vm, navigator, saver = TrackingController.saver(activity, vm, navigator, app.settings)) {
+        TrackingController(activity, vm, navigator, app.settings)
     }
     val recordingState = vm.recorder.state.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
     val estimateState = vm.estimate.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
+    val selectedModeState = vm.mode.collectAsStateWithLifecycle()
+    val justSavedState = remember(controller) { derivedStateOf { controller.justSaved } }
     val storageError by vm.storageError.collectAsStateWithLifecycle()
     var changeMode by rememberSaveable { mutableStateOf(false) }
     var modeTrip by rememberSaveable { mutableStateOf<String?>(null) }
@@ -96,7 +113,13 @@ fun TrackingHost(
     }
     LifecycleResumeEffect(controller) {
         controller.refresh()
-        onPauseOrDispose { }
+        // Quick Settings can turn location on or off without pausing the app. Read the access again when it changes.
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) = controller.refresh()
+        }
+        ContextCompat.registerReceiver(activity, receiver, IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION),
+            ContextCompat.RECEIVER_NOT_EXPORTED)
+        onPauseOrDispose { activity.unregisterReceiver(receiver) }
     }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         controller.permissionResult()
@@ -116,11 +139,14 @@ fun TrackingHost(
     content(remember(vm, controller) {
         TrackingActions(
             vm = vm, recordingState = recordingState, errorState = error, readyState = ready, estimateState = estimateState,
+            selectedModeState = selectedModeState, justSavedState = justSavedState,
             start = controller::start,
             pause = controller::pause,
             resume = controller::resume,
             stop = controller::stop,
             chooseMode = { id -> modeTrip = id; changeMode = true },
+            reopen = controller::reopen,
+            consumeJustSaved = controller::consumeJustSaved,
             finish = vm::finishInterrupted,
             delete = { id -> deleteTrip = id },
             shareGpx = controller::shareGpx,

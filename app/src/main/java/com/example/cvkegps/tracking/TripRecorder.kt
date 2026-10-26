@@ -19,14 +19,31 @@ data class RecordingState(
     val starting: Boolean = false,
     val segmentStartNanos: Long? = null,
     val segmentBaseDurationNanos: Long = 0,
+    /** Fix time of the newest saved sample in the open segment. Null before the first sample. */
+    val lastFixNanos: Long? = null,
 ) {
     val needsService: Boolean get() = starting || trip?.status == TripStatus.Recording || trip?.status == TripStatus.Paused
+
+    /**
+     * The time at which a recording trip has had no fix for [RouteMath.SIGNAL_GAP_NANOS], or null when it is not recording.
+     * The segment start counts as the newest fix, so a new segment has the same delay before it reports no signal.
+     */
+    val signalLostAtNanos: Long? get() {
+        val start = segmentStartNanos?.takeIf { trip?.status == TripStatus.Recording } ?: return null
+        return maxOf(start, lastFixNanos ?: start) + RouteMath.SIGNAL_GAP_NANOS
+    }
+
+    fun signalLost(nowNanos: Long): Boolean = signalLostAtNanos?.let { nowNanos >= it } == true
 }
+
+/** A saved trip can continue within this time after Stop and save. This undoes an accidental stop. */
+const val REOPEN_WINDOW_MILLIS = 120_000L
 
 sealed interface RecordingCommand {
     data class Start(val mode: TripMode, val automatic: Boolean = false) : RecordingCommand
     data class SetMode(val id: String, val mode: TripMode, val automatic: Boolean) : RecordingCommand
-    data class Resume(val id: String) : RecordingCommand
+    /** [reopen] also continues a trip that was saved less than [REOPEN_WINDOW_MILLIS] ago. */
+    data class Resume(val id: String, val reopen: Boolean = false) : RecordingCommand
     data object Pause : RecordingCommand
     data class Finish(val id: String? = null) : RecordingCommand
     data class Interrupt(val error: RecordingError) : RecordingCommand
@@ -49,6 +66,7 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
     // False after a late sample. The segment close then calculates the distance again from all saved samples.
     private var trackInOrder = true
     private var overflow = false
+    private var lastFixNanos: Long? = null
 
     init {
         scope.launch {
@@ -123,7 +141,9 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
             is RecordingCommand.Resume -> {
                 if (current != null && current?.id != command.id) { publish(); return }
                 val saved = dao.trip(command.id)
-                if (saved == null || saved.status == TripStatus.Finished || current?.status == TripStatus.Recording) {
+                val reopen = command.reopen && saved?.status == TripStatus.Finished &&
+                    saved.endedMillis?.let { System.currentTimeMillis() - it in 0..REOPEN_WINDOW_MILLIS } == true
+                if (saved == null || (saved.status == TripStatus.Finished && !reopen) || current?.status == TripStatus.Recording) {
                     publish(); return
                 }
                 val distance = saved.distanceMeters ?: routeDistance(saved.id)
@@ -172,6 +192,7 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
                     TripPoint(trip.id, target.id, sample)
                 }
                 if (points.isNotEmpty()) {
+                    lastFixNanos = maxOf(lastFixNanos ?: 0L, points.maxOf { it.sample.elapsedNanos })
                     addToTrack(points)
                     val updated = trip.copy(durationNanos = duration(), lastSavedMillis = System.currentTimeMillis(),
                         mode = if (trip.automaticMode && command.estimate != TripMode.Unknown) command.estimate else trip.mode,
@@ -195,6 +216,7 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
     )
 
     private fun startTrack(distance: Double) {
+        lastFixNanos = null
         baseDistance = distance
         track = SegmentTrack()
         trackInOrder = true
@@ -256,6 +278,6 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
 
     private fun publish() {
         mutableState.value = RecordingState(current, segmentStartNanos = segment?.startedElapsedNanos,
-            segmentBaseDurationNanos = baseDuration)
+            segmentBaseDurationNanos = baseDuration, lastFixNanos = lastFixNanos.takeIf { segment != null })
     }
 }

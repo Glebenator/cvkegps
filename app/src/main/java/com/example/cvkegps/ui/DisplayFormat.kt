@@ -21,6 +21,7 @@ class DisplayFormat(locale: Locale, private val text: (Int, Array<out Any>) -> S
     // A speed has a maximum of four digits. Grouping would only add a separator to plane speeds.
     private val speedNumber = NumberFormat.getNumberInstance(locale).apply { maximumFractionDigits = 1; isGroupingUsed = false }
     private val kilometres = NumberFormat.getNumberInstance(locale).apply { maximumFractionDigits = 2 }
+    private val twoDigits = NumberFormat.getIntegerInstance(locale).apply { minimumIntegerDigits = 2; isGroupingUsed = false }
 
     /** The speed number in km/h, without a unit, for screens that show the unit separately. */
     fun speedNumber(metersPerSecond: Float): String = speedNumber.format(metersPerSecond * KMH_PER_MPS)
@@ -42,6 +43,14 @@ class DisplayFormat(locale: Locale, private val text: (Int, Array<out Any>) -> S
                 text(R.string.trip_minutes_seconds, arrayOf(whole.format(seconds / 60), whole.format(seconds % 60)))
             else -> text(R.string.trip_seconds, arrayOf(whole.format(seconds)))
         }
+    }
+
+    /** A short clock time for narrow places, for example 12:04 or 1:02:04. */
+    fun clock(nanos: Long): String {
+        val seconds = (nanos / 1_000_000_000L).coerceAtLeast(0)
+        val minutes = (seconds / 60 % 60).let { if (seconds >= 3_600) twoDigits.format(it) else whole.format(it) }
+        val rest = "$minutes:${twoDigits.format(seconds % 60)}"
+        return if (seconds >= 3_600) "${whole.format(seconds / 3_600)}:$rest" else rest
     }
 
     /** A plain number with one decimal, for metres and degrees. */

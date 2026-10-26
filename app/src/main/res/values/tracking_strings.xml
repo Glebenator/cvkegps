@@ -93,4 +93,10 @@
     <string name="state_expanded">Expanded</string>
     <string name="state_collapsed">Collapsed</string>
     <string name="trip_export_error">The GPX file could not be made. Try again.</string>
+    <string name="trip_no_signal">No GPS signal</string>
+    <string name="recording_notification_values">%1$s · %2$s average</string>
+    <string name="recording_metric_time">Time</string>
+    <string name="recording_metric_average">Average</string>
+    <string name="unit_metres">m</string>
+    <string name="unit_kilometres">km</string>
 </resources>

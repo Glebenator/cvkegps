@@ -20,6 +20,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import com.example.cvkegps.R
+import com.example.cvkegps.settings.AppSettings
 import com.example.cvkegps.ui.AppNavigator
 import com.example.cvkegps.ui.Destination
 import com.example.cvkegps.ui.Tab
@@ -31,7 +32,8 @@ data class RecordingAccess(val precise: Boolean = false, val notifications: Bool
 
 /**
  * Sends trip commands to the recording service. A start or resume first checks access.
- * The access explanation shows before the first trip, and again when access is missing.
+ * The access explanation shows before the first trip, and again when access is missing. The app remembers
+ * that the user read it, so it does not show again after a cold start.
  * The access dialog reads Compose state from this class, so it follows each change.
  */
 @Stable
@@ -39,6 +41,7 @@ class TrackingController(
     private val activity: Activity,
     private val vm: TrackingViewModel,
     private val navigator: AppNavigator,
+    private val settings: AppSettings,
     accessShown: Boolean = false,
     pendingResume: String? = null,
     private var explained: Boolean = false,
@@ -54,6 +57,9 @@ class TrackingController(
         private set
     /** True after the first permission request. Android can then refuse to show its dialog, so settings are also offered. */
     var asked by mutableStateOf(asked)
+        private set
+    /** The trip that Stop and save ended in this screen session. The saved trip offers Resume for a short time. */
+    var justSaved by mutableStateOf<String?>(null)
         private set
 
     val permissions: Array<String> get() = buildList {
@@ -75,16 +81,25 @@ class TrackingController(
 
     fun start() {
         pendingResume = null
-        if (!explained) accessShown = true else send(RecordingService.START)
+        if (!explained && !settings.values.value.tripAccessExplained) accessShown = true else send(RecordingService.START)
     }
 
     fun pause() = send(RecordingService.PAUSE)
     fun resume(id: String) = send(RecordingService.RESUME, id)
     fun stop(id: String) = send(RecordingService.STOP, id)
 
+    /** Continues a trip that Stop and save ended a moment ago. */
+    fun reopen(id: String) {
+        justSaved = null
+        send(RecordingService.RESUME, id, reopen = true)
+    }
+
+    fun consumeJustSaved() { justSaved = null }
+
     /** The user read the explanation. Start or resume the trip. */
     fun confirmAccess() {
         explained = true
+        settings.setTripAccessExplained()
         val id = pendingResume
         send(if (id == null) RecordingService.START else RecordingService.RESUME, id)
     }
@@ -110,7 +125,7 @@ class TrackingController(
 
     fun openLocationSettings() = activity.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
 
-    private fun send(action: String, id: String? = null) {
+    private fun send(action: String, id: String? = null, reopen: Boolean = false) {
         refresh()
         val starts = action == RecordingService.START || action == RecordingService.RESUME
         if (starts && !access.complete) {
@@ -122,6 +137,7 @@ class TrackingController(
         val intent = Intent(activity, RecordingService::class.java).setAction(action)
             .putExtra(RecordingService.MODE, (mode ?: vm.estimate.value).name)
             .putExtra(RecordingService.AUTOMATIC, mode == null).putExtra(RecordingService.TRIP, id)
+            .putExtra(RecordingService.REOPEN, reopen)
         try {
             if (starts) ContextCompat.startForegroundService(activity, intent) else activity.startService(intent)
             accessShown = false
@@ -129,7 +145,10 @@ class TrackingController(
             if (action == RecordingService.RESUME && navigator.backStack.last() is Destination.SavedTrip) {
                 navigator.open(Tab.Trips, Destination.LiveTrip)
             }
-            if (action == RecordingService.STOP && id != null) navigator.open(Tab.Trips, Destination.SavedTrip(id))
+            if (action == RecordingService.STOP && id != null) {
+                justSaved = id
+                navigator.open(Tab.Trips, Destination.SavedTrip(id))
+            }
         } catch (_: RuntimeException) {
             vm.recorder.send(RecordingCommand.Interrupt(RecordingError.Service))
         }
@@ -156,11 +175,11 @@ class TrackingController(
 
     companion object {
         /** Keeps the dialog state through activity recreation. Access is read again on resume. */
-        fun saver(activity: Activity, vm: TrackingViewModel, navigator: AppNavigator): Saver<TrackingController, Any> = Saver(
+        fun saver(activity: Activity, vm: TrackingViewModel, navigator: AppNavigator, settings: AppSettings): Saver<TrackingController, Any> = Saver(
             save = { arrayListOf(it.accessShown, it.pendingResume.orEmpty(), it.explained, it.asked) },
             restore = { saved ->
                 val (shown, resume, explained, asked) = saved as List<*>
-                TrackingController(activity, vm, navigator, shown as Boolean, (resume as String).ifEmpty { null },
+                TrackingController(activity, vm, navigator, settings, shown as Boolean, (resume as String).ifEmpty { null },
                     explained as Boolean, asked as Boolean)
             },
         )

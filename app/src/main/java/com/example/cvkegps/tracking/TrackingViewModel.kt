@@ -92,7 +92,10 @@ class TrackingViewModel(
     fun correctMode(id: String, mode: TripMode?) = recorder.send(
         RecordingCommand.SetMode(id, mode ?: TripMode.Unknown, mode == null))
     fun finishInterrupted(id: String) = recorder.send(RecordingCommand.Finish(id))
+    /** A failed delete shows an error until the next delete, or until the screen that showed it closes. */
+    fun clearStorageError() { mutationError.value = false }
     fun delete(id: String) = viewModelScope.launch {
+        mutationError.value = false
         try { dao.delete(id); selection.value = null; withContext(Dispatchers.IO) { clearExports() } }
         catch (_: Exception) { mutationError.value = true }
     }

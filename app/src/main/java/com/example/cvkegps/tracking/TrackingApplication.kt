@@ -2,6 +2,7 @@ package com.example.cvkegps.tracking
 
 import android.app.Application
 import androidx.room.Room
+import com.example.cvkegps.settings.AppSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -14,10 +15,12 @@ class TrackingApplication : Application() {
     }
     val location by lazy { SharedLocationSource(this) }
     val recorder by lazy { TripRecorder(database.trips(), location, processScope) }
+    val settings by lazy { AppSettings(this, processScope) }
 
     override fun onCreate() {
         super.onCreate()
         // The recorder marks unfinished trips as interrupted through Room's IO executor.
         recorder
+        settings
     }
 }
