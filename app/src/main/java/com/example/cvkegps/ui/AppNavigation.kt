@@ -40,6 +40,14 @@ class AppNavigator(tab: Tab = Tab.Speed, speed: List<Destination> = listOf(Desti
         if (stack.last() != destination) stack.add(destination)
     }
 
+    /**
+     * Opens a saved trip. A trip that is already open is replaced, so the list and detail layout
+     * shows one trip beside the list, and Back returns to the list.
+     */
+    fun showTrip(id: String) {
+        if (stack.last() is Destination.SavedTrip) stack[stack.lastIndex] = Destination.SavedTrip(id) else push(Destination.SavedTrip(id))
+    }
+
     fun open(tab: Tab, vararg path: Destination) {
         this.tab = tab
         stack.removeRange(1, stack.size)

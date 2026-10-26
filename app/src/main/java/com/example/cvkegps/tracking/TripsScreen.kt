@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -21,6 +22,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import com.example.cvkegps.ui.PaneHeader
+import com.example.cvkegps.ui.isCompactHeight
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,20 +43,28 @@ import com.example.cvkegps.ui.rememberDisplayFormat
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TripsScreen(actions: TrackingActions, onTrip: (String) -> Unit, onLive: () -> Unit) {
+fun TripsScreen(actions: TrackingActions, onTrip: (String) -> Unit, onLive: () -> Unit, selectedId: String? = null) {
     val format = rememberDisplayFormat()
     val rows by actions.vm.trips.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
-    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.tracking_trips)) }) }) { insets ->
+    // A failed delete shows its error here. It does not stay after the user leaves the list.
+    DisposableEffect(actions.vm) { onDispose { actions.vm.clearStorageError() } }
+    val compact = isCompactHeight()
+    // In landscape the title scrolls with the list instead of using a top app bar.
+    Scaffold(topBar = { if (!compact) TopAppBar(title = { Text(stringResource(R.string.tracking_trips)) }) }) { insets ->
         LazyColumn(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets).testTag("trips_content"),
             verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(16.dp)) {
+            if (compact) item { PaneHeader(stringResource(R.string.tracking_trips), onBack = null) }
             actions.error?.let { error -> item { Text(stringResource(error), color = MaterialTheme.colorScheme.error) } }
             // Before Room answers, show the empty list area instead of a status message.
             if (rows?.isEmpty() == true) item { EmptyTrips(Modifier.fillParentMaxSize()) }
             items(rows.orEmpty(), key = TripRecord::id) { trip ->
                 val live = trip.id == actions.recording.trip?.id
                 // Entries fade in when the first database answer arrives, and move smoothly after a delete.
+                val selected = trip.id == selectedId
+                // The trip that shows beside the list has a highlighted card.
                 Card(onClick = { if (live) onLive() else onTrip(trip.id) },
-                    modifier = Modifier.animateItem().fillMaxWidth().testTag("saved_trip")) {
+                    modifier = Modifier.animateItem().fillMaxWidth().testTag("saved_trip").semantics { this.selected = selected },
+                    colors = if (selected) CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer) else CardDefaults.cardColors()) {
                     ListItem(
                         headlineContent = { Text(tripTime(trip.startedMillis)) },
                         // The distance is stored with the trip, so the list does not calculate routes.
@@ -65,6 +79,18 @@ fun TripsScreen(actions: TrackingActions, onTrip: (String) -> Unit, onLive: () -
                 }
             }
         }
+    }
+}
+
+/** The detail pane before the user selects a trip. */
+@Composable
+fun TripPlaceholder() {
+    Column(Modifier.fillMaxSize().padding(24.dp).testTag("trip_placeholder"), horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)) {
+        Icon(painterResource(R.drawable.ic_route), contentDescription = null, Modifier.size(48.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(R.string.trip_select), style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
     }
 }
 

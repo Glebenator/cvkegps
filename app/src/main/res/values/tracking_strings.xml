@@ -94,9 +94,19 @@
     <string name="state_collapsed">Collapsed</string>
     <string name="trip_export_error">The GPX file could not be made. Try again.</string>
     <string name="trip_no_signal">No GPS signal</string>
+    <string name="trip_no_signal_short">No GPS</string>
+    <string name="trip_saved_message">Trip saved</string>
     <string name="recording_notification_values">%1$s · %2$s average</string>
     <string name="recording_metric_time">Time</string>
     <string name="recording_metric_average">Average</string>
     <string name="unit_metres">m</string>
     <string name="unit_kilometres">km</string>
+    <string name="map_follow_course">Follow route with the direction of travel up</string>
+    <string name="map_follow_off">Not following</string>
+    <string name="map_follow_north">Following with north up</string>
+    <string name="map_follow_direction">Following with the direction of travel up</string>
+    <string name="mode_chip_auto">Activity: automatic</string>
+    <string name="mode_chip_estimate">Activity: %1$s (estimate)</string>
+    <string name="mode_chip_manual">Activity: %1$s</string>
+    <string name="trip_select">Select a trip to show its map and values.</string>
 </resources>

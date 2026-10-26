@@ -34,7 +34,7 @@ import java.text.NumberFormat
 import kotlin.math.roundToInt
 
 @Composable
-internal fun PositionAccuracy(accuracyMeters: Float?, compact: Boolean = false) {
+internal fun PositionAccuracy(accuracyMeters: Float?, compact: Boolean = false, label: Boolean = !compact) {
     val locale = LocalConfiguration.current.locales[0]
     val format = remember(locale) {
         NumberFormat.getNumberInstance(locale).apply { maximumFractionDigits = 1 }
@@ -47,7 +47,7 @@ internal fun PositionAccuracy(accuracyMeters: Float?, compact: Boolean = false) 
         else -> stringResource(R.string.position_accuracy, format.format(accuracyMeters))
     }
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        if (!compact) Text(description, Modifier.testTag("position_accuracy"), style = MaterialTheme.typography.labelMedium)
+        if (label) Text(description, Modifier.testTag("position_accuracy"), style = MaterialTheme.typography.labelMedium)
         if (progress != null) {
             val animated by animateFloatAsState(progress, tween(650), label = "position accuracy")
             val reference = positionAccuracyProgress(POSITION_ACCURACY_REFERENCE_METERS)!!

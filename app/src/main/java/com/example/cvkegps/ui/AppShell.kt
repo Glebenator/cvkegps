@@ -10,6 +10,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -38,12 +39,22 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Text
+import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
+import androidx.compose.material3.adaptive.layout.PaneScaffoldDirective
+import androidx.compose.material3.adaptive.navigation.BackNavigationBehavior
+import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirective
+import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
+import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import com.example.cvkegps.tracking.TripPlaceholder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.navigation3.runtime.NavEntry
+import androidx.navigation3.scene.SinglePaneSceneStrategy
 import androidx.navigation3.ui.NavDisplay
 import com.example.cvkegps.R
 import com.example.cvkegps.tracking.LiveTripScreen
@@ -78,6 +89,18 @@ private val tabTransition = NavDisplay.transitionSpec { fadeThrough() } +
     NavDisplay.popTransitionSpec { fadeThrough() } +
     NavDisplay.predictivePopTransitionSpec { fadeThrough() }
 
+/**
+ * Where a saved trip can show beside the trip list, for example on an open foldable or a tablet.
+ * A phone in landscape is too short for a map in a narrow detail pane, so it shows one screen at a time.
+ */
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
+@Composable
+private fun tripPaneDirective(): PaneScaffoldDirective {
+    val directive = calculatePaneScaffoldDirective(currentWindowAdaptiveInfoV2())
+    return if (isCompactHeight()) directive.copy(maxHorizontalPartitions = 1) else directive
+}
+
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Composable
 fun AppShell(
     app: TrackingApplication,
@@ -87,12 +110,22 @@ fun AppShell(
 ) {
     val navigator = rememberAppNavigator()
     val access = rememberGpsAccess(speedometer) ?: return
+    val directive = tripPaneDirective()
+    val listDetail = directive.maxHorizontalPartitions > 1
+    val tripsPane = remember { ListDetailSceneStrategy.listPane(detailPlaceholder = { TripPlaceholder() }) }
+    val tripPane = remember { ListDetailSceneStrategy.detailPane() }
+    // Back closes the trip beside the list. The list and the Trips tab stay.
+    val sceneStrategy = rememberListDetailSceneStrategy<Destination>(
+        backNavigationBehavior = BackNavigationBehavior.PopLatest, directive = directive)
     TrackingHost(app, navigator, openTripsRequest) { tracking ->
         // The window background is transparent. Screens fade and the bars change height, so paint the theme background behind them.
         BoxWithConstraints(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-            val wide = maxWidth > maxHeight
+            // A navigation rail in landscape, and on wide windows such as an open foldable.
+            val wide = maxWidth > maxHeight || maxWidth >= 600.dp
             val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-            val bars = navigator.atRoot
+            // A saved trip beside the trip list is still the Trips tab, so the navigation stays visible.
+            val bars = navigator.atRoot || (listDetail && navigator.tab == Tab.Trips &&
+                navigator.backStack.size == 3 && navigator.backStack.last() is Destination.SavedTrip)
             val recording = tracking.recording.trip != null
             // The bars pad for the system bars. Content must not pad for the same insets again.
             val consumed = when {
@@ -117,8 +150,15 @@ fun AppShell(
                         onBack = navigator::pop,
                         transitionSpec = { sharedAxis(forward = true, rtl) },
                         popTransitionSpec = { sharedAxis(forward = false, rtl) },
+                        // The list and detail strategy returns no scene for a narrow window. One screen then shows.
+                        sceneStrategies = listOf(sceneStrategy, SinglePaneSceneStrategy()),
                         entryProvider = { destination ->
-                            NavEntry(destination, metadata = if (destination == Destination.Trips) tabTransition else emptyMap()) {
+                            val metadata = when (destination) {
+                                Destination.Trips -> tabTransition + tripsPane
+                                is Destination.SavedTrip -> tripPane
+                                else -> emptyMap()
+                            }
+                            NavEntry(destination, metadata = metadata) {
                                 Screen(destination, navigator, tracking, speedometer, compass, access)
                             }
                         },
@@ -153,12 +193,18 @@ private fun Screen(
     access: GpsAccess,
 ) {
     when (destination) {
-        Destination.Speed -> SpeedometerRoute(speedometer, access, onDetails = { navigator.push(Destination.GpsDetails) },
-            trackerControls = { canStart -> TripStartControls(tracking, canStart) }, compassViewModel = compass)
+        Destination.Speed -> {
+            SpeedometerRoute(speedometer, access, onDetails = { navigator.push(Destination.GpsDetails) },
+                trackerControls = { canStart, landscape ->
+                    TripStartControls(tracking, canStart, landscape, onOpenTrip = { navigator.push(Destination.LiveTrip) })
+                },
+                compassViewModel = compass)
+        }
         Destination.GpsDetails -> GpsDetailsDestination(speedometer, access, onBack = navigator::pop, compassViewModel = compass)
         // Select first, so the route loads while the trip screen opens.
-        Destination.Trips -> TripsScreen(tracking, onTrip = { tracking.vm.select(it); navigator.push(Destination.SavedTrip(it)) },
-            onLive = { navigator.push(Destination.LiveTrip) })
+        Destination.Trips -> TripsScreen(tracking, onTrip = { tracking.vm.select(it); navigator.showTrip(it) },
+            onLive = { navigator.push(Destination.LiveTrip) },
+            selectedId = (navigator.backStack.last() as? Destination.SavedTrip)?.id)
         Destination.LiveTrip -> LiveTripScreen(tracking, onBack = navigator::pop, onEnded = { navigator.remove(Destination.LiveTrip) })
         is Destination.SavedTrip -> SavedTripScreen(tracking, destination.id, onBack = navigator::pop)
     }

@@ -37,6 +37,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
@@ -65,7 +66,7 @@ fun SpeedometerScreen(
     onDetails: () -> Unit,
     modifier: Modifier = Modifier,
     gnss: GnssSnapshot = GnssSnapshot(),
-    trackerControls: @Composable (canStartTrip: Boolean) -> Unit = {},
+    trackerControls: @Composable (canStartTrip: Boolean, landscape: Boolean) -> Unit = { _, _ -> },
     heading: @Composable () -> PhoneHeading = { PhoneHeading.Unavailable },
 ) {
     val locale = LocalConfiguration.current.locales[0]
@@ -91,26 +92,28 @@ fun SpeedometerScreen(
         ) {
             val wide = maxWidth > maxHeight
             if (wide) {
+                // Landscape: the dial uses the full height, so the satellite ring has room. The values sit beside it.
                 Row(
-                    modifier = Modifier.widthIn(max = 1000.dp).fillMaxSize().align(Alignment.Center),
+                    modifier = Modifier.widthIn(max = 1200.dp).fillMaxSize().align(Alignment.Center),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(24.dp),
                 ) {
-                    Column(
-                        Modifier.weight(1f).fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
+                    // The values move under the dial when the side column is full: with large text, or while the GPS card is
+                    // expanded. The ring then has less room, but without a good GPS signal it has few satellites to show.
+                    val beside = gpsReady(state) && LocalDensity.current.fontScale <= 1.3f
+                    Column(Modifier.weight(1.1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         SpeedDial(speed, state.reading?.speedMetersPerSecond != null, satellites, heading, Modifier.weight(1f))
-                        Metrics(altitude, maximum)
+                        if (!beside) Metrics(altitude, maximum)
                     }
                     Column(
-                        Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        Modifier.weight(1f).fillMaxHeight().testTag("speed_side_pane"),
+                        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
                     ) {
+                        if (beside) Metrics(altitude, maximum)
                         GpsControls(state, permissionNeedsSettings, wholeFormat, onAction, onDetails, satellites,
-                            compact = wide, collapseWhenReady = true)
-                        trackerControls(canStartTrip)
+                            compact = wide, collapseWhenReady = true, labelled = true)
+                        trackerControls(canStartTrip, true)
                     }
                 }
             } else {
@@ -123,7 +126,8 @@ fun SpeedometerScreen(
                     Metrics(altitude, maximum)
                     GpsControls(state, permissionNeedsSettings, wholeFormat, onAction, onDetails, satellites,
                         compact = wide, collapseWhenReady = true)
-                    trackerControls(canStartTrip)
+                    // A wide window, such as an open foldable, shows the rail instead of the recording bar. The trip card then shows the values.
+                    trackerControls(canStartTrip, this@BoxWithConstraints.maxWidth >= 600.dp)
                 }
             }
         }
@@ -289,6 +293,7 @@ internal fun GpsControls(
     satellites: List<SatelliteSignal>? = null,
     compact: Boolean = false,
     collapseWhenReady: Boolean = false,
+    labelled: Boolean = false,
 ) {
     val title = when (state.status) {
         GpsStatus.PermissionRequired -> R.string.gps_permission
@@ -316,8 +321,7 @@ internal fun GpsControls(
         GpsStatus.Error -> R.string.retry_gps
         else -> null
     }
-    val ready = collapseWhenReady && state.status == GpsStatus.Live &&
-        state.reading?.accuracyMeters?.let { it.isFinite() && it in 0f..5f } == true
+    val ready = collapseWhenReady && gpsReady(state)
     // The whole status surface opens GPS details. A chevron shows that it is a navigation target.
     val detailsLabel = stringResource(R.string.gps_details)
     val opens = if (onDetails != null) Modifier.clip(MaterialTheme.shapes.large)
@@ -327,7 +331,8 @@ internal fun GpsControls(
             Row(Modifier.fillMaxWidth().then(opens).heightIn(min = 48.dp).padding(start = 4.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Box(Modifier.weight(1f).testTag("gps_status")) {
-                    PositionAccuracy(state.reading?.accuracyMeters, compact = true)
+                    // In landscape the bar has a text label, so it is not a line without meaning.
+                    PositionAccuracy(state.reading?.accuracyMeters, compact = true, label = labelled)
                 }
                 if (onDetails != null) DetailsChevron()
             }
@@ -372,6 +377,10 @@ internal fun GpsControls(
         }
     }
 }
+
+/** A fresh position with an accuracy estimate of 5 m or better. The GPS card then reduces to its bar. */
+private fun gpsReady(state: SpeedometerUiState): Boolean = state.status == GpsStatus.Live &&
+    state.reading?.accuracyMeters?.let { it.isFinite() && it in 0f..5f } == true
 
 @Composable
 private fun DetailsChevron() {

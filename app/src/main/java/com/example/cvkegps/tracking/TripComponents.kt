@@ -1,6 +1,20 @@
 package com.example.cvkegps.tracking
 
 import android.text.format.DateUtils
+import android.os.SystemClock
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.delay
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -50,6 +64,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
@@ -58,20 +73,135 @@ import com.example.cvkegps.R
 import com.example.cvkegps.location.TrackSample
 import com.example.cvkegps.ui.rememberDisplayFormat
 
-/** The Speed tab slot. Pause and Stop move to the recording bar while a trip is active. */
+/**
+ * The Speed tab slot. Pause and Stop move to the recording bar while a trip is active.
+ * In landscape the slot shows the recording trip's values, because the navigation rail holds the controls.
+ */
 @Composable
-fun TripStartControls(actions: TrackingActions, canStartTrip: Boolean) {
+fun TripStartControls(actions: TrackingActions, canStartTrip: Boolean, landscape: Boolean = false, onOpenTrip: () -> Unit = {}) {
     actions.error?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
-    if (actions.recording.trip == null && canStartTrip && actions.ready) Button(onClick = actions.start,
-        enabled = !actions.recording.starting, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("trip_start")) {
-        Icon(painterResource(R.drawable.ic_record), contentDescription = null, Modifier.size(ButtonDefaults.IconSize))
-        Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    val trip = actions.recording.trip
+    if (trip == null && canStartTrip && actions.ready) {
+        Button(onClick = actions.start, enabled = !actions.recording.starting,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("trip_start")) {
+            Icon(painterResource(R.drawable.ic_record), contentDescription = null, Modifier.size(ButtonDefaults.IconSize))
+            Spacer(Modifier.width(ButtonDefaults.IconSpacing))
             Text(stringResource(if (actions.recording.starting) R.string.trip_starting else R.string.trip_start))
-            Text(estimateText(actions.estimate),
-                modifier = Modifier.testTag("activity_estimate"), style = MaterialTheme.typography.labelSmall)
+        }
+        // The activity for the next trip. Automatic uses the estimate from recent GPS speed.
+        val selected = actions.selectedMode
+        ActivityChip(when {
+            selected != null -> stringResource(R.string.mode_chip_manual, stringResource(selected.title()))
+            actions.estimate != TripMode.Unknown -> stringResource(R.string.mode_chip_estimate, stringResource(actions.estimate.title()))
+            else -> stringResource(R.string.mode_chip_auto)
+        }, onClick = { actions.chooseMode(null) }, tag = "activity_estimate")
+    } else if (trip != null && landscape) TripSummaryCard(actions, trip, onOpenTrip)
+}
+
+/** Landscape Speed tab: the recording trip's values. Pause and Stop are in the navigation rail. */
+@Composable
+private fun TripSummaryCard(actions: TrackingActions, trip: TripRecord, onOpenTrip: () -> Unit) {
+    val format = rememberDisplayFormat()
+    val elapsed = rememberElapsed(actions.recording)
+    val noSignal = rememberSignalLost(actions.recording)
+    val openLabel = stringResource(R.string.trip_open_live)
+    // The whole card opens the current trip, so it needs no separate button.
+    Card(onClick = onOpenTrip, modifier = Modifier.fillMaxWidth().testTag("trip_summary").semantics {
+        onClick(label = openLabel) { onOpenTrip(); true }
+    }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            TripStatusChip(trip.status, noSignal)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Metric(R.string.recording_metric_time, format.duration(elapsed))
+                Metric(R.string.trip_distance, trip.distanceMeters?.let(format::distance))
+                Metric(R.string.recording_metric_average, averageSpeed(trip.distanceMeters, elapsed)?.let(format::speed))
+            }
         }
     }
+}
+
+/** An assist chip that opens the activity choice. */
+@Composable
+internal fun ActivityChip(text: String, onClick: () -> Unit, tag: String = "change_activity") {
+    AssistChip(onClick = onClick, label = { Text(text, Modifier.testTag(tag)) },
+        trailingIcon = { Icon(painterResource(R.drawable.ic_edit), contentDescription = null, Modifier.size(AssistChipDefaults.IconSize)) },
+        modifier = Modifier.heightIn(min = 48.dp))
+}
+
+/** Recording, Paused, or No GPS signal. The colour and the text both show the state. */
+@Composable
+internal fun TripStatusChip(status: TripStatus, noSignal: Boolean, modifier: Modifier = Modifier) {
+    val recording = status == TripStatus.Recording
+    val container = when {
+        recording && noSignal -> MaterialTheme.colorScheme.errorContainer
+        recording -> MaterialTheme.colorScheme.tertiaryContainer
+        else -> MaterialTheme.colorScheme.surfaceContainerHighest
+    }
+    Surface(modifier, shape = MaterialTheme.shapes.small, color = container) {
+        Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(painterResource(if (recording) R.drawable.ic_record else R.drawable.ic_pause), contentDescription = null,
+                Modifier.size(14.dp), tint = if (recording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(if (recording && noSignal) R.string.trip_no_signal else status.title()),
+                Modifier.testTag("recording_status"), style = MaterialTheme.typography.labelLarge)
+        }
+    }
+}
+
+/**
+ * Pause or Resume, and Stop and save. The buttons stand side by side when both labels fit on one line.
+ * Otherwise they stack, so a label never breaks inside a word.
+ */
+@Composable
+internal fun TripActions(trip: TripRecord, onPause: () -> Unit, onResume: () -> Unit, onStop: () -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        // Measure the real labels in the current language and text size. Each button adds padding, an icon, and a gap.
+        val measurer = rememberTextMeasurer()
+        val style = MaterialTheme.typography.labelLarge
+        val density = LocalDensity.current
+        val recording = trip.status == TripStatus.Recording
+        val labels = listOf(stringResource(if (recording) R.string.trip_pause else R.string.trip_resume), stringResource(R.string.trip_stop))
+        val textWidth = labels.sumOf { with(density) { measurer.measure(it, style).size.width.toDp() }.value.toDouble() }.dp
+        val padding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+        val sideBySide = maxWidth >= textWidth + (16.dp * 2 + ButtonDefaults.IconSize + ButtonDefaults.IconSpacing) * 2 + 12.dp
+        val pause: @Composable (Modifier) -> Unit = { modifier ->
+            if (recording) FilledTonalButton(onClick = onPause, modifier = modifier.testTag("trip_pause"), contentPadding = padding) {
+                ButtonContent(R.drawable.ic_pause, R.string.trip_pause)
+            } else FilledTonalButton(onClick = onResume, modifier = modifier.testTag("trip_resume"), contentPadding = padding) {
+                ButtonContent(R.drawable.ic_play, R.string.trip_resume)
+            }
+        }
+        val stop: @Composable (Modifier) -> Unit = { modifier ->
+            Button(onClick = onStop, modifier = modifier.testTag("trip_stop"), contentPadding = padding) {
+                ButtonContent(R.drawable.ic_stop, R.string.trip_stop)
+            }
+        }
+        if (sideBySide) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            pause(Modifier.weight(1f).heightIn(min = 48.dp))
+            stop(Modifier.weight(1f).heightIn(min = 48.dp))
+        } else Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            pause(Modifier.fillMaxWidth().heightIn(min = 56.dp))
+            stop(Modifier.fillMaxWidth().heightIn(min = 56.dp))
+        }
+    }
+}
+
+/** True while a recording trip has had no fix for 10 seconds. It changes only at that time and at the next fix. */
+@Composable
+internal fun rememberSignalLost(state: RecordingState): Boolean {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val lost by produceState(state.signalLost(SystemClock.elapsedRealtimeNanos()), state, lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            val now = SystemClock.elapsedRealtimeNanos()
+            value = state.signalLost(now)
+            val at = state.signalLostAtNanos
+            if (at != null && at > now) {
+                delay((at - now) / 1_000_000 + 1)
+                value = true
+            }
+        }
+    }
+    return lost
 }
 
 @Composable
@@ -107,19 +237,19 @@ internal fun ButtonContent(icon: Int, @StringRes label: Int) {
 
 /** Keep map gestures separate from the scrolling measurements. Null lines mean the route is still loading. */
 @Composable
-internal fun MapWorkspace(lines: List<List<TrackSample>>?, live: Boolean = false, panel: @Composable () -> Unit) {
+internal fun MapWorkspace(lines: List<List<TrackSample>>?, live: Boolean = false, position: LivePosition? = null, panel: @Composable () -> Unit) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val panelHeight = maxHeight * 0.45f
         val panelWidth = (maxWidth * 0.36f).coerceIn(240.dp, 360.dp)
         if (maxWidth > maxHeight) Row(Modifier.fillMaxSize()) {
-            MapSurface(lines.orEmpty(), Modifier.weight(1f).fillMaxHeight(), live, routeReady = lines != null)
+            MapSurface(lines.orEmpty(), Modifier.weight(1f).fillMaxHeight(), live, routeReady = lines != null, position = position)
             Surface(Modifier.width(panelWidth).fillMaxHeight()) {
                 Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     panel()
                 }
             }
         } else Column(Modifier.fillMaxSize()) {
-            MapSurface(lines.orEmpty(), Modifier.fillMaxWidth().weight(1f), live, routeReady = lines != null)
+            MapSurface(lines.orEmpty(), Modifier.fillMaxWidth().weight(1f), live, routeReady = lines != null, position = position)
             Surface {
                 Column(Modifier.fillMaxWidth().heightIn(max = panelHeight)
                     .verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { panel() }

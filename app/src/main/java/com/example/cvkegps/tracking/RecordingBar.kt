@@ -8,10 +8,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -25,6 +25,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.cvkegps.R
 import com.example.cvkegps.ui.rememberDisplayFormat
@@ -35,6 +36,7 @@ fun RecordingBar(actions: TrackingActions, onOpen: () -> Unit, modifier: Modifie
     val trip = actions.recording.trip ?: return
     val recording = trip.status == TripStatus.Recording
     val elapsed = rememberElapsed(actions.recording)
+    val noSignal = rememberSignalLost(actions.recording)
     Surface(modifier.fillMaxWidth().testTag("recording_bar"), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
         // The text has 16 dp from the start edge through its touch area. The buttons use the same edge margin.
         Row(Modifier.padding(start = 8.dp, end = 16.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically,
@@ -46,8 +48,9 @@ fun RecordingBar(actions: TrackingActions, onOpen: () -> Unit, modifier: Modifie
                 Icon(painterResource(R.drawable.ic_record), contentDescription = null, Modifier.size(16.dp),
                     tint = if (recording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                 Column {
-                    Text(stringResource(trip.status.title()), Modifier.testTag("recording_status"),
-                        style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(if (recording && noSignal) R.string.trip_no_signal else trip.status.title()),
+                        Modifier.testTag("recording_status"), style = MaterialTheme.typography.titleSmall,
+                        color = if (recording && noSignal) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
                     Text(rememberDisplayFormat().duration(elapsed), style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -69,13 +72,22 @@ fun RecordingBar(actions: TrackingActions, onOpen: () -> Unit, modifier: Modifie
 fun RecordingRailControls(actions: TrackingActions, onOpen: () -> Unit) {
     val trip = actions.recording.trip ?: return
     val recording = trip.status == TripStatus.Recording
-    val status = stringResource(trip.status.title())
+    val noSignal = rememberSignalLost(actions.recording)
+    val status = stringResource(if (recording && noSignal) R.string.trip_no_signal else trip.status.title())
+    val elapsed = rememberElapsed(actions.recording)
     Column(Modifier.testTag("recording_bar"), horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        IconButton(onClick = onOpen, modifier = Modifier.size(48.dp).testTag("show_route")
-            .semantics { stateDescription = status }) {
-            Icon(painterResource(R.drawable.ic_record), contentDescription = stringResource(R.string.trip_open_live),
-                Modifier.size(16.dp), tint = if (recording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+        // The dot and the time open the current trip. The time shows that a trip records, as the bar does in portrait.
+        Column(Modifier.clip(MaterialTheme.shapes.medium)
+            .clickable(onClickLabel = stringResource(R.string.trip_open_live), role = Role.Button, onClick = onOpen)
+            .heightIn(min = 48.dp).widthIn(min = 56.dp).padding(4.dp).testTag("show_route")
+            .semantics(mergeDescendants = true) { stateDescription = status },
+            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)) {
+            Icon(painterResource(R.drawable.ic_record), contentDescription = null, Modifier.size(16.dp),
+                tint = if (recording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(rememberDisplayFormat().clock(elapsed), style = MaterialTheme.typography.labelMedium, maxLines = 1)
+            if (recording && noSignal) Text(stringResource(R.string.trip_no_signal_short), style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.error, maxLines = 2, textAlign = TextAlign.Center)
         }
         if (recording) FilledTonalIconButton(onClick = actions.pause, modifier = Modifier.size(48.dp).testTag("trip_pause")) {
             Icon(painterResource(R.drawable.ic_pause), contentDescription = stringResource(R.string.trip_pause))

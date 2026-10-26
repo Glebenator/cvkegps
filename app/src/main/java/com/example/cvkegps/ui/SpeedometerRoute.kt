@@ -83,7 +83,7 @@ fun SpeedometerRoute(
     viewModel: SpeedometerViewModel,
     access: GpsAccess,
     onDetails: () -> Unit,
-    trackerControls: @Composable (canStartTrip: Boolean) -> Unit = {},
+    trackerControls: @Composable (canStartTrip: Boolean, landscape: Boolean) -> Unit = { _, _ -> },
     compassViewModel: CompassViewModel? = null,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)

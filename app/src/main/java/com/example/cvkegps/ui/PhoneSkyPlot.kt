@@ -6,7 +6,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import android.hardware.display.DisplayManager
+import android.os.Handler
+import android.os.Looper
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -18,6 +22,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -32,13 +37,27 @@ internal fun collectPhoneHeading(model: CompassViewModel, declinationRadians: Do
     val view = LocalView.current
     val configuration = LocalConfiguration.current
     LaunchedEffect(model, configuration) { model.setDisplayRotation(view.display?.rotation ?: 0) }
+    // A 180 degree turn between the two landscape directions does not change the configuration. The display reports it.
+    DisposableEffect(model, view) {
+        val displays = view.context.getSystemService(DisplayManager::class.java)
+        val listener = object : DisplayManager.DisplayListener {
+            override fun onDisplayChanged(displayId: Int) {
+                val display = view.display ?: return
+                if (display.displayId == displayId) model.setDisplayRotation(display.rotation)
+            }
+            override fun onDisplayAdded(displayId: Int) = Unit
+            override fun onDisplayRemoved(displayId: Int) = Unit
+        }
+        displays?.registerDisplayListener(listener, Handler(Looper.getMainLooper()))
+        onDispose { displays?.unregisterDisplayListener(listener) }
+    }
     LaunchedEffect(model, declinationRadians) { declinationRadians?.let(model::setDeclination) }
     val heading by model.heading.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
     return heading
 }
 
 @Composable
-internal fun PhoneSkyPlot(satellites: List<SatelliteSignal>, declinationRadians: Double?, model: CompassViewModel?) {
+internal fun PhoneSkyPlot(satellites: List<SatelliteSignal>, declinationRadians: Double?, model: CompassViewModel?, maxDiameter: Dp? = null) {
     val heading = model?.let { collectPhoneHeading(it, declinationRadians) } ?: PhoneHeading.Unavailable
     val locale = LocalConfiguration.current.locales[0]
     val format = remember(locale) { NumberFormat.getIntegerInstance(locale) }
@@ -52,7 +71,8 @@ internal fun PhoneSkyPlot(satellites: List<SatelliteSignal>, declinationRadians:
         Modifier.testTag("sky_heading"), style = MaterialTheme.typography.bodySmall,
     )
     val windowHeight = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.height.toDp() }
-    val diameter = (windowHeight - 160.dp).coerceIn(120.dp, 360.dp)
+    // A caller with a fixed pane height gives the size, so the whole map stays on screen.
+    val diameter = maxDiameter ?: (windowHeight - 160.dp).coerceIn(120.dp, 360.dp)
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         SatelliteSkyPlot(
             satellites, heading, stringResource(R.string.sky_map_description),
