@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -43,17 +44,23 @@ import com.example.cvkegps.ui.rememberDisplayFormat
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TripsScreen(actions: TrackingActions, onTrip: (String) -> Unit, onLive: () -> Unit, selectedId: String? = null) {
+fun TripsScreen(actions: TrackingActions, onTrip: (String) -> Unit, onLive: () -> Unit, onSettings: (() -> Unit)?, selectedId: String? = null) {
     val format = rememberDisplayFormat()
     val rows by actions.vm.trips.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
     // A failed delete shows its error here. It does not stay after the user leaves the list.
     DisposableEffect(actions.vm) { onDispose { actions.vm.clearStorageError() } }
     val compact = isCompactHeight()
+    // With a navigation rail, Settings is at the top of the rail instead.
+    val settingsButton: @Composable () -> Unit = {
+        if (onSettings != null) IconButton(onClick = onSettings, modifier = Modifier.testTag("open_settings")) {
+            Icon(painterResource(R.drawable.ic_settings), contentDescription = stringResource(R.string.settings))
+        }
+    }
     // In landscape the title scrolls with the list instead of using a top app bar.
-    Scaffold(topBar = { if (!compact) TopAppBar(title = { Text(stringResource(R.string.tracking_trips)) }) }) { insets ->
+    Scaffold(topBar = { if (!compact) TopAppBar(title = { Text(stringResource(R.string.tracking_trips)) }, actions = { settingsButton() }) }) { insets ->
         LazyColumn(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets).testTag("trips_content"),
             verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(16.dp)) {
-            if (compact) item { PaneHeader(stringResource(R.string.tracking_trips), onBack = null) }
+            if (compact) item { PaneHeader(stringResource(R.string.tracking_trips), onBack = null) { settingsButton() } }
             actions.error?.let { error -> item { Text(stringResource(error), color = MaterialTheme.colorScheme.error) } }
             // Before Room answers, show the empty list area instead of a status message.
             if (rows?.isEmpty() == true) item { EmptyTrips(Modifier.fillParentMaxSize()) }

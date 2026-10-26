@@ -85,6 +85,7 @@ fun SpeedometerRoute(
     onDetails: () -> Unit,
     trackerControls: @Composable (canStartTrip: Boolean, landscape: Boolean) -> Unit = { _, _ -> },
     compassViewModel: CompassViewModel? = null,
+    onSettings: (() -> Unit)? = null,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
     val gnss by viewModel.gnssState.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
@@ -95,6 +96,7 @@ fun SpeedometerRoute(
         onDetails = onDetails,
         gnss = gnss,
         trackerControls = trackerControls,
+        onSettings = onSettings,
         heading = {
             compassViewModel?.let { collectPhoneHeading(it, state.reading?.magneticDeclinationRadians) }
                 ?: PhoneHeading.Unavailable

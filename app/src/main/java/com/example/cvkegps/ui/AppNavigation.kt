@@ -14,6 +14,7 @@ sealed interface Destination {
     data object Trips : Destination
     data object GpsDetails : Destination
     data object LiveTrip : Destination
+    data object Settings : Destination
     data class SavedTrip(val id: String) : Destination
 }
 
@@ -68,6 +69,7 @@ class AppNavigator(tab: Tab = Tab.Speed, speed: List<Destination> = listOf(Desti
             Destination.Trips -> "trips"
             Destination.GpsDetails -> "gps"
             Destination.LiveTrip -> "live"
+            Destination.Settings -> "settings"
             is Destination.SavedTrip -> "trip:$id"
         }
 
@@ -76,6 +78,7 @@ class AppNavigator(tab: Tab = Tab.Speed, speed: List<Destination> = listOf(Desti
             value == "trips" -> Destination.Trips
             value == "gps" -> Destination.GpsDetails
             value == "live" -> Destination.LiveTrip
+            value == "settings" -> Destination.Settings
             else -> Destination.SavedTrip(value.removePrefix("trip:"))
         }
 

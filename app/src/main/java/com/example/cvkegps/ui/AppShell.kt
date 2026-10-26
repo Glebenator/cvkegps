@@ -34,6 +34,7 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
@@ -47,7 +48,11 @@ import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirective
 import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
 import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalView
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.cvkegps.tracking.TripPlaceholder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -134,7 +139,13 @@ fun AppShell(
                 else -> WindowInsets.safeDrawing.only(WindowInsetsSides.Start)
             }
             Row(Modifier.fillMaxSize()) {
-                if (bars && wide) NavigationRail(windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical + WindowInsetsSides.Start)) {
+                // With a rail, Settings is at the top of the rail, so the screens keep their space for values.
+                if (bars && wide) NavigationRail(windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical + WindowInsetsSides.Start),
+                    header = {
+                        IconButton(onClick = { navigator.push(Destination.Settings) }, modifier = Modifier.testTag("open_settings")) {
+                            Icon(painterResource(R.drawable.ic_settings), contentDescription = stringResource(R.string.settings))
+                        }
+                    }) {
                     Tab.entries.forEach { tab ->
                         NavigationRailItem(selected = navigator.tab == tab, onClick = { navigator.select(tab) },
                             icon = { TabIcon(tab, recording) }, label = { Text(stringResource(tab.label)) },
@@ -159,7 +170,7 @@ fun AppShell(
                                 else -> emptyMap()
                             }
                             NavEntry(destination, metadata = metadata) {
-                                Screen(destination, navigator, tracking, speedometer, compass, access)
+                                Screen(destination, navigator, tracking, speedometer, compass, access, app, rail = wide)
                             }
                         },
                     )
@@ -191,20 +202,33 @@ private fun Screen(
     speedometer: SpeedometerViewModel,
     compass: CompassViewModel?,
     access: GpsAccess,
+    app: TrackingApplication,
+    rail: Boolean,
 ) {
+    val openSettings = { navigator.push(Destination.Settings) }.takeIf { !rail }
     when (destination) {
         Destination.Speed -> {
+            // Only while the Speed tab shows, and only when the user chose it in Settings.
+            val settings by app.settings.values.collectAsStateWithLifecycle()
+            if (settings.keepScreenOn) {
+                val view = LocalView.current
+                DisposableEffect(view) {
+                    view.keepScreenOn = true
+                    onDispose { view.keepScreenOn = false }
+                }
+            }
             SpeedometerRoute(speedometer, access, onDetails = { navigator.push(Destination.GpsDetails) },
                 trackerControls = { canStart, landscape ->
                     TripStartControls(tracking, canStart, landscape, onOpenTrip = { navigator.push(Destination.LiveTrip) })
                 },
-                compassViewModel = compass)
+                compassViewModel = compass, onSettings = openSettings)
         }
         Destination.GpsDetails -> GpsDetailsDestination(speedometer, access, onBack = navigator::pop, compassViewModel = compass)
         // Select first, so the route loads while the trip screen opens.
         Destination.Trips -> TripsScreen(tracking, onTrip = { tracking.vm.select(it); navigator.showTrip(it) },
-            onLive = { navigator.push(Destination.LiveTrip) },
+            onLive = { navigator.push(Destination.LiveTrip) }, onSettings = openSettings,
             selectedId = (navigator.backStack.last() as? Destination.SavedTrip)?.id)
+        Destination.Settings -> SettingsScreen(app.settings, onBack = navigator::pop)
         Destination.LiveTrip -> LiveTripScreen(tracking, onBack = navigator::pop, onEnded = { navigator.remove(Destination.LiveTrip) })
         is Destination.SavedTrip -> SavedTripScreen(tracking, destination.id, onBack = navigator::pop)
     }

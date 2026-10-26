@@ -29,6 +29,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -68,6 +69,7 @@ fun SpeedometerScreen(
     gnss: GnssSnapshot = GnssSnapshot(),
     trackerControls: @Composable (canStartTrip: Boolean, landscape: Boolean) -> Unit = { _, _ -> },
     heading: @Composable () -> PhoneHeading = { PhoneHeading.Unavailable },
+    onSettings: (() -> Unit)? = null,
 ) {
     val locale = LocalConfiguration.current.locales[0]
     val format = rememberDisplayFormat()
@@ -110,6 +112,7 @@ fun SpeedometerScreen(
                         Modifier.weight(1f).fillMaxHeight().testTag("speed_side_pane"),
                         verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
                     ) {
+                        if (onSettings != null) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { SettingsButton(onSettings) }
                         if (beside) Metrics(altitude, maximum)
                         GpsControls(state, permissionNeedsSettings, wholeFormat, onAction, onDetails, satellites,
                             compact = wide, collapseWhenReady = true, labelled = true)
@@ -129,6 +132,8 @@ fun SpeedometerScreen(
                     // A wide window, such as an open foldable, shows the rail instead of the recording bar. The trip card then shows the values.
                     trackerControls(canStartTrip, this@BoxWithConstraints.maxWidth >= 600.dp)
                 }
+                // The dial circle leaves the corner free, so the button does not cover a value.
+                if (onSettings != null) SettingsButton(onSettings, Modifier.align(Alignment.TopEnd))
             }
         }
     }
@@ -381,6 +386,14 @@ internal fun GpsControls(
 /** A fresh position with an accuracy estimate of 5 m or better. The GPS card then reduces to its bar. */
 private fun gpsReady(state: SpeedometerUiState): Boolean = state.status == GpsStatus.Live &&
     state.reading?.accuracyMeters?.let { it.isFinite() && it in 0f..5f } == true
+
+@Composable
+private fun SettingsButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    IconButton(onClick = onClick, modifier = modifier.testTag("open_settings")) {
+        Icon(painterResource(R.drawable.ic_settings), contentDescription = stringResource(R.string.settings),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
 
 @Composable
 private fun DetailsChevron() {
