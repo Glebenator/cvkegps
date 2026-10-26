@@ -87,10 +87,7 @@ class TrackingDeviceTest {
         launch()
         compose.onNodeWithTag("gps_action").assertDoesNotExist()
         startTrip()
-        compose.onNodeWithTag("trip_details").performClick()
-        compose.onNodeWithTag("change_activity").performClick()
-        compose.onNodeWithTag("mode_Bike").performClick()
-        compose.onNodeWithTag("close_trip_details").performClick()
+        changeActivity("Bike")
         waitUntil { app.recorder.state.value.trip?.status == TripStatus.Recording }
         val id = app.recorder.state.value.trip!!.id
         deliver(id, 2)
@@ -124,14 +121,13 @@ class TrackingDeviceTest {
         device.wakeUp()
         shell("wm dismiss-keyguard")
         scenario!!.moveToState(Lifecycle.State.RESUMED)
-        compose.onNodeWithTag("trip_pause").performScrollTo().performClick()
+        clickVisible("trip_pause")
         waitUntil { app.recorder.state.value.trip?.status == TripStatus.Paused }
         assertEquals(0, requestCount())
-        compose.onNodeWithTag("trip_resume").performScrollTo().performClick()
+        clickVisible("trip_resume")
         waitUntil { app.recorder.state.value.trip?.status == TripStatus.Recording }
         assertEquals(1, requestCount())
-        compose.onNodeWithTag("trip_stop").performScrollTo()
-        compose.onNodeWithTag("trip_stop").performClick()
+        clickVisible("trip_stop")
         waitUntil { !app.recorder.state.value.needsService }
         val trip = runBlocking { app.database.trips().trip(id) }!!
         assertEquals(TripMode.Bike, trip.mode)
@@ -153,8 +149,7 @@ class TrackingDeviceTest {
         Thread.sleep(11_000)
         manager.setTestProviderEnabled(LocationManager.GPS_PROVIDER, true)
         deliver(id, 2)
-        compose.onNodeWithTag("trip_stop").performScrollTo()
-        compose.onNodeWithTag("trip_stop").performClick()
+        clickVisible("trip_stop")
         waitUntil { !app.recorder.state.value.needsService }
         val points = runBlocking { app.database.trips().savedPoints(id) }
         val summary = RouteMath.summarize(points.groupBy { it.segmentId }.values.map { it.map { point -> point.sample } })
@@ -196,9 +191,11 @@ class TrackingDeviceTest {
         compose.onNodeWithTag("trip_details").performClick()
         compose.onNodeWithTag("average_speed", useUnmergedTree = true).assertIsDisplayed()
         capture("live-details")
-        compose.onNodeWithTag("close_trip_details").performScrollTo().performClick()
-        compose.onNodeWithTag("trip_stop").performScrollTo()
-        compose.onNodeWithTag("trip_stop").performClick()
+        // Portrait closes the sheet. A wide window shows the details in the side pane, and the same button hides them.
+        if (compose.onAllNodesWithTag("close_trip_details").fetchSemanticsNodes().isNotEmpty()) {
+            compose.onNodeWithTag("close_trip_details").performScrollTo().performClick()
+        } else compose.onNodeWithTag("trip_details").performClick()
+        clickVisible("trip_stop")
         waitUntil { !app.recorder.state.value.needsService }
         val trip = runBlocking { app.database.trips().trip(id) }!!
         val saved = trip.distanceMeters!!
@@ -263,10 +260,10 @@ class TrackingDeviceTest {
 
     @Test fun automaticActivityUsesLiveEvidenceAndManualCorrectionSurvivesResume() {
         launch()
-        compose.onNodeWithTag("activity_estimate", useUnmergedTree = true).assertTextEquals("Activity unknown")
+        compose.onNodeWithTag("activity_estimate", useUnmergedTree = true).assertTextEquals("Activity: automatic")
         val deadline = SystemClock.elapsedRealtime() + 18_000
         while (SystemClock.elapsedRealtime() < deadline) { inject(); Thread.sleep(1_100) }
-        compose.onNodeWithTag("activity_estimate", useUnmergedTree = true).assertTextEquals("Estimate: Bike or ski")
+        compose.onNodeWithTag("activity_estimate", useUnmergedTree = true).assertTextEquals("Activity: Bike or ski (estimate)")
         Thread.sleep(400)
         shell("screencap -p /sdcard/Download/cvkegps-home-estimate-light.png")
         startTrip()
@@ -306,16 +303,13 @@ class TrackingDeviceTest {
         compose.onNodeWithTag("route_map").assertIsDisplayed()
         Thread.sleep(400)
         shell("screencap -p /sdcard/Download/cvkegps-live-estimate-light.png")
-        compose.onNodeWithTag("trip_details").performClick()
-        compose.onNodeWithTag("change_activity").performClick()
-        compose.onNodeWithTag("mode_Ski").performClick()
-        compose.onNodeWithTag("close_trip_details").performClick()
+        changeActivity("Ski")
         waitUntil { app.recorder.state.value.trip?.mode == TripMode.Ski }
         scenario!!.recreate()
-        compose.onNodeWithTag("trip_pause").performScrollTo().performClick()
+        clickVisible("trip_pause")
         waitUntil { app.recorder.state.value.trip?.status == TripStatus.Paused }
         assertEquals(0, requestCount())
-        compose.onNodeWithTag("trip_resume").performScrollTo().performClick()
+        clickVisible("trip_resume")
         waitUntil { app.recorder.state.value.trip?.status == TripStatus.Recording }
         deliver(id, 9)
         assertEquals(TripMode.Ski, app.recorder.state.value.trip!!.mode)
@@ -348,9 +342,9 @@ class TrackingDeviceTest {
                     }
                     deliver(id, savedCount(id) + 1)
                     compose.onNodeWithTag("route_map").assertIsDisplayed()
-                    compose.onNodeWithTag("trip_pause").performScrollTo().assertIsDisplayed()
-                    compose.onNodeWithTag("trip_stop").performScrollTo().assertIsDisplayed()
-                    compose.onNodeWithTag("live_distance").assertIsDisplayed()
+                    showVisible("trip_pause")
+                    showVisible("trip_stop")
+                    showVisible("live_distance")
                     Thread.sleep(500)
                     shell("screencap -p /sdcard/Download/cvkegps-tracker-$name-$landscape.png")
                 }
@@ -422,7 +416,7 @@ class TrackingDeviceTest {
         startTrip()
         val id = app.recorder.state.value.trip!!.id
         deliver(id, 4)
-        compose.onNodeWithTag("trip_stop").performClick()
+        clickVisible("trip_stop")
         waitUntil { !app.recorder.state.value.needsService }
         waitUntil { mapCamera()?.zoom?.let { it > 1 } == true }
         val fitted = mapCamera()!!
@@ -480,12 +474,12 @@ class TrackingDeviceTest {
                     setDisplay(scale, landscape, dark)
                     deliver(id, savedCount(id) + 1)
                     for (tag in listOf("current_speed", "gps_compact", "show_route", "trip_pause", "trip_stop", "nav_tab_trips")) {
-                        compose.onNodeWithTag(tag).assertIsDisplayed()
+                        showVisible(tag)
                     }
                     capture("home-$name-$landscape")
                 }
             }
-            compose.onNodeWithTag("trip_stop").performClick()
+            clickVisible("trip_stop")
             waitUntil { !app.recorder.state.value.needsService }
             for ((name, scale, dark) in listOf(Triple("light", 1f, false), Triple("dark", 1f, true), Triple("large-text", 2f, false))) {
                 for (landscape in listOf(false, true)) {
@@ -493,14 +487,16 @@ class TrackingDeviceTest {
                     compose.onNodeWithTag("route_map").assertIsDisplayed()
                     compose.onNodeWithTag("map_fit").assertIsDisplayed()
                     compose.onNodeWithTag("top_back").assertIsDisplayed()
-                    compose.onNodeWithTag("trip_details").assertIsDisplayed()
                     capture("saved-$name-$landscape")
                     compose.onNodeWithTag("trip_menu").performClick()
                     compose.onNodeWithTag("trip_delete").assertIsDisplayed()
                     device.pressBack()
-                    compose.onNodeWithTag("trip_details").performClick()
-                    compose.onNodeWithTag("trip_details_content").assertIsDisplayed()
-                    compose.onNodeWithTag("close_trip_details").performScrollTo().performClick()
+                    // Portrait opens the details in a sheet. Landscape shows them in the side pane.
+                    if (compose.onAllNodesWithTag("trip_details").fetchSemanticsNodes().isNotEmpty()) {
+                        compose.onNodeWithTag("trip_details").performClick()
+                        compose.onNodeWithTag("trip_details_content").assertIsDisplayed()
+                        compose.onNodeWithTag("close_trip_details").performScrollTo().performClick()
+                    } else showVisible("technical_details")
                 }
             }
         } finally {
@@ -566,7 +562,7 @@ class TrackingDeviceTest {
         startTrip()
         val id = app.recorder.state.value.trip!!.id
         deliver(id, 3)
-        compose.onNodeWithTag("trip_stop").performClick()
+        clickVisible("trip_stop")
         waitUntil { !app.recorder.state.value.needsService }
         // The menu offers sharing when the route summary is ready. The fitted map shows that it is ready.
         waitUntil { mapCamera()?.zoom?.let { it > 1 } == true }
@@ -612,6 +608,184 @@ class TrackingDeviceTest {
         } finally {
             compose.mainClock.autoAdvance = true
         }
+    }
+
+    @Test fun undoAfterStopContinuesTheSameTripAsANewSegment() {
+        launch()
+        startTrip()
+        val id = app.recorder.state.value.trip!!.id
+        deliver(id, 2)
+        clickVisible("trip_stop")
+        waitUntil { !app.recorder.state.value.needsService }
+        // Stop and save opens the saved trip. Its message offers Resume for a short time.
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Resume trip").fetchSemanticsNodes().isNotEmpty() }
+        capture("undo-snackbar")
+        compose.onNodeWithText("Resume trip").performClick()
+        waitUntil { app.recorder.state.value.trip?.status == TripStatus.Recording }
+        assertEquals(id, app.recorder.state.value.trip!!.id)
+        deliver(id, 4)
+        assertEquals(2, runBlocking { app.database.trips().segments(id).size })
+        compose.onNodeWithTag("route_map").assertIsDisplayed()
+    }
+
+    @Test fun recordingShowsNoSignalAndTheNotificationShowsTripValues() {
+        launch()
+        startTrip()
+        val id = app.recorder.state.value.trip!!.id
+        deliver(id, 3)
+        // The notification shows distance and average speed. A Live Update is requested where Android supports it.
+        compose.waitUntil(40_000) {
+            inject()
+            Thread.sleep(500)
+            val shown = recordingNotification()
+            shown.extras.getCharSequence(Notification.EXTRA_TEXT)?.contains("average") == true
+        }
+        val shown = recordingNotification()
+        // Distance and average speed, separated by a middle dot.
+        val values = shown.extras.getCharSequence(Notification.EXTRA_TEXT).toString()
+        assertTrue(values, Regex("""\S.* · \S.* average""").matches(values))
+        assertTrue(shown.extras.getBoolean("android.requestPromotedOngoing"))
+        if (Build.VERSION.SDK_INT >= 37) assertEquals("android.app.Notification\$MetricStyle", shown.extras.getString(Notification.EXTRA_TEMPLATE))
+        shell("cmd statusbar expand-notifications")
+        Thread.sleep(1_500)
+        capture("notification-values")
+        shell("cmd statusbar collapse")
+        // Ten seconds without a fix: the screen and the notification say that no positions are saved.
+        manager.setTestProviderEnabled(LocationManager.GPS_PROVIDER, false)
+        compose.waitUntil(15_000) {
+            compose.onAllNodesWithText("No GPS signal").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onAllNodesWithTag("recording_status", useUnmergedTree = true)[0].assertTextEquals("No GPS signal")
+        waitUntil { recordingNotification().extras.getCharSequence(Notification.EXTRA_TEXT)?.contains("No GPS signal") == true }
+        capture("no-signal")
+        manager.setTestProviderEnabled(LocationManager.GPS_PROVIDER, true)
+        deliver(id, savedCount(id) + 1)
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("No GPS signal").fetchSemanticsNodes().isEmpty() }
+    }
+
+    @Test fun activityChosenBeforeTheTripApplies() {
+        launch()
+        compose.onNodeWithTag("activity_estimate", useUnmergedTree = true).assertTextEquals("Activity: automatic")
+        compose.onNodeWithTag("activity_estimate", useUnmergedTree = true).performClick()
+        compose.onNodeWithTag("mode_Bike").performClick()
+        compose.onNodeWithTag("activity_estimate", useUnmergedTree = true).assertTextEquals("Activity: Bike")
+        startTrip()
+        val trip = app.recorder.state.value.trip!!
+        assertEquals(TripMode.Bike, trip.mode)
+        assertFalse(trip.automaticMode)
+    }
+
+    @Test fun accessExplanationShowsOnlyBeforeTheFirstTrip() {
+        launch()
+        startTrip()
+        val id = app.recorder.state.value.trip!!.id
+        deliver(id, 1)
+        clickVisible("trip_stop")
+        waitUntil { !app.recorder.state.value.needsService }
+        scenario!!.close()
+        // A new activity has no saved screen state. The app still remembers that the user read the explanation.
+        launch()
+        compose.onNodeWithTag("trip_start").performClick()
+        waitUntil { app.recorder.state.value.trip != null }
+        compose.onNodeWithTag("confirm_start").assertDoesNotExist()
+    }
+
+    @Test fun locationTurnedOnWhileTheAppShowsBringsBackStartTrip() {
+        launch()
+        compose.onNodeWithTag("trip_start").assertIsDisplayed()
+        // Quick Settings changes location without pausing the app.
+        // A system dialog about location can cover the app for a moment. The waits read the screen again until it returns.
+        shell("cmd location set-location-enabled false")
+        compose.waitUntil(10_000) { runCatching { compose.onAllNodesWithTag("trip_start").fetchSemanticsNodes().isEmpty() }.getOrDefault(false) }
+        shell("cmd location set-location-enabled true")
+        compose.waitUntil(10_000) { runCatching { compose.onAllNodesWithTag("trip_start").fetchSemanticsNodes().isNotEmpty() }.getOrDefault(false) }
+        compose.onNodeWithTag("trip_start").assertIsDisplayed()
+    }
+
+    @Test fun keepScreenOnIsOffByDefaultAndAppliesOnlyToSpeed() {
+        launch()
+        assertFalse(screenKeptOn())
+        compose.onNodeWithTag("open_settings").performClick()
+        compose.onNodeWithTag("settings_content").assertIsDisplayed()
+        capture("settings")
+        compose.onNodeWithTag("setting_keep_screen_on").performClick()
+        compose.onNodeWithTag("settings_back").performClick()
+        compose.waitUntil(5_000) { screenKeptOn() }
+        compose.onNodeWithTag("gps_details").performClick()
+        compose.waitUntil(5_000) { !screenKeptOn() }
+        compose.onNodeWithTag("details_back").performClick()
+        compose.waitUntil(5_000) { screenKeptOn() }
+        compose.onNodeWithTag("nav_tab_trips").performClick()
+        compose.waitUntil(5_000) { !screenKeptOn() }
+        // The choice stays after a new activity.
+        scenario!!.close()
+        launch()
+        compose.waitUntil(5_000) { screenKeptOn() }
+    }
+
+    @Test fun savedTripShowsBesideTheListOnlyOnWideWindows() {
+        launch()
+        var wide = false
+        scenario!!.onActivity { wide = it.resources.configuration.screenWidthDp >= 840 && it.resources.configuration.screenHeightDp >= 480 }
+        startTrip()
+        val id = app.recorder.state.value.trip!!.id
+        deliver(id, 2)
+        clickVisible("trip_stop")
+        waitUntil { !app.recorder.state.value.needsService }
+        compose.onNodeWithTag("trip_review").assertIsDisplayed()
+        if (!wide) {
+            // A phone shows one screen at a time. Back returns to the list.
+            compose.onNodeWithTag("trips_content").assertDoesNotExist()
+            device.pressBack()
+            compose.onNodeWithTag("trips_content").assertIsDisplayed()
+            compose.onNodeWithTag("trip_review").assertDoesNotExist()
+            return
+        }
+        compose.onNodeWithTag("trips_content").assertIsDisplayed()
+        compose.onNodeWithTag("nav_tab_trips").assertIsDisplayed()
+        capture("list-detail")
+        device.pressBack()
+        compose.onNodeWithTag("trip_placeholder", useUnmergedTree = true).assertIsDisplayed()
+        compose.onAllNodesWithTag("saved_trip")[0].performClick()
+        compose.onNodeWithTag("trip_review").assertIsDisplayed()
+        compose.onNodeWithTag("trips_content").assertIsDisplayed()
+    }
+
+    private fun recordingNotification(): Notification =
+        context.getSystemService(NotificationManager::class.java).activeNotifications.single { it.id == 100 }.notification
+
+    private fun screenKeptOn(): Boolean {
+        compose.waitForIdle()
+        var on = false
+        scenario!!.onActivity { activity ->
+            fun any(view: android.view.View): Boolean = view.keepScreenOn ||
+                (view is android.view.ViewGroup && (0 until view.childCount).any { any(view.getChildAt(it)) })
+            on = any(activity.window.decorView)
+        }
+        return on
+    }
+
+    /** Buttons can be in a scrolling panel or in a fixed pane bottom. Scroll only where a scroll parent exists. */
+    private fun clickVisible(tag: String) {
+        runCatching { compose.onNodeWithTag(tag).performScrollTo() }
+        compose.onNodeWithTag(tag).performClick()
+    }
+
+    /** The activity choice is in the portrait details sheet or in the wide side pane. */
+    private fun changeActivity(mode: String) {
+        if (compose.onAllNodesWithTag("change_activity", useUnmergedTree = true).fetchSemanticsNodes().isEmpty()) {
+            compose.onNodeWithTag("trip_details").performClick()
+        }
+        compose.onNodeWithTag("change_activity", useUnmergedTree = true).performClick()
+        compose.onNodeWithTag("mode_$mode").performClick()
+        if (compose.onAllNodesWithTag("close_trip_details").fetchSemanticsNodes().isNotEmpty()) {
+            compose.onNodeWithTag("close_trip_details").performScrollTo().performClick()
+        }
+    }
+
+    private fun showVisible(tag: String) {
+        runCatching { compose.onNodeWithTag(tag).performScrollTo() }
+        compose.onNodeWithTag(tag).assertIsDisplayed()
     }
 
     private fun setDisplay(scale: Float, landscape: Boolean, dark: Boolean) {

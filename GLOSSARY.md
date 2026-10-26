@@ -35,3 +35,13 @@ _Avoid_: Valid speed, current speed
 **Speed issue**:
 The reason that a fix has no usable speed: poor position, missing speed, invalid speed, or uncertain speed.
 _Avoid_: Speed error
+
+## Trip recording
+
+**No GPS signal**:
+The state of a recording trip that has had no fix for 10 seconds. The start of the recording segment counts as a fix, so a new segment waits 10 seconds before it reports this state. The next fix ends it.
+_Avoid_: Signal lost, GPS lost, no location
+
+**Resume after Stop**:
+A trip that the user saved less than 2 minutes ago can continue as a new segment of the same trip. This undoes an accidental Stop and save.
+_Avoid_: Undo stop, reopen

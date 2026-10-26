@@ -34,4 +34,12 @@ class DisplayFormatTest {
         assertEquals("1 min 5 s", english.duration(65_000_000_000))
         assertEquals("2 h 3 min", english.duration(7_380_000_000_000))
     }
+
+    @Test fun clockPadsMinutesAndSecondsOnlyWhereNeeded() {
+        val english = format(Locale.US)
+        assertEquals("0:00", english.clock(-1))
+        assertEquals("0:09", english.clock(9_999_999_999))
+        assertEquals("12:04", english.clock(724_000_000_000))
+        assertEquals("1:02:04", english.clock(3_724_000_000_000))
+    }
 }

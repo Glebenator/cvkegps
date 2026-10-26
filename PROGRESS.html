@@ -165,19 +165,20 @@
       </div>
       <aside class="meta" aria-label="Report details">
         <dl>
-          <div><dt>Report updated</dt><dd><time datetime="2026-10-25">25 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>0abf568</code> + one rule for each GPS fix</dd></div>
+          <div><dt>Report updated</dt><dd><time datetime="2026-10-26">26 October 2026</time></dd></div>
+          <div><dt>App code baseline</dt><dd><code>10aa486</code> + landscape, foldables, and trip usability</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
       </aside>
     </div>
     <div class="metrics" aria-label="Last verified results">
-      <div class="metric"><strong>28 / 28</strong><span>Emulator device tests passed</span><span class="small">API 36 · Fix interpreter code · Each test class run on its own · One class run again after an emulator install error</span></div>
-      <div class="metric"><strong>24 / 24</strong><span>Calculation tests passed</span><span class="small">Six new: fix interpreter</span></div>
+      <div class="metric"><strong>36 / 36</strong><span>Emulator device tests passed</span><span class="small">Pixel 10 Pro Fold, Android 17 · API 36 phone: one SkyMap failure, then 3 of 3 passes</span></div>
+      <div class="metric"><strong>27 / 27</strong><span>Calculation tests passed</span><span class="small">Two new: trip clock and No GPS signal limit</span></div>
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, and debug lint</span><span class="small">No release build for these changes</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#landscape-fold">Landscape and foldables</a>
       <a href="#fix-rules">Fix rules</a>
       <a href="#ux-review">Review fixes</a>
       <a href="#gpx-export">GPX export</a>
@@ -196,6 +197,92 @@
       <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
     </nav>
+
+    <section id="landscape-fold" aria-labelledby="landscape-fold-heading">
+      <div class="section-head"><h2 id="landscape-fold-heading">Landscape, foldables, and trip usability · 26 October 2026</h2><span class="tag done">Implemented and checked on emulators</span></div>
+      <p class="section-intro">A usability review ranked twelve items. The user approved all twelve, with four decisions: add the Material 3 adaptive library,
+      show a saved trip beside the trip list, use the Android 17 metric card with simpler fallbacks, and add a Settings screen.
+      The user also asked for good behaviour on folding phones. The review page is private: <a href="https://claude.ai/artifact/TejEmjKSjNezgrMmsjCTyj">CVKE GPS Next Steps</a>.</p>
+      <div class="grid">
+        <article class="panel"><h3>Landscape and foldables</h3><ul>
+          <li>Below 480 dp of window height (a phone in landscape), detail screens have no top app bar. Maps run under the system bars with a floating back button.</li>
+          <li>Current trip and saved trips use a side pane: status, a large speed, time and distance, the activity chip, and details that open in the pane.
+          Pause and Stop stay at the bottom of the pane.</li>
+          <li>GPS details keeps the sky map beside the scrolling cards. The Speed dial uses the full height, so the satellite ring can show.</li>
+          <li>Windows at least 600 dp wide, such as an open foldable, use the navigation rail and the same side pane. The rail shows the recording time.</li>
+          <li>On a window that is not short, a saved trip shows beside the trip list. Back closes the trip and keeps the list.
+          A phone in landscape opens the trip on its own screen, because a narrow detail pane leaves the map too small.</li>
+          <li>Values and units do not break at 200% text. Pause and Stop stack when their labels do not fit.</li>
+        </ul></article>
+        <article class="panel"><h3>Trips and notification</h3><ul>
+          <li>After 10 seconds without a fix, the bar, the rail, Current trip, and the notification show <strong>No GPS signal</strong>.</li>
+          <li><strong>Stop and save</strong> shows <strong>Trip saved</strong> with <strong>Resume trip</strong>. Resume continues the same trip as a new segment.
+          The recorder accepts it for 2 minutes after the stop.</li>
+          <li>The live map shows the newest position with an accuracy circle and, while moving, a direction arrow. A grey marker shows an old fix.
+          Following moves smoothly, can turn the map to the direction of travel, and zooms by speed. The dark theme dims the map tiles on the device.</li>
+          <li>Android 17 shows time, distance, and average speed in a metric card. The app asks for a Live Update with the normal permission
+          <code>POST_PROMOTED_NOTIFICATIONS</code>. Earlier versions show distance and average speed as text. New values show at most every 30 seconds.</li>
+          <li>Settings has <strong>Keep the screen on while Speed is open</strong>, off by default. It applies only while the Speed tab shows.</li>
+          <li>Review issues fixed: the delete error clears, Start trip returns after Quick Settings turns location on, the sky heading follows a
+          180 degree landscape turn, the activity can be chosen before a trip, and the recording notice shows only before the first trip.</li>
+        </ul></article>
+      </div>
+      <h3 style="margin-top:24px">Phone in landscape · API 36 emulator</h3>
+      <div class="screens">
+      <figure class="shot landscape"><a href="docs/progress/images/2026-10-26-landscape-speed-recording.png"><img src="docs/progress/images/2026-10-26-landscape-speed-recording.png" loading="lazy" alt="Speed tab in landscape while recording: the rail with Settings, the recording time, Pause and Stop; a full-height dial with the satellite ring; GPS altitude, maximum speed, the labelled position bar, and the trip card beside it."></a>
+      <figcaption><strong>Speed tab, landscape, recording</strong>26 October 2026. Baseline <code>10aa486</code> plus this change. Debug APK <code>b11f01bc</code>. Medium Phone, API 36. Simulated route from the emulator GPS (<code>adb emu geo fix</code>).</figcaption></figure>
+      <figure class="shot landscape"><a href="docs/progress/images/2026-10-26-landscape-current-trip-light.png"><img src="docs/progress/images/2026-10-26-landscape-current-trip-light.png" loading="lazy" alt="Current trip in landscape: a full-height map with a floating back button, the position marker with a direction arrow, and a side pane with Recording, a large speed, time, distance, the activity chip, and Pause trip and Stop and save side by side."></a>
+      <figcaption><strong>Current trip, landscape, light</strong>26 October 2026. Same build and emulator. Simulated route.</figcaption></figure>
+      <figure class="shot landscape"><a href="docs/progress/images/2026-10-26-landscape-current-trip-dark.png"><img src="docs/progress/images/2026-10-26-landscape-current-trip-dark.png" loading="lazy" alt="Current trip in landscape in the dark theme with dimmed map tiles and a light blue route."></a>
+      <figcaption><strong>Current trip, landscape, dark</strong>26 October 2026. The map tiles are dimmed on the device. Same build and emulator. Simulated route.</figcaption></figure>
+      <figure class="shot landscape"><a href="docs/progress/images/2026-10-26-landscape-current-trip-large-text.png"><img src="docs/progress/images/2026-10-26-landscape-current-trip-large-text.png" loading="lazy" alt="Current trip in landscape at 200 percent text: the speed and its unit on one line, and Pause trip and Stop and save stacked at full width below a divider."></a>
+      <figcaption><strong>Current trip, landscape, 200% text</strong>26 October 2026. The buttons stack and the values above the divider scroll. Same build and emulator. Simulated route.</figcaption></figure>
+      <figure class="shot landscape"><a href="docs/progress/images/2026-10-26-landscape-saved-trip.png"><img src="docs/progress/images/2026-10-26-landscape-saved-trip.png" loading="lazy" alt="Saved trip in landscape just after Stop and save: the map with a floating back button, the side pane with the date, the activity chip, four values, and Technical details, and the message Trip saved with Resume trip."></a>
+      <figcaption><strong>Saved trip, landscape, after Stop and save</strong>26 October 2026. The message offers Resume trip. Same build and emulator. Simulated route.</figcaption></figure>
+      <figure class="shot landscape"><a href="docs/progress/images/2026-10-26-landscape-gps-details.png"><img src="docs/progress/images/2026-10-26-landscape-gps-details.png" loading="lazy" alt="GPS details in landscape: the back button, the title, and the full sky map on the left, and scrolling cards on the right."></a>
+      <figcaption><strong>GPS details, landscape</strong>26 October 2026. Six satellites from the emulator receiver. Same build and emulator.</figcaption></figure>
+      </div>
+      <h3 style="margin-top:24px">Foldable · Pixel 10 Pro Fold emulator, Android 17 (API 37)</h3>
+      <div class="screens">
+      <figure class="shot"><a href="docs/progress/images/2026-10-26-fold-list-detail.png"><img src="docs/progress/images/2026-10-26-fold-list-detail.png" loading="lazy" alt="Open foldable: the navigation rail, the trip list with the selected trip highlighted, and the saved trip map and values beside the list, with the message Trip saved and Resume trip."></a>
+      <figcaption><strong>Open fold, trip beside the list, dark</strong>26 October 2026. Baseline <code>10aa486</code> plus this change. Debug APK <code>b11f01bc</code>. Pixel 10 Pro Fold, Android 17. The trip was recorded from simulated Android test locations. Captured by the device test.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-26-fold-no-gps-signal.png"><img src="docs/progress/images/2026-10-26-fold-no-gps-signal.png" loading="lazy" alt="Open foldable, Current trip with the side pane: the status says No GPS signal, the speed is unavailable, and the position marker on the map is grey."></a>
+      <figcaption><strong>Open fold, No GPS signal, dark</strong>26 October 2026. Same build and emulator. The simulated Android test locations stopped for 10 seconds. Captured by the device test.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-26-fold-notification-metric-card.png"><img src="docs/progress/images/2026-10-26-fold-notification-metric-card.png" loading="lazy" alt="Notification shade on Android 17: the recording notification as an expanded metric card with time, distance, and average speed, and Pause trip and Stop and save, above the Silent group."></a>
+      <figcaption><strong>Android 17 metric card, dark</strong>26 October 2026. Same build and emulator. The values come from simulated Android test locations. Captured by the device test.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-26-fold-speed-recording.png"><img src="docs/progress/images/2026-10-26-fold-speed-recording.png" loading="lazy" alt="Open foldable Speed tab while recording: the rail with Settings and the recording time, the dial, GPS altitude, maximum speed, the position bar, and the trip card with time, distance, and average speed."></a>
+      <figcaption><strong>Open fold, Speed tab, recording, dark</strong>26 October 2026. Same build and emulator. Simulated route from the emulator GPS (<code>adb emu geo fix</code>).</figcaption></figure>
+      </div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li>The device tests and screenshots used debug APK <code>b11f01bc</code>. Each device test class ran on its own on one emulator at a time.</li>
+          <li>After these tests, a commit check found a damaged separator in the notification text: devices before Android 17 showed <code>Â·</code> instead of <code>·</code>.
+          The string is corrected, and the notification test now checks the separator. On the API 36 phone emulator, that test passed.
+          The debug build, 27 calculation tests, and debug lint passed again. Final debug APK SHA-256 <code>c07bcb76</code>.</li>
+          <li><strong>Pixel 10 Pro Fold emulator, Android 17 (API 37), open:</strong> 36 of 36 device tests passed.
+          Tracking 19, Speedometer 10, SkyMap 2, Satellite display 2, Compass 1, Display rotation 1, Migration 1.</li>
+          <li><strong>Medium Phone emulator, API 36:</strong> all classes passed except one SkyMap test in the full run. It did not find the sky map after the turn to landscape.
+          SkyMap then passed 3 of 3 separate runs. The Speedometer run reported 10 of 10 tests passed, but Gradle lost its connection while it collected the results.</li>
+          <li>Calculation tests: 27 of 27 passed. Two are new: the trip clock and the <strong>No GPS signal</strong> limit. The debug build, the test build, and the debug lint passed with 0 errors and 0 warnings.</li>
+          <li>New device tests cover Resume after Stop, No GPS signal and the notification values, the activity before a trip, the one-time recording notice,
+          location turned on from Quick Settings, keep-screen-on, the trip beside the list, and the compass after a 180 degree landscape turn.</li>
+          <li>Compose testing brings Espresso 3.5.0, which fails on Android 17. The version catalog now sets Espresso 3.7.0.</li>
+          <li>After the tests, the emulators had their original theme, text size, rotation, and mock-location setting again. The tests remove their test provider.</li>
+          <li>Logs and raw captures: <code>artifacts/usability-build/</code> (not in Git).</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>Not checked on a physical phone or foldable: GPS accuracy, battery use, the lock screen, TalkBack, and the closed outer screen of a foldable in automated tests.</li>
+          <li>The phone emulator runs API 36.0. A promoted Live Update on Android 16 QPR1 or later is not checked.</li>
+          <li>A phone in landscape opens a saved trip on its own screen. The mockup showed the list beside it, but a narrow detail pane left the map too small.</li>
+          <li>Resume after Stop works for 2 minutes. After that, a new trip is necessary.</li>
+          <li>Sources: <a href="https://developer.android.com/about/versions/17">Android 17</a>,
+          <a href="https://developer.android.com/develop/ui/views/notifications/metric-style">metric-style notifications</a>,
+          <a href="https://developer.android.com/develop/ui/views/notifications/live-update">Live Updates</a>, and
+          <a href="https://developer.android.com/develop/ui/compose/layouts/adaptive">Compose adaptive layouts</a>.</li>
+        </ul>
+      </article>
+    </section>
 
     <section id="fix-rules" aria-labelledby="fix-rules-heading">
       <div class="section-head"><h2 id="fix-rules-heading">One rule for each GPS fix · 25 October 2026</h2><span class="tag done">Implemented and checked</span></div>
@@ -1376,6 +1463,8 @@ val angle = azimuthRadians - headingRadians</code></pre>
             <li>Measure battery use against an idle baseline. Measure cold start and frame timing in a release build.</li>
             <li>Test TalkBack, denied and approximate permission, permission revocation, and screen lock.
               Extend coverage to the minimum supported API and current devices.</li>
+            <li>Check a physical foldable, closed and open, including fold and unfold during a trip.
+              Check the Android 17 metric card and an Android 16 Live Update on physical phones.</li>
             <li>Select the final application ID and launcher artwork. Configure release signing outside Git.</li>
             <li>Complete the privacy and store requirements for the final feature set. Verify the signed release.</li>
           </ol>
@@ -1421,6 +1510,13 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-26">26 October 2026</time><div><h3>Landscape, foldables, and trip usability</h3>
+<p>Completed the twelve approved review items: landscape layouts for every main screen without a top app bar at compact height,
+a side pane for trip maps on landscape phones and open foldables, a saved trip beside the trip list on wide windows, no broken words at 200% text,
+Resume after Stop and save, <strong>No GPS signal</strong> while recording, a trip notification with distance and average speed (an Android 17 metric card and a Live Update request),
+a position marker and smooth following on the live map, a dimmed map in the dark theme, a Settings screen with an opt-in keep-screen-on setting, and the five open review issues.
+All 36 device tests passed on a Pixel 10 Pro Fold emulator with Android 17. On the API 36 phone emulator, one SkyMap test failed once and then passed 3 of 3 runs.
+27 calculation tests, the debug build, and lint passed. Physical devices, TalkBack, the lock screen, and battery use are not checked. See <a href="#landscape-fold">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-25">25 October 2026</time><div><h3>One rule for each GPS fix</h3>
 <p>One interpreter now applies the usability rules to each fix for the Speed tab and the trip. A speed with a speed accuracy that is not a valid number is now unusable everywhere.
 Removed the unused <code>AndroidGpsSource</code>. Added <a href="GLOSSARY.md">GLOSSARY.md</a> and the first ADR.

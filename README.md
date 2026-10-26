@@ -10,13 +10,21 @@ Update the report with each completed change, as specified in `AGENTS.md`.
 ## Trip recording
 
 1. Open the app. Allow precise location when requested. Speed starts without a GPS button.
-2. Select **Start trip**. Read the recording and map notice. Allow location and notifications.
-3. A recording bar shows above the navigation bar. Use its **Pause trip**, **Resume trip**, or **Stop and save** buttons.
+2. Optional: select the **Activity** chip below **Start trip** to choose the activity before the trip. **Automatic** uses the estimate.
+3. Select **Start trip**. Before the first trip, read the recording and map notice. Allow location and notifications.
+   The app remembers that you read the notice.
+4. A recording bar shows above the navigation bar. Use its **Pause trip**, **Resume trip**, or **Stop and save** buttons.
+   In landscape and on wide windows, the navigation rail shows the recording time and the same buttons.
    Select the bar text to open **Current trip** with the live map. Use the back arrow or Android Back to return.
-   A map gesture stops following. Select the **Follow route** button to follow the latest position again.
-4. In **Current trip**, select the information button, then select **Change** to correct the activity estimate.
+   After 10 seconds without a fix, the bar, the current trip, and the notification show **No GPS signal**.
+5. The live map follows the newest position. The marker shows the accuracy and, while you move, the direction of travel.
+   A map gesture stops following. Select the follow button to follow with north up. Select it again to turn the map
+   to the direction of travel. The zoom follows your speed until you use the zoom buttons.
+6. In **Current trip**, select the activity chip, or the information button and then **Change**, to correct the activity.
    The correction applies to the whole trip.
-5. Select the **Trips** tab, then select a trip. Pan or pinch its map, use the zoom buttons, or select **Fit route**.
+7. **Stop and save** opens the saved trip with the message **Trip saved**. Select **Resume trip** in that message to
+   continue the same trip as a new segment. This undoes an accidental stop.
+8. Select the **Trips** tab, then select a trip. Pan or pinch its map, use the zoom buttons, or select **Fit route**.
    The information button opens trip details. The menu button contains **Change activity**, **Share as GPX**, and **Delete trip**.
 
 Activity estimation uses recent GPS speed. The initial categories are **Bike or ski**, **Car or transit**,
@@ -52,7 +60,8 @@ Keep the output in the ignored `artifacts/` folder. Use `TrackingDeviceTest` for
 
 ## Navigation
 
-The app has two tabs: **Speed** and **Trips**. A navigation bar shows them in portrait. A navigation rail shows them in landscape.
+The app has two tabs: **Speed** and **Trips**. A navigation bar shows them in portrait. A navigation rail shows them in landscape
+and on windows at least 600 dp wide, such as an open foldable. The settings button on the Speed tab and on the Trips tab opens **Settings**.
 The tabs show only on their main screens. GPS details, the current trip, and saved trips use a top app bar with a back arrow.
 Android Back from the Trips tab returns to Speed. Select the current tab again to return to its main screen.
 The recording notification opens the current trip. Navigation uses Navigation 3 with an app-owned back stack for each tab.
@@ -61,6 +70,41 @@ The recording notification opens the current trip. Navigation uses Navigation 3 
 
 The launcher icon uses the confirmed Signal dial mark: an open speed ring, a short needle, and one satellite point.
 It is an adaptive vector icon with a monochrome layer for themed icons. `PROGRESS.html` uses the same mark as its favicon.
+
+## Landscape, foldables, and trip usability on 26 October 2026
+
+The user approved twelve items from the usability review, with four decisions: add the Material 3 adaptive library,
+show a saved trip beside the trip list, use the Android 17 metric card with simpler fallbacks, and add a Settings screen.
+
+- **Landscape (window height below 480 dp).** Detail screens have no top app bar. Maps run under the system bars with a
+  floating back button. Current trip and saved trips use a side pane with the main values, the activity chip, and details
+  that open in the pane. GPS details keeps the sky map beside the scrolling cards. The Speed dial uses the full height, so
+  the satellite ring can show, and the values, the labelled GPS bar, and the trip card sit beside it.
+- **Large text.** Values and units do not break. Pause and Stop stack when their labels do not fit on one line.
+- **Wide windows (at least 600 dp), such as an open foldable.** The navigation rail replaces the bar. The rail shows the
+  recording time. Maps share the width with the same side pane. On windows that are not short, a saved trip shows beside
+  the trip list. A phone in landscape shows one screen at a time, because a narrow detail pane leaves the map too small.
+- **Recording.** After 10 seconds without a fix, the app and the notification show **No GPS signal**. **Stop and save**
+  offers **Resume trip** for about 10 seconds; the recorder accepts it for 2 minutes. The live map shows the newest
+  position with its accuracy and, while moving, its direction. Following moves smoothly, can turn the map to the
+  direction of travel, and zooms by speed. In the dark theme the map tiles are dimmed on the device.
+- **Notification.** Android 17 shows time, distance, and average speed in a metric card. The app asks Android to show the
+  notification as a Live Update (`POST_PROMOTED_NOTIFICATIONS`, a normal permission). Earlier versions show distance and
+  average speed as text. The text changes at most every 30 seconds unless the state changes. Current speed is not shown.
+- **Review issues.** A failed delete no longer leaves its error on screen. Start trip returns when location is turned on
+  from Quick Settings. The sky heading follows a 180 degree turn between landscape directions. The activity can be chosen
+  before a trip. The recording notice shows only before the first trip, also after a cold start.
+- **Settings.** **Keep the screen on while Speed is open** is off by default. It applies only while the Speed tab shows.
+
+Espresso 3.7.0 is a test dependency: Compose testing brings Espresso 3.5.0, which fails on Android 17.
+
+Test results: all 36 device tests passed on a Pixel 10 Pro Fold emulator with Android 17 (API 37). On the Medium Phone
+emulator (API 36), all classes passed except one SkyMap test in the full run; SkyMap then passed 3 of 3 separate runs.
+27 calculation tests, the debug build, and debug lint passed. Not checked: physical phones and foldables, the closed outer
+screen of a foldable in automated tests, an Android 16 Live Update, TalkBack, the lock screen, and battery use.
+After these tests, the notification text separator was corrected (`Â·` to `·`). The notification test now checks it and
+passed on the API 36 phone emulator.
+See [evidence and limits](PROGRESS.html#landscape-fold).
 
 ## Review fixes on 23 October 2026
 
@@ -296,8 +340,12 @@ app/src/main/java/com/example/cvkegps/
     GnssSource.kt                Satellite and receiver models
     AndroidGnssSource.kt         Satellite status registration and cleanup
     AndroidHeadingSource.kt      Compass registration and display axes
+  settings/
+    AppSettings.kt               Local settings: keep screen on, and the trip notice that the user read
   ui/
+    AdaptiveLayout.kt            Window size checks, the side pane for maps, and the compact header
     AppNavigation.kt             Destinations and a back stack for each tab
+    SettingsScreen.kt            Settings
     AppShell.kt                  Navigation bar or rail, recording bar, and screens
     SpeedometerViewModel.kt      Immutable state, freshness, and session maximum
     CompassViewModel.kt          Heading states, freshness, correction, and screen rotation

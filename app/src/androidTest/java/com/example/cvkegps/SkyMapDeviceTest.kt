@@ -22,6 +22,7 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.unit.Density
@@ -128,14 +129,17 @@ class SkyMapDeviceTest {
                 }
             }
             fun showMap() {
-                compose.onNodeWithTag("gps_details_list").performScrollToNode(hasTestTag("satellite_sky_map"))
+                revealInDetails("satellite_sky_map")
                 compose.onNodeWithTag("satellite_sky_map").assertIsDisplayed()
-                compose.onNodeWithTag("gps_details_list").performScrollToNode(hasTestTag("sky_map_count"))
+                revealInDetails("sky_map_count")
                 compose.onNodeWithTag("sky_map_count").assertTextEquals("8 of 10 reported satellites plotted")
-                compose.onNodeWithTag("gps_details_list").performScrollToNode(hasTestTag("satellite_sky_map"))
+                revealInDetails("satellite_sky_map")
                 val mapBounds = compose.onNodeWithTag("satellite_sky_map").getUnclippedBoundsInRoot()
-                val viewBounds = compose.onNodeWithTag("gps_details_list").getUnclippedBoundsInRoot()
-                assertTrue("The full map must fit in the visible list", mapBounds.top >= viewBounds.top - 1.dp &&
+                // Portrait shows the map in the list. Landscape on a phone shows it beside the list, inside the screen.
+                val list = compose.onNodeWithTag("gps_details_list").getUnclippedBoundsInRoot()
+                val inList = mapBounds.left >= list.left - 1.dp && mapBounds.right <= list.right + 1.dp
+                val viewBounds = if (inList) list else compose.onRoot().getUnclippedBoundsInRoot()
+                assertTrue("The full map must be visible", mapBounds.top >= viewBounds.top - 1.dp &&
                     mapBounds.bottom <= viewBounds.bottom + 1.dp)
             }
             content()
@@ -159,15 +163,11 @@ class SkyMapDeviceTest {
             fresh()
             showMap()
             capture("sky-details-large-text")
-            scenario.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
-            compose.waitUntil(5_000) {
-                InstrumentationRegistry.getInstrumentation().targetContext.resources.configuration.orientation ==
-                    Configuration.ORIENTATION_LANDSCAPE
-            }
+            val turned = turnToLandscape(scenario)
             content()
             fresh()
             showMap()
-            assertTrue(observedRotation.get() == 1 || observedRotation.get() == 3)
+            if (turned) assertTrue(observedRotation.get() == 1 || observedRotation.get() == 3)
             capture("sky-details-landscape-large-text")
             scenario.moveToState(Lifecycle.State.CREATED)
             compose.waitUntil(5_000) { activeSensors.get() == 0 }
@@ -192,16 +192,16 @@ class SkyMapDeviceTest {
             compose.runOnIdle { declination = Math.toRadians(15.0) }
             compose.runOnIdle { fontScale = 1f }
             fresh(age = 11_000_000_000)
-            compose.onNodeWithTag("gps_details_list").performScrollToNode(hasTestTag("sky_map_unavailable"))
+            revealInDetails("sky_map_unavailable")
             compose.onNodeWithTag("satellite_sky_map").assertDoesNotExist()
             fresh(age = -1_000_000_000)
             compose.onNodeWithTag("sky_map_unavailable").assertIsDisplayed()
             compose.onNodeWithTag("satellite_sky_map").assertDoesNotExist()
             fresh(emptyList())
-            compose.onNodeWithTag("gps_details_list").performScrollToNode(hasTestTag("sky_map_count"))
+            revealInDetails("sky_map_count")
             compose.onNodeWithTag("sky_map_count").assertTextEquals("0 of 0 reported satellites plotted")
             fresh(null)
-            compose.onNodeWithTag("gps_details_list").performScrollToNode(hasTestTag("sky_map_unavailable"))
+            revealInDetails("sky_map_unavailable")
             compose.onNodeWithTag("satellite_sky_map").assertDoesNotExist()
             fresh()
             showMap()
@@ -324,11 +324,7 @@ class SkyMapDeviceTest {
             if (ringShown()) awaitRing(EAST) else assertEquals(0, activeSensors.get())
             capture("sky-home-large-text")
             compose.runOnIdle { fontScale = 1f }
-            scenario.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
-            compose.waitUntil(5_000) {
-                InstrumentationRegistry.getInstrumentation().targetContext.resources.configuration.orientation ==
-                    Configuration.ORIENTATION_LANDSCAPE
-            }
+            val turned = turnToLandscape(scenario)
             content()
             fresh()
             compose.waitForIdle()
@@ -343,6 +339,26 @@ class SkyMapDeviceTest {
             scenario.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED }
         }
         compose.waitUntil(5_000) { activeSensors.get() == 0 }
+    }
+
+    /** The list holds the sky map in portrait. Landscape on a phone keeps the map beside the list, so nothing scrolls. */
+    private fun revealInDetails(tag: String) {
+        runCatching { compose.onNodeWithTag("gps_details_list").performScrollToNode(hasTestTag(tag)) }
+    }
+
+    /**
+     * Requests landscape. Android 16 and later ignore an app's orientation request on large screens, such as an open
+     * foldable, so the result says whether the window turned.
+     */
+    private fun turnToLandscape(scenario: androidx.test.core.app.ActivityScenario<*>): Boolean {
+        scenario.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
+        val configuration = { InstrumentationRegistry.getInstrumentation().targetContext.resources.configuration }
+        if (configuration().smallestScreenWidthDp >= 600) {
+            Thread.sleep(1_000)
+            return configuration().orientation == Configuration.ORIENTATION_LANDSCAPE
+        }
+        compose.waitUntil(5_000) { configuration().orientation == Configuration.ORIENTATION_LANDSCAPE }
+        return true
     }
 
     private companion object {
