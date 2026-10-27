@@ -58,14 +58,13 @@
     <string name="recording_notification_title">Recording trip</string>
     <string name="recording_notification_paused">Trip paused</string>
     <string name="recording_notification_paused_time">Recording time: %1$s</string>
-    <string name="map_attribution">© OpenStreetMap contributors</string>
-    <string name="map_privacy">The map loads from OpenStreetMap, which receives the map area that you look at. Your trips stay on this device.</string>
+    <string name="map_privacy">The map loads from Google Maps. Google receives the map area that you look at, your IP address, and technical data about the app. Your trips stay on this device.</string>
     <string name="map_unavailable">The map is not available now. Your trip data is not affected.</string>
     <string name="map_retry">Reload map</string>
     <string name="map_no_points">This trip has no positions to show on the map.</string>
     <string name="map_accessibility">Recorded route. Use the trip summary for measurement values. Gaps are not connected.</string>
-    <string name="map_start_end">Green shows the start. Red shows the end. A break in the line is a gap in the recording.</string>
-    <string name="map_loading">Loading online map…</string>
+    <string name="map_start_end">Green shows the start. Red shows the end. Select a marker to see its time. A break in the line is a gap in the recording.</string>
+    <string name="map_loading">Loading map…</string>
     <string name="mode_unknown">Activity unknown</string>
     <string name="mode_road">Car or transit</string>
     <string name="mode_bike_ski">Bike or ski</string>
@@ -88,7 +87,7 @@
     <string name="mode_change_short">Change</string>
     <string name="more_options">More options</string>
     <string name="trip_share_gpx">Share as GPX</string>
-    <string name="trip_privacy">Your trips stay on this device. OpenStreetMap receives the map area that you look at. Share as GPX sends positions and times only to the app that you select.</string>
+    <string name="trip_privacy">Your trips stay on this device. Google Maps receives the map area that you look at. Share as GPX sends positions and times only to the app that you select.</string>
     <string name="trip_average_speed">Average speed, including stops</string>
     <string name="trip_technical_details">Technical details</string>
     <string name="state_expanded">Expanded</string>
@@ -114,4 +113,16 @@
     <string name="mode_chip_estimate">Activity: %1$s (estimate)</string>
     <string name="mode_chip_manual">Activity: %1$s</string>
     <string name="trip_select">Select a trip to show its map and values.</string>
+    <string name="map_type">Map type</string>
+    <string name="map_layer_default">Default</string>
+    <string name="map_layer_satellite">Satellite</string>
+    <string name="map_layer_terrain">Terrain</string>
+    <string name="map_traffic">Traffic</string>
+    <string name="map_start_marker">Start</string>
+    <string name="map_end_marker">End</string>
+    <string name="map_marker_description">%1$s, %2$s</string>
+    <string name="map_services_missing">The map needs Google Play services. Your trip data is not affected.</string>
+    <string name="map_services_install">Get Google Play services</string>
+    <string name="map_services_update">Update Google Play services</string>
+    <string name="map_services_enable">Turn on Google Play services</string>
 </resources>

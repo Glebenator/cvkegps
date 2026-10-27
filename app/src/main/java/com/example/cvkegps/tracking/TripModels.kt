@@ -1,10 +1,18 @@
 package com.example.cvkegps.tracking
 
 import com.example.cvkegps.location.TrackSample
+import kotlin.math.PI
 import kotlin.math.asin
+import kotlin.math.atan
 import kotlin.math.cos
+import kotlin.math.exp
+import kotlin.math.floor
+import kotlin.math.ln
+import kotlin.math.log2
+import kotlin.math.min
 import kotlin.math.sin
 import kotlin.math.sqrt
+import kotlin.math.tan
 
 enum class TripMode { Car, Transit, Plane, Bike, Ski, Unknown, CarOrTransit, BikeOrSki }
 enum class TripStatus { Recording, Paused, Interrupted, Finished }
@@ -18,6 +26,9 @@ data class RouteSummary(
     val lines: List<List<TrackSample>> = emptyList(),
 )
 
+/** A map camera that shows a whole route: the centre in radians and a Web Mercator zoom level. */
+data class RouteFrame(val latitudeRadians: Double, val longitudeRadians: Double, val zoom: Double)
+
 object RouteMath {
     const val SIGNAL_GAP_NANOS = 10_000_000_000L
 
@@ -30,6 +41,42 @@ object RouteMath {
         val h = lat * lat + cos(a.latitudeRadians) * cos(b.latitudeRadians) * lon * lon
         return 2 * 6_371_008.8 * asin(sqrt(h.coerceIn(0.0, 1.0)))
     }
+
+    /**
+     * The camera that shows all [points] in a visible map area of [widthDp] by [heightDp]. At zoom 0 the world is 256 dp wide.
+     * A route across the date line uses the shorter way round. A short route stops at a street scale, and one point uses a town scale.
+     */
+    fun frame(points: List<TrackSample>, widthDp: Double, heightDp: Double): RouteFrame? {
+        if (points.isEmpty()) return null
+        val south = mercator(points.minOf { it.latitudeRadians })
+        val north = mercator(points.maxOf { it.latitudeRadians })
+        // On the longitude circle, the largest gap between two neighbouring points is the part that the route does not cover.
+        val longitudes = points.map { it.longitudeRadians }.sorted()
+        var gap = longitudes.first() + 2 * PI - longitudes.last()
+        var west = longitudes.first()
+        for (index in 1 until longitudes.size) {
+            val step = longitudes[index] - longitudes[index - 1]
+            if (step > gap) { gap = step; west = longitudes[index] }
+        }
+        val width = 2 * PI - gap
+        val east = west + width
+        val longitude = (west + east) / 2
+        val latitude = 2 * atan(exp((south + north) / 2)) - PI / 2
+        val centre = longitude - 2 * PI * floor((longitude + PI) / (2 * PI))
+        if (width <= 0.0 && north <= south) return RouteFrame(latitude, centre, POINT_ZOOM)
+        val zoom = min(zoomFor(width, widthDp), zoomFor(north - south, heightDp))
+        return RouteFrame(latitude, centre, zoom.coerceIn(MIN_ZOOM, STREET_ZOOM))
+    }
+
+    private const val STREET_ZOOM = 17.0
+    private const val POINT_ZOOM = 14.0
+    private const val MIN_ZOOM = 3.0
+
+    /** Web Mercator y. The map ends at about 85 degrees north and south. */
+    private fun mercator(latitude: Double): Double = ln(tan(PI / 4 + latitude.coerceIn(-MAX_LATITUDE, MAX_LATITUDE) / 2))
+    private const val MAX_LATITUDE = 1.4844222297453324
+
+    private fun zoomFor(span: Double, dp: Double): Double = if (span <= 0.0) Double.POSITIVE_INFINITY else log2(dp * 2 * PI / (256 * span))
 
     /** Each supplied segment is a separate recording interval. Never connect two segments. */
     fun summarize(segments: List<List<TrackSample>>): RouteSummary {

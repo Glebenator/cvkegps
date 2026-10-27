@@ -21,6 +21,8 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.CvkeGps">
+        <!-- The key comes from MAPS_API_KEY at build time. See README.md. -->
+        <meta-data android:name="com.google.android.geo.API_KEY" android:value="${mapsApiKey}" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.exports"

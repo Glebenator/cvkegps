@@ -162,23 +162,24 @@
       <div>
         <div class="eyebrow">Native Android · Trip recording</div>
         <h1>Speed, trips,<br>and measured routes.</h1>
-        <p>Record car, transit, plane, bike, and ski trips. Save the route locally, continue with the screen locked, and review recorded segments on an online map. Physical-device validation and publication work remain open.</p>
+        <p>Record car, transit, plane, bike, and ski trips. Save the route locally, continue with the screen locked, and review recorded segments on a native Google map. Physical-device validation and publication work remain open.</p>
       </div>
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-10-27">27 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>ab5d49a</code> + uncommitted review fixes</dd></div>
+          <div><dt>App code baseline</dt><dd><code>6a82571</code> + native maps (branch <code>native-maps</code>)</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
       </aside>
     </div>
     <div class="metrics" aria-label="Last verified results">
-      <div class="metric"><strong>40 / 41</strong><span>Emulator device tests passed</span><span class="small">Pixel 10 Pro, API 37 · one intermittent location-setting test failed</span></div>
-      <div class="metric"><strong>31 / 31</strong><span>Calculation tests passed</span><span class="small">New: position age limit and settings load</span></div>
+      <div class="metric"><strong>38 / 42</strong><span>Emulator device tests passed</span><span class="small">Pixel 10 Pro, API 37 · no Maps API key · 4 map-related failures open</span></div>
+      <div class="metric"><strong>33 / 33</strong><span>Calculation tests passed</span><span class="small">New: route framing and map settings</span></div>
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, debug lint, and unsigned release build</span><span class="small">Release APK not installed or run</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#native-maps">Native maps · 27 Oct</a>
       <a href="#review-fixes">Review fixes · 27 Oct</a>
       <a href="#performance">GPS and performance</a>
       <a href="#landscape-fold">Landscape and foldables</a>
@@ -200,6 +201,60 @@
       <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
     </nav>
+
+    <section id="native-maps" aria-labelledby="native-maps-heading">
+      <div class="section-head"><h2 id="native-maps-heading">Native Google maps · 27 October 2026</h2><span class="tag pending">Implemented · map images need an API key</span></div>
+      <p class="section-intro">The trip maps now use the native Android map, the Google Maps SDK through <code>maps-compose</code> 8.3.0 and Play services Maps 20.0.0, in place of MapLibre and OpenStreetMap tiles.
+      The decision and its consequences are in <a href="docs/adr/0002-use-google-maps-for-trip-maps.md">ADR 0002</a>. The change is on the local branch <code>native-maps</code>.
+      <strong>This build has no Maps API key.</strong> The SDK reports an authorization failure and draws no map images, route, or markers. The camera, the controls, the map type, and traffic were checked through the SDK.</p>
+      <div class="table-wrap"><table class="wrap-cells">
+        <thead><tr><th scope="col">Native feature</th><th scope="col">Behaviour</th><th scope="col">Evidence</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Vector base map and theme</th><td>The map follows the app's light or dark theme (<code>mapColorScheme</code>). The app no longer dims map images.</td><td>Not visible without a key.</td></tr>
+          <tr><th scope="row">Map type</th><td><strong>Default</strong>, <strong>Satellite</strong> (with labels), or <strong>Terrain</strong>, from a 48 dp map type button. The app remembers the choice.</td><td>Device test: the SDK map type changes, stays after recreation, and applies to the saved trip.</td></tr>
+          <tr><th scope="row">Live traffic</th><td>Only on the current trip map, because traffic is current. Off by default.</td><td>Device test: traffic turns on, stays after recreation, and is off on the saved trip, which has no Traffic item.</td></tr>
+          <tr><th scope="row">Compass, turn, and tilt</th><td>Native compass, turn and tilt gestures, and 3D buildings. With the direction of travel up, the map tilts 45 degrees. The compass returns to north up, and following continues.</td><td>Not checked: the map without a key does not respond to gestures.</td></tr>
+          <tr><th scope="row">Markers</th><td>Start and end markers show their time. On a saved trip, the marker toolbar opens the place in Google Maps. The position dot, accuracy circle, and direction arrow use the app's own fixes, so an old position stays grey.</td><td>Not visible without a key. A plain SDK marker is also not drawn, so the overlay code is not the cause.</td></tr>
+          <tr><th scope="row">Map padding</th><td>The Google logo, the compass, and a fitted route stay clear of the app buttons and the system bars.</td><td>Screenshots below. The buttons do not cover the logo in any layout.</td></tr>
+          <tr><th scope="row">Play services recovery</th><td>Without Google Play services, the map area explains the problem and opens the Play services dialog to install, update, or turn them on.</td><td>Not checked: the emulators have Play services.</td></tr>
+        </tbody>
+      </table></div>
+      <h3 style="margin-top:24px">Pixel 10 Pro emulator, Android 17 (API 37) · no Maps API key</h3>
+      <div class="screens">
+      <figure class="shot"><a href="docs/progress/images/2026-10-27-native-maps-type-menu.png"><img src="docs/progress/images/2026-10-27-native-maps-type-menu.png" loading="lazy" alt="Current trip with the map type menu open below the map type button: Default, Satellite, and Terrain as radio buttons with Terrain selected, and a Traffic check box. The map area is plain beige with the Google logo."></a>
+      <figcaption><strong>Map type menu on the current trip</strong>27 October 2026. Baseline <code>6a82571</code> plus the native maps change. Debug APK <code>d725b6a7</code> source. Pixel 10 Pro emulator, Android 17 (API 37), light theme. Simulated locations from an Android test provider. No Maps API key, so the map shows no map images, route, or position marker.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-27-native-maps-saved-dark.png"><img src="docs/progress/images/2026-10-27-native-maps-saved-dark.png" loading="lazy" alt="A saved trip in the dark theme: map type, fit route, zoom in, and zoom out buttons in a column at the top right, the Google logo at the bottom left, and the trip values below the map."></a>
+      <figcaption><strong>Saved trip, dark theme</strong>27 October 2026. Same build and emulator. Simulated route. No Maps API key: the base map stays plain and light, so the dark map is not checked.</figcaption></figure>
+      <figure class="shot landscape"><a href="docs/progress/images/2026-10-27-native-maps-landscape-large-text.png"><img src="docs/progress/images/2026-10-27-native-maps-landscape-large-text.png" loading="lazy" alt="A saved trip in landscape with 200 percent text: the map runs under the status bar with Back at the top left, four map buttons at the top right, the Google logo at the bottom left, and the trip values in a side pane."></a>
+      <figcaption><strong>Saved trip, landscape, 200% text</strong>27 October 2026. Same build and emulator. Simulated route. The map padding keeps the logo and the buttons inside the safe area. No Maps API key.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-27-native-maps-short-narrow-large-text.png"><img src="docs/progress/images/2026-10-27-native-maps-short-narrow-large-text.png" loading="lazy" alt="Current trip in a 320 by 400 dp window with 200 percent text: a header with Back, Recording, and Details; a short map with four map buttons in a row and the Google logo below them; Pause trip and Stop and save below the map."></a>
+      <figcaption><strong>Current trip, 320 × 400 dp, 200% text</strong>27 October 2026. Same build and emulator. Simulated locations. Four 48 dp buttons fit in a row inside the map. Display size and text scale were restored after the test. No Maps API key.</figcaption></figure>
+      </div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li>Pixel 10 Pro emulator, Android 17 (API 37), Google Play services 26.40, no Maps API key. 38 of 42 device tests passed.
+          The 16 tests outside <code>TrackingDeviceTest</code> passed in the first full run. That emulator was then stopped from outside the test, so the tracking tests ran again after a new emulator start: 21 of 25 passed. The migration test passed separately.</li>
+          <li>New device test: <code>mapTypeAndTrafficStayAfterRecreationAndTrafficShowsOnlyOnTheCurrentTrip</code> reads the map type and traffic state from the SDK. It passed on this emulator and on the Medium Phone API 36 emulator.
+          The small-window test now also checks that the map type button has a 48 dp touch area inside the map.</li>
+          <li>Four device tests failed. <code>savedMapPansZoomsAndKeepsCameraThroughDetailsAndRotation</code>: a swipe did not move the camera. The fitted camera and the earlier steps worked.
+          <code>poorFixesDoNotKeepAnOldMapPositionCurrent</code>, <code>recordingShowsNoSignalAndTheNotificationShowsTripValues</code>, and <code>storageReadFailureShowsAnErrorAndRetryReadsTheSameTrip</code>: a 10 to 25 second wait timed out.
+          The first two passed on unchanged <code>6a82571</code> on the same emulator. The storage test was not run again on <code>6a82571</code>.</li>
+          <li>Cause found for the timed waits: on this branch the app draws about 43 frames each second while the live map shows nothing new (221 frames in 5 s; 0 on <code>6a82571</code>).
+          Compose test time then advances at 0.78 of real time, against 1.37 on <code>6a82571</code>, so the app's 10 second timers do not end inside the test limits.
+          The rate stayed the same with all app overlays removed and with no map type, so the Google map itself draws the frames in this state.</li>
+          <li>The camera follows the newest position (target equal to the newest fix, zoom 15). A plain marker and circle added through the SDK were not drawn, which confirms that this unauthorized map draws no overlays.</li>
+          <li>Calculation tests: 33 of 33 passed (new: route framing across the date line, the street-scale limit, and an unknown stored map type). Debug lint passed with no warnings. The debug build, the test build, and the unsigned release build (<code>072a2e6e</code>, 3.5 MB) passed. The release APK was not installed or run.</li>
+          <li>The tests restored location settings, display size, text scale, and test providers. Logs and raw captures: <code>artifacts/native-maps/</code> (not in Git).</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>Without a Maps API key, the map images, route line, markers, accuracy circle, direction arrow, dark map, satellite and terrain images, traffic, gestures, compass, info windows, and the marker toolbar are not visible and not checked.</li>
+          <li>Measure the continuous frames again with a key. If an authorized map also draws continuously while nothing changes, it uses battery, and the cause must be corrected before this branch is merged.</li>
+          <li>The Play services recovery, the route line across the date line, and TalkBack on the map were not checked.</li>
+          <li>All checks used simulated locations on emulators. Battery use, data use, and map performance need a physical phone.</li>
+        </ul>
+      </article>
+    </section>
 
     <section id="review-fixes" aria-labelledby="review-fixes-heading">
       <div class="section-head"><h2 id="review-fixes-heading">GPS app review fixes · 27 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
@@ -537,7 +592,7 @@ val issue = when {
       <h3 style="margin-top:24px">New wording and 200% text · 23 October 2026</h3>
       <div class="screens"><figure class="shot"><a href="docs/progress/images/2026-10-23-review-start-trip-dialog-light.png"><img src="docs/progress/images/2026-10-23-review-start-trip-dialog-light.png" loading="lazy" alt="Record a trip dialog with a short explanation, a short map privacy sentence, Cancel, and Start trip."></a>
       <figcaption><strong>Start trip and its explanation</strong>23 October 2026. Baseline <code>53403bf</code> plus the wording change. Debug APK <code>5f8c9749</code>. API 36 emulator. The emulator reported a GPS position with speed 0. Captured by hand after the device tests.</figcaption></figure><figure class="shot landscape"><a href="docs/progress/images/2026-10-23-review-first-launch-landscape-large-text.png"><img src="docs/progress/images/2026-10-23-review-first-launch-landscape-large-text.png" loading="lazy" alt="Speed tab in landscape at 200% text without permission: a normal-size dash, the cards, and Allow precise location."></a>
-      <figcaption><strong>First launch, landscape and 200% text</strong>23 October 2026. Baseline <code>53403bf</code> plus the wording change</code>. API 36 emulator. No location permission, so no reading exists. Captured by the device test after the rotation ended.</figcaption></figure></div>
+      <figcaption><strong>First launch, landscape and 200% text</strong>23 October 2026. Baseline <code>53403bf</code> plus the wording change. API 36 emulator. No location permission, so no reading exists. Captured by the device test after the rotation ended.</figcaption></figure></div>
       <article class="panel" style="margin-top:24px"><h3>Final verification and limits</h3>
         <p>On the final code, the debug build, Android lint, all 18 calculation tests, and all 28 emulator device tests passed. Each test class ran on its own:
         12 trip tests, 1 migration test, 10 Speed tab tests, 2 satellite display tests, 2 sky map tests, and 1 compass test. The external process-loss script also passed.
@@ -900,17 +955,17 @@ builder.setWhen(System.currentTimeMillis() - elapsedMillis.coerceAtLeast(0)).set
           <li>After process loss, show the saved part as interrupted. Resume starts a new segment.</li>
         </ul></article>
         <article class="panel"><h3>Review the measured route</h3><ul>
-          <li>Show saved and interrupted routes with MapLibre 13.7.1 and online OpenStreetMap tiles.</li>
+          <li>Show saved and interrupted routes on the native Google map (Maps SDK for Android through <code>maps-compose</code> 8.3.0). Before 27 October 2026, the maps used MapLibre 13.7.1 and OpenStreetMap tiles.</li>
           <li>Keep manual pauses, process interruptions, signal gaps, and poor positions out of connected route lines.</li>
-          <li>Show start and end markers. Keep map attribution visible on the map.</li>
+          <li>Show start and end markers with their time. Keep the Google logo visible on the map.</li>
           <li>Plane mode shows ground speed, GPS altitude relative to WGS84, true track, and quality. It is a personal record.</li>
           <li>Use one GPS request with a one-second interval for recording and live readings. Keep historical data separate from display freshness.</li>
-          <li>Trip points stay local. Online tile requests disclose the viewed area to the tile provider.</li>
+          <li>Trip points stay local. Google receives the map area that you look at, the IP address, and technical data about the app.</li>
         </ul></article>
       </div>
       <p class="note"><strong>Field validation remains open.</strong> Activity modes currently share one recording policy.
         The 50 m position threshold and 3 m/s speed-uncertainty threshold need device measurements.
-        Offline maps, specialist map layers, automatic pause, sensor-based activity classification, and elevation totals are deferred.</p>
+        Offline map downloads, map layers other than satellite, terrain, and traffic, automatic pause, sensor-based activity classification, and elevation totals are deferred.</p>
       <p class="test-note">Read the <a href="docs/tracking-implementation-plan.html">implementation plan</a> and
         <a href="docs/location-power-research.md">location power research</a>. The app remains a development build.</p>
     </section>
@@ -1475,6 +1530,15 @@ private const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
           Freshness logic: <a href="app/src/main/java/com/example/cvkegps/ui/SpeedometerViewModel.kt">SpeedometerViewModel.kt</a>.</p>
       </details>
       <details>
+        <summary>Route framing: one zoom rule for a whole route</summary>
+        <p>A saved route opens with the whole route in the part of the map that the buttons do not cover. The rule uses Web Mercator, where the world is 256 dp wide at zoom 0.
+          A route across the date line uses the shorter way round. A short route stops at zoom 17, and one point uses zoom 14. The rule has no Android types,
+          so the iOS app can use the same behaviour. The Google map then receives a camera position, not a bounds request, so it does not need its final size first.</p>
+        <pre><code>private fun zoomFor(span: Double, dp: Double): Double = if (span &lt;= 0.0) Double.POSITIVE_INFINITY else log2(dp * 2 * PI / (256 * span))</code></pre>
+        <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/tracking/TripModels.kt">RouteMath.frame in TripModels.kt</a>.
+          Map use: <a href="app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt">RouteMap.kt</a>.</p>
+      </details>
+      <details>
         <summary>Satellite status: share one callback between home and details</summary>
         <p>Home and details observe satellite status through a separate interface.
           They share the existing location request. Pause, disabled location, or app inactivity removes the callback.</p>
@@ -1594,6 +1658,9 @@ val angle = azimuthRadians - headingRadians</code></pre>
               Check the Android 17 metric card and an Android 16 Live Update on physical phones.</li>
             <li>Select the final application ID and launcher artwork. Configure release signing outside Git.</li>
             <li>Complete the privacy and store requirements for the final feature set. Verify the signed release.</li>
+            <li>Add a Maps API key, then run the four failing map tests again, check the map in both themes, and measure the frame rate of a still map. See <a href="#native-maps">native maps</a>.</li>
+            <li>Create the Google Cloud project, billing account, and Maps API key. Restrict the key to the Maps SDK for Android, the final application ID,
+              and the upload and Play App Signing certificates. Do not use a map ID. Declare the Maps SDK data in the Data safety form and the privacy policy.</li>
           </ol>
           <p class="reason">The current application ID is <code>com.example.cvkegps</code>.
             The release build is unsigned.</p>
@@ -1624,7 +1691,8 @@ val angle = azimuthRadians - headingRadians</code></pre>
           <ul>
             <li>Metric and imperial unit selection.</li>
             <li>GPX import, or GPX altitude converted to height above sea level. GPX export and sharing are <a href="#gpx-export">implemented</a>.</li>
-            <li>Offline map downloads, if the selected map provider supports them.</li>
+            <li>A route line coloured by speed (the Maps SDK supports gradient line spans). It needs a legend and colours that do not carry meaning alone.</li>
+            <li>Update Kotlin to 2.4, then <code>maps-compose</code> to 9.x and Play services Maps to 20.1.</li>
             <li>Automatic pause and improved activity classification, after field validation.</li>
             <li>Volume-button controls and a larger speed display mode.</li>
           </ul>
@@ -1637,6 +1705,11 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-27">27 October 2026</time><div><h3>Native Google maps</h3>
+<p>Replaced MapLibre and OpenStreetMap tiles with the Google Maps SDK (<code>maps-compose</code> 8.3.0) on the branch <code>native-maps</code>: a map that follows the app theme, Default, Satellite, and Terrain map types,
+live traffic on the current trip, the native compass with turn and tilt gestures, start and end markers with their time and the marker toolbar, map padding for the logo and buttons, and Play services recovery.
+The Maps API key comes from <code>local.properties</code>. Added <a href="docs/adr/0002-use-google-maps-for-trip-maps.md">ADR 0002</a>. Without a key, 38 of 42 device tests passed on a Pixel 10 Pro API 37 emulator. The map draws no images, and four map-related tests fail.
+33 calculation tests, lint, and the release build passed. See <a href="#native-maps">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-27">27 October 2026</time><div><h3>GPS app review fixes</h3>
 <p>Fixed five defects from the review of <code>be7e5ce</code>, each with a regression test: a trip read failure now shows an error with Try again instead of closing the app;
 the live map position becomes old 10 seconds after its own fix, also while poor fixes arrive; Resume after Stop and save keeps its command through the access dialog and shows a refusal after 2 minutes;

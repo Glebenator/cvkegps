@@ -1,134 +1,116 @@
 package com.example.cvkegps.tracking
 
-import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
-import android.os.Bundle
-import androidx.compose.foundation.clickable
+import android.text.format.DateUtils
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilledTonalIconToggleButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.createBitmap
-import androidx.core.graphics.toColorInt
-import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import com.example.cvkegps.R
 import com.example.cvkegps.location.TrackSample
+import com.example.cvkegps.settings.MapLayer
 import com.example.cvkegps.ui.FloatingBackButton
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.model.BitmapDescriptor
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.JointType
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.RoundCap
+import com.google.maps.android.compose.CameraMoveStartedReason
+import com.google.maps.android.compose.Circle
+import com.google.maps.android.compose.ComposeMapColorScheme
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapType
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.Polyline
+import com.google.maps.android.compose.rememberCameraPositionState
+import com.google.maps.android.compose.rememberUpdatedMarkerState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import org.maplibre.android.MapLibre
-import org.maplibre.android.camera.CameraPosition
-import org.maplibre.android.camera.CameraUpdateFactory
-import org.maplibre.android.geometry.LatLng
-import org.maplibre.android.geometry.LatLngBounds
-import org.maplibre.android.log.Logger
-import org.maplibre.android.maps.MapLibreMapOptions
-import org.maplibre.android.maps.MapView
-import org.maplibre.android.maps.Style
-import org.maplibre.android.module.http.HttpRequestUtil
-import org.maplibre.android.style.expressions.Expression
-import org.maplibre.android.style.layers.CircleLayer
-import org.maplibre.android.style.layers.FillLayer
-import org.maplibre.android.style.layers.LineLayer
-import org.maplibre.android.style.layers.Property
-import org.maplibre.android.style.layers.PropertyFactory.circleColor
-import org.maplibre.android.style.layers.PropertyFactory.circleRadius
-import org.maplibre.android.style.layers.PropertyFactory.circleStrokeColor
-import org.maplibre.android.style.layers.PropertyFactory.circleStrokeWidth
-import org.maplibre.android.style.layers.PropertyFactory.fillColor
-import org.maplibre.android.style.layers.PropertyFactory.fillOpacity
-import org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap
-import org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement
-import org.maplibre.android.style.layers.PropertyFactory.iconImage
-import org.maplibre.android.style.layers.PropertyFactory.iconOffset
-import org.maplibre.android.style.layers.PropertyFactory.iconRotate
-import org.maplibre.android.style.layers.PropertyFactory.iconRotationAlignment
-import org.maplibre.android.style.layers.PropertyFactory.lineColor
-import org.maplibre.android.style.layers.PropertyFactory.lineWidth
-import org.maplibre.android.style.layers.SymbolLayer
-import org.maplibre.android.style.sources.GeoJsonSource
-import org.maplibre.geojson.Feature
-import org.maplibre.geojson.FeatureCollection
-import org.maplibre.geojson.LineString
-import org.maplibre.geojson.Point
-import org.maplibre.geojson.Polygon
-import kotlin.math.cos
-import kotlin.math.sin
-
-private object OnlineMap {
-    private var initialized = false
-    fun initialize(context: android.content.Context) {
-        if (initialized) return
-        MapLibre.getInstance(context.applicationContext)
-        HttpRequestUtil.setLogEnabled(false)
-        Logger.setVerbosity(Logger.NONE)
-        HttpRequestUtil.setOkHttpClient(OkHttpClient.Builder().addInterceptor { chain ->
-            chain.proceed(chain.request().newBuilder().header("User-Agent", "CVKEGPS/1.0 (Android; com.example.cvkegps)").build())
-        }.build())
-        initialized = true
-    }
-
-    /**
-     * Native resource caching honours the tile server's response headers. No offline download or prefetch.
-     * The dark theme dims and desaturates the same tiles on the device, so the tile source and its requests do not change.
-     */
-    fun style(dark: Boolean): String {
-        val background = if (dark) "#1d201b" else "#e8e5df"
-        val paint = if (dark) """"raster-brightness-max":0.62,"raster-saturation":-0.45,"raster-contrast":0.1""" else ""
-        return """{"version":8,"sources":{"osm":{"type":"raster","tiles":["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],"tileSize":256,"maxzoom":19,"attribution":"© OpenStreetMap contributors"}},"layers":[{"id":"background","type":"background","paint":{"background-color":"$background"}},{"id":"osm","type":"raster","source":"osm","paint":{$paint}}]}"""
-    }
-}
 
 /** The shortest time between two redraws of a live route line. The position marker still moves with each fix. */
 private const val ROUTE_REDRAW_MILLIS = 5_000L
+
+/** The camera tilt while the map follows with the direction of travel up. It shows more of the road ahead. */
+private const val COURSE_TILT = 45f
+
+/** The space for one column or row of 48 dp map buttons and their margins. */
+private val CONTROL_SPACE = 64.dp
+
+/** The space around a fitted route, so the start and end markers are not at the edge. */
+private val ROUTE_MARGIN = 48.dp
 
 /** How the live map follows the newest position. A map gesture turns following off. */
 private enum class FollowMode { Off, North, Course }
@@ -162,209 +144,130 @@ private fun MapCanvas(
     onRetry: () -> Unit,
 ) {
     val context = LocalContext.current
-    val density = LocalDensity.current
-    val routePadding = with(density) { 48.dp.roundToPx() }
-    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val settings = (context.applicationContext as TrackingApplication).settings
+    val choice by settings.values.collectAsStateWithLifecycle()
     val description = stringResource(R.string.map_accessibility)
     val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val routeColor = if (dark) "#8ab4f8" else "#1765c1"
+    val routeColor = if (dark) Color(0xFF8AB4F8) else Color(0xFF1765C1)
+    // A missing or old Google Play services result. Null while the check runs or when the services are ready.
+    val servicesProblem = rememberPlayServices()?.takeIf { it != ConnectionResult.SUCCESS }
+    val scope = rememberCoroutineScope()
+    val camera = rememberCameraPositionState()
     var loaded by remember { mutableStateOf(false) }
     var unavailable by remember { mutableStateOf(false) }
-    var latitude by rememberSaveable { mutableStateOf<Double?>(null) }
-    var longitude by rememberSaveable { mutableStateOf<Double?>(null) }
-    var zoom by rememberSaveable { mutableStateOf(12.0) }
-    var bearing by rememberSaveable { mutableStateOf(0.0) }
-    val mapView = remember {
-        OnlineMap.initialize(context)
-        MapView(context, MapLibreMapOptions.createFromAttributes(context).textureMode(true)
-            .setPrefetchZoomDelta(0).attributionEnabled(false).logoEnabled(false)).apply {
-            contentDescription = description
-            onCreate(Bundle())
-        }
-    }
-    DisposableEffect(mapView, lifecycle) {
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_START -> mapView.onStart()
-                Lifecycle.Event.ON_RESUME -> mapView.onResume()
-                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
-                Lifecycle.Event.ON_STOP -> mapView.onStop()
-                else -> Unit
-            }
-        }
-        lifecycle.addObserver(observer)
-        if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) mapView.onStart()
-        if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) mapView.onResume()
-        onDispose {
-            lifecycle.removeObserver(observer)
-            mapView.onPause()
-            mapView.onStop()
-            mapView.onDestroy()
-        }
-    }
-    // Tiles usually arrive during the screen transition. Show the loading note only when they are slow.
+    // The map usually loads during the screen transition. Show the loading note only when it is slow.
     var slow by remember { mutableStateOf(false) }
-    LaunchedEffect(mapView) {
+    LaunchedEffect(Unit) {
         delay(1_500)
         slow = true
         delay(13_500)
         if (!loaded) unavailable = true
     }
-    var mapStyle by remember { mutableStateOf<Style?>(null) }
-    var nativeMap by remember { mutableStateOf<org.maplibre.android.maps.MapLibreMap?>(null) }
-    var positioned by remember { mutableStateOf(false) }
+    // True after the camera first shows the route or the position. It is saved, so a recreated screen keeps the user's view.
+    var placed by rememberSaveable { mutableStateOf(false) }
     var fitRequest by remember { mutableIntStateOf(0) }
     var follow by rememberSaveable { mutableStateOf(if (live) FollowMode.North else FollowMode.Off) }
     // Zoom follows speed until the zoom buttons change it.
     var userZoomed by rememberSaveable { mutableStateOf(false) }
-    DisposableEffect(mapView) {
-        val failed = MapView.OnDidFailLoadingMapListener { unavailable = true }
-        val rendered = MapView.OnDidFinishRenderingMapListener { complete -> if (complete) { loaded = true; unavailable = false } }
-        mapView.addOnDidFailLoadingMapListener(failed)
-        mapView.addOnDidFinishRenderingMapListener(rendered)
-        mapView.getMapAsync { map ->
-            nativeMap = map
-            map.setPrefetchZoomDelta(0)
-            map.uiSettings.isTiltGesturesEnabled = false
-            map.addOnCameraMoveStartedListener { reason ->
-                if (reason == org.maplibre.android.maps.MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) follow = FollowMode.Off
-            }
-            map.addOnCameraIdleListener {
-                if (positioned) {
-                latitude = map.cameraPosition.target?.latitude
-                longitude = map.cameraPosition.target?.longitude
-                zoom = map.cameraPosition.zoom
-                bearing = map.cameraPosition.bearing
-                }
-            }
-            map.setStyle(Style.Builder().fromJson(OnlineMap.style(dark))) { style ->
-                style.addImage("heading", headingArrow(with(density) { 22.dp.roundToPx() }, routeColor))
-                style.addSource(GeoJsonSource("route", FeatureCollection.fromFeatures(emptyArray<Feature>())))
-                style.addLayer(LineLayer("route", "route").withProperties(lineColor(routeColor), lineWidth(4f)))
-                for ((name, color) in listOf("start" to "#237a3b", "end" to "#b62929")) {
-                    style.addSource(GeoJsonSource(name, FeatureCollection.fromFeatures(emptyArray<Feature>())))
-                    style.addLayer(CircleLayer(name, name).withProperties(circleColor(color), circleRadius(7f), circleStrokeWidth(2f), circleStrokeColor("#ffffff")))
-                }
-                style.addSource(GeoJsonSource("accuracy", FeatureCollection.fromFeatures(emptyArray<Feature>())))
-                style.addLayer(FillLayer("accuracy", "accuracy").withProperties(fillColor(routeColor), fillOpacity(0.18f)))
-                style.addSource(GeoJsonSource("position", FeatureCollection.fromFeatures(emptyArray<Feature>())))
-                style.addLayer(CircleLayer("position", "position").withProperties(circleColor(routeColor), circleRadius(8f),
-                    circleStrokeWidth(3f), circleStrokeColor("#ffffff")))
-                style.addSource(GeoJsonSource("heading", FeatureCollection.fromFeatures(emptyArray<Feature>())))
-                style.addLayer(SymbolLayer("heading", "heading").withProperties(iconImage("heading"), iconRotate(Expression.get("bearing")),
-                    iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_MAP), iconOffset(arrayOf(0f, -16f)),
-                    iconAllowOverlap(true), iconIgnorePlacement(true)))
-                mapStyle = style
-            }
-        }
-        onDispose {
-            mapView.removeOnDidFailLoadingMapListener(failed)
-            mapView.removeOnDidFinishRenderingMapListener(rendered)
+    // A map gesture stops following. The compass turns the map to north, so following continues with north up.
+    LaunchedEffect(camera) {
+        snapshotFlow { camera.isMoving to camera.cameraMoveStartedReason }.collect { (moving, reason) ->
+            if (moving && reason == CameraMoveStartedReason.GESTURE) follow = FollowMode.Off
+            else if (moving && reason == CameraMoveStartedReason.API_ANIMATION && follow == FollowMode.Course) follow = FollowMode.North
         }
     }
-    // The live marker: an accuracy circle, a grey dot for an old fix, and a direction arrow only while moving with a current fix.
-    LaunchedEffect(mapStyle, position) {
-        val style = mapStyle ?: return@LaunchedEffect
-        val sample = position?.sample
-        val point = sample?.let { Point.fromLngLat(Math.toDegrees(it.longitudeRadians), Math.toDegrees(it.latitudeRadians)) }
-        style.getSourceAs<GeoJsonSource>("position")?.setGeoJson(FeatureCollection.fromFeatures(listOfNotNull(point?.let(Feature::fromGeometry))))
-        style.getLayerAs<CircleLayer>("position")?.setProperties(circleColor(if (position?.fresh == true) routeColor else "#8a8f87"))
-        val accuracy = sample?.accuracyMeters?.takeIf { position.fresh && sample.usablePosition && it > 0f }
-        style.getSourceAs<GeoJsonSource>("accuracy")?.setGeoJson(FeatureCollection.fromFeatures(listOfNotNull(
-            accuracy?.let { Feature.fromGeometry(circle(sample, it.toDouble())) })))
-        val course = sample?.takeIf { position.fresh }?.let(::courseRadians)
-        style.getSourceAs<GeoJsonSource>("heading")?.setGeoJson(FeatureCollection.fromFeatures(listOfNotNull(
-            course?.let { radians -> Feature.fromGeometry(point).apply { addNumberProperty("bearing", Math.toDegrees(radians)) } })))
-    }
-    // The route line. A live route redraws at most every ROUTE_REDRAW_MILLIS, so a long trip does not rebuild the line for each fix.
-    val latestLines by rememberUpdatedState(lines)
-    LaunchedEffect(mapStyle, fitRequest) {
-        val style = mapStyle ?: return@LaunchedEffect
-        snapshotFlow { latestLines }.conflate().collect { lines ->
-            val geometry = withContext(Dispatchers.Default) {
-                FeatureCollection.fromFeatures(lines.flatMap { line ->
-                    val pieces = mutableListOf<MutableList<TrackSample>>()
-                    for (sample in line) {
-                        val previous = pieces.lastOrNull()?.lastOrNull()
-                        if (previous == null || kotlin.math.abs(sample.longitudeRadians - previous.longitudeRadians) > Math.PI) pieces += mutableListOf<TrackSample>()
-                        pieces.last().add(sample)
-                    }
-                    pieces.filter { it.size > 1 }.map { piece ->
-                        Feature.fromGeometry(LineString.fromLngLats(piece.map { Point.fromLngLat(Math.toDegrees(it.longitudeRadians), Math.toDegrees(it.latitudeRadians)) }))
-                    }
-                })
-            }
-            style.getSourceAs<GeoJsonSource>("route")?.setGeoJson(geometry)
-            val first = lines.firstOrNull { it.isNotEmpty() }?.first()
-            val last = lines.lastOrNull { it.isNotEmpty() }?.last()
-            // While recording, the position marker shows the newest point instead of an end marker.
-            for ((name, sample) in listOf("start" to first, "end" to last.takeIf { !live })) {
-                style.getSourceAs<GeoJsonSource>(name)?.setGeoJson(FeatureCollection.fromFeatures(
-                    sample?.let { listOf(Feature.fromGeometry(Point.fromLngLat(Math.toDegrees(it.longitudeRadians), Math.toDegrees(it.latitudeRadians)))) }.orEmpty()))
-            }
-            if (fitRequest > 0 && !positioned) { latitude = null; longitude = null }
-            // Review fits once. Route updates must not reset a user pan or reload the map style.
-            // A live map that follows the position places the camera itself.
-            val map = nativeMap
-            if (!positioned && first != null && map != null && !(live && follow != FollowMode.Off)) {
-                if (latitude != null && longitude != null) {
-                    map.moveCamera(CameraUpdateFactory.newCameraPosition(CameraPosition.Builder().target(LatLng(latitude!!, longitude!!)).zoom(zoom).bearing(bearing).build()))
-                } else {
-                    val bounds = withContext(Dispatchers.Default) { lines.flatten().map { LatLng(Math.toDegrees(it.latitudeRadians), Math.toDegrees(it.longitudeRadians)) } }
-                    if (bounds.distinct().size > 1) {
-                        map.moveCamera(CameraUpdateFactory.newLatLngBounds(LatLngBounds.Builder().includes(bounds).build(), routePadding))
-                        // Keep short routes at a useful street scale.
-                        if (map.cameraPosition.zoom > 17.0) map.moveCamera(CameraUpdateFactory.zoomTo(17.0))
-                    }
-                    else map.moveCamera(CameraUpdateFactory.newLatLngZoom(bounds.first(), 14.0))
-                }
-                positioned = true
-            }
-            if (live) delay(ROUTE_REDRAW_MILLIS)
-        }
-    }
-    // A live map that follows moves to each new position. The route line can update later.
-    LaunchedEffect(mapStyle, nativeMap, position?.sample, follow) {
-        val last = position?.sample ?: return@LaunchedEffect
-        val map = nativeMap ?: return@LaunchedEffect
-        if (!live || follow == FollowMode.Off || mapStyle == null) return@LaunchedEffect
-        val target = LatLng(Math.toDegrees(last.latitudeRadians), Math.toDegrees(last.longitudeRadians))
-        val nextZoom = when {
-            !positioned -> speedZoom(last) ?: 15.0
-            userZoomed -> map.cameraPosition.zoom.coerceIn(3.0, 18.0)
-            else -> speedZoom(last) ?: map.cameraPosition.zoom.coerceIn(3.0, 18.0)
-        }
-        val nextBearing = if (follow == FollowMode.Course) courseRadians(last)?.let(Math::toDegrees) ?: map.cameraPosition.bearing else 0.0
-        val camera = CameraUpdateFactory.newCameraPosition(CameraPosition.Builder().target(target).zoom(nextZoom).bearing(nextBearing).build())
-        // One short camera move for each new fix. There is no continuous animation.
-        if (positioned) map.animateCamera(camera, 800) else map.moveCamera(camera)
-        positioned = true
-    }
+
     // The marker state is also read aloud, because its colour alone does not tell a screen reader user that it is old.
     val positionState = position?.let { stringResource(if (it.fresh) R.string.map_position_current else R.string.map_position_old) }
-    Box(modifier.testTag("route_map").semantics { if (positionState != null) stateDescription = positionState }) {
-        AndroidView(factory = { mapView }, modifier = Modifier.matchParentSize())
-        // The map can run under the system bars. Its controls stay inside the safe area.
-        BoxWithConstraints(Modifier.matchParentSize().windowInsetsPadding(insets)) {
-            // Three 48 dp buttons in a column need about 176 dp, and the attribution needs 48 dp below them.
-            // A shorter map, such as in a small window, shows the buttons in a row and the attribution on one line.
-            val shortMap = maxHeight < 232.dp
-            // Keep the visible caption small and the touch target at least 48 dp high.
-            Box(Modifier.align(Alignment.BottomStart).heightIn(min = 48.dp)
-                .clickable(role = Role.Button) {
-                    context.startActivity(Intent(Intent.ACTION_VIEW, "https://www.openstreetmap.org/copyright".toUri()))
-                }, contentAlignment = Alignment.BottomStart) {
-                Surface(color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)) {
-                    Text(stringResource(R.string.map_attribution),
-                        Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.bodySmall, maxLines = if (shortMap) 1 else Int.MAX_VALUE,
-                        overflow = TextOverflow.Ellipsis)
+    BoxWithConstraints(modifier.testTag("route_map").semantics { if (positionState != null) stateDescription = positionState }) {
+        // The map can run under the system bars. Its controls, the compass, and the Google logo stay inside the safe area,
+        // and the camera centres the route in the part of the map that the buttons do not cover.
+        val safe = insets.asPaddingValues()
+        val direction = LocalLayoutDirection.current
+        // A short map, such as in a small window, shows the buttons in a row.
+        val shortMap = maxHeight - safe.calculateTopPadding() - safe.calculateBottomPadding() < 240.dp
+        val padding = PaddingValues(
+            start = safe.calculateStartPadding(direction),
+            top = safe.calculateTopPadding() + if (shortMap || onBack != null) CONTROL_SPACE else 0.dp,
+            end = safe.calculateEndPadding(direction) + if (shortMap) 0.dp else CONTROL_SPACE,
+            bottom = safe.calculateBottomPadding(),
+        )
+        val fitWidth = (maxWidth - padding.calculateStartPadding(direction) - padding.calculateEndPadding(direction) - ROUTE_MARGIN * 2)
+            .coerceAtLeast(ROUTE_MARGIN).value.toDouble()
+        val fitHeight = (maxHeight - padding.calculateTopPadding() - padding.calculateBottomPadding() - ROUTE_MARGIN * 2)
+            .coerceAtLeast(ROUTE_MARGIN).value.toDouble()
+        val fitArea by rememberUpdatedState(fitWidth to fitHeight)
+
+        // The route line. A live route redraws at most every ROUTE_REDRAW_MILLIS, so a long trip does not rebuild the line for each fix.
+        var route by remember { mutableStateOf<List<List<LatLng>>>(emptyList()) }
+        val latestLines by rememberUpdatedState(lines)
+        LaunchedEffect(fitRequest) {
+            snapshotFlow { latestLines }.conflate().collect { lines ->
+                route = withContext(Dispatchers.Default) { lines.filter { it.size > 1 }.map { line -> line.map { it.latLng() } } }
+                // Review fits once. Route updates must not reset a user pan. A live map that follows the position places the camera itself.
+                if (!placed && !(live && follow != FollowMode.Off)) {
+                    val (width, height) = fitArea
+                    val frame = withContext(Dispatchers.Default) { RouteMath.frame(lines.flatten(), width, height) }
+                    if (frame != null) {
+                        camera.move(CameraUpdateFactory.newCameraPosition(CameraPosition(
+                            LatLng(Math.toDegrees(frame.latitudeRadians), Math.toDegrees(frame.longitudeRadians)), frame.zoom.toFloat(), 0f, 0f)))
+                        placed = true
+                    }
                 }
+                if (live) delay(ROUTE_REDRAW_MILLIS)
             }
+        }
+        // A live map that follows moves to each new position. The route line can update later.
+        LaunchedEffect(position?.sample, follow) {
+            val last = position?.sample ?: return@LaunchedEffect
+            if (!live || follow == FollowMode.Off) return@LaunchedEffect
+            val current = camera.position
+            val zoom = when {
+                !placed -> speedZoom(last) ?: 15f
+                userZoomed -> current.zoom.coerceIn(3f, 18f)
+                else -> speedZoom(last) ?: current.zoom.coerceIn(3f, 18f)
+            }
+            val course = follow == FollowMode.Course
+            val bearing = if (course) courseRadians(last)?.let { Math.toDegrees(it).toFloat() } ?: current.bearing else 0f
+            val update = CameraUpdateFactory.newCameraPosition(CameraPosition(last.latLng(), zoom, if (course) COURSE_TILT else 0f, bearing))
+            // One short camera move for each new fix. There is no continuous animation.
+            if (placed) camera.animate(update, 800) else camera.move(update)
+            placed = true
+        }
+
+        if (servicesProblem == null) GoogleMap(
+            modifier = Modifier.matchParentSize(),
+            cameraPositionState = camera,
+            contentDescription = description,
+            properties = MapProperties(
+                mapType = when (choice.mapLayer) {
+                    MapLayer.Default -> MapType.NORMAL
+                    MapLayer.Satellite -> MapType.HYBRID
+                    MapLayer.Terrain -> MapType.TERRAIN
+                },
+                // Traffic is current, so it shows only on the map of the current trip.
+                isTrafficEnabled = live && choice.mapTraffic,
+                isBuildingEnabled = true,
+            ),
+            // The app's 48 dp buttons replace the small SDK zoom controls. The marker toolbar opens a saved start or end in Google Maps.
+            uiSettings = MapUiSettings(
+                zoomControlsEnabled = false,
+                myLocationButtonEnabled = false,
+                indoorLevelPickerEnabled = false,
+                mapToolbarEnabled = !live,
+            ),
+            onMapLoaded = { loaded = true; unavailable = false },
+            contentPadding = padding,
+            mapColorScheme = if (dark) ComposeMapColorScheme.DARK else ComposeMapColorScheme.LIGHT,
+        ) {
+            RouteOverlay(route, lines, live, position, routeColor)
+        }
+        // The controls stay inside the safe area.
+        Box(Modifier.matchParentSize().windowInsetsPadding(insets)) {
             if (onBack != null) FloatingBackButton(onBack, Modifier.align(Alignment.TopStart).padding(8.dp))
             val controls: @Composable () -> Unit = {
                 val hasRoute = lines.any { it.isNotEmpty() }
+                MapTypeButton(choice.mapLayer, choice.mapTraffic.takeIf { live }, settings::setMapLayer, settings::setMapTraffic)
                 if (live) {
                     val label = stringResource(if (follow == FollowMode.Course) R.string.map_follow_course else R.string.map_follow)
                     val state = stringResource(when (follow) {
@@ -382,33 +285,38 @@ private fun MapCanvas(
                         Icon(painterResource(if (follow == FollowMode.Course) R.drawable.ic_navigation else R.drawable.ic_my_location),
                             contentDescription = label)
                     }
-                } else FilledTonalIconButton(onClick = { positioned = false; fitRequest++ }, enabled = hasRoute,
+                } else FilledTonalIconButton(onClick = { placed = false; fitRequest++ }, enabled = hasRoute,
                     modifier = Modifier.size(48.dp).testTag("map_fit")) {
                     Icon(painterResource(R.drawable.ic_fit_route), contentDescription = stringResource(R.string.map_fit))
                 }
-                FilledTonalIconButton(onClick = { userZoomed = true; nativeMap?.animateCamera(CameraUpdateFactory.zoomIn()) },
+                FilledTonalIconButton(onClick = { userZoomed = true; scope.launch { camera.animate(CameraUpdateFactory.zoomIn()) } },
                     modifier = Modifier.size(48.dp).testTag("map_zoom_in")) {
                     Icon(painterResource(R.drawable.ic_add), contentDescription = stringResource(R.string.map_zoom_in))
                 }
-                FilledTonalIconButton(onClick = { userZoomed = true; nativeMap?.animateCamera(CameraUpdateFactory.zoomOut()) },
+                FilledTonalIconButton(onClick = { userZoomed = true; scope.launch { camera.animate(CameraUpdateFactory.zoomOut()) } },
                     modifier = Modifier.size(48.dp).testTag("map_zoom_out")) {
                     Icon(painterResource(R.drawable.ic_remove), contentDescription = stringResource(R.string.map_zoom_out))
                 }
             }
-            if (!shortMap) Column(Modifier.align(Alignment.TopEnd).padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { controls() }
-            else Row(Modifier.align(Alignment.TopEnd).padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { controls() }
-            // A route that is still loading is not reported as empty. The map style loads at the same time.
+            if (servicesProblem == null) {
+                if (!shortMap) Column(Modifier.align(Alignment.TopEnd).padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { controls() }
+                else Row(Modifier.align(Alignment.TopEnd).padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { controls() }
+            }
+            // A route that is still loading is not reported as empty. The map loads at the same time.
             val noPoints = routeReady && lines.all { it.isEmpty() }
-            if (noPoints || (!loaded && slow) || unavailable) Surface(
+            if (servicesProblem != null || noPoints || (!loaded && slow) || unavailable) Surface(
+                // The note stays above the Google logo, which must stay visible.
                 Modifier.align(Alignment.BottomCenter).padding(start = 8.dp, end = 8.dp, bottom = 56.dp),
                 shape = MaterialTheme.shapes.small) {
                 Column(Modifier.padding(8.dp)) {
                     Text(stringResource(when {
+                        servicesProblem != null -> R.string.map_services_missing
                         noPoints -> R.string.map_no_points
                         unavailable -> R.string.map_unavailable
                         else -> R.string.map_loading
                     }), style = MaterialTheme.typography.bodySmall)
-                    if (unavailable) TextButton(onClick = onRetry, modifier = Modifier.testTag("map_retry")) {
+                    if (servicesProblem != null) PlayServicesAction(servicesProblem)
+                    else if (unavailable) TextButton(onClick = onRetry, modifier = Modifier.testTag("map_retry")) {
                         Text(stringResource(R.string.map_retry))
                     }
                 }
@@ -417,47 +325,157 @@ private fun MapCanvas(
     }
 }
 
+/** The route line, the start and end markers, and the live position. Only the map content can make marker images. */
+@Composable
+private fun RouteOverlay(route: List<List<LatLng>>, lines: List<List<TrackSample>>, live: Boolean, position: LivePosition?, routeColor: Color) {
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    val icons = remember(density, routeColor) { MapIcons(density, routeColor.toArgb()) }
+    val lineWidth = with(density) { 4.dp.toPx() }
+    for (line in route) Polyline(line, color = routeColor, width = lineWidth, jointType = JointType.ROUND,
+        startCap = RoundCap(), endCap = RoundCap(), zIndex = 1f)
+    val first = lines.firstOrNull { it.isNotEmpty() }?.first()
+    // While recording, the position marker shows the newest point instead of an end marker.
+    val last = lines.lastOrNull { it.isNotEmpty() }?.last()?.takeIf { !live }
+    for ((sample, title, icon) in listOf(Triple(first, R.string.map_start_marker, icons.start), Triple(last, R.string.map_end_marker, icons.end))) {
+        if (sample == null) continue
+        key(title) {
+            val name = stringResource(title)
+            val time = DateUtils.formatDateTime(context, sample.timeMillis,
+                DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_ABBREV_MONTH)
+            // A live map shows the time without a camera move, so following continues.
+            Marker(rememberUpdatedMarkerState(sample.latLng()), contentDescription = stringResource(R.string.map_marker_description, name, time),
+                anchor = Offset(0.5f, 0.5f),
+                icon = icon, title = name, snippet = time, zIndex = 2f,
+                onClick = { marker -> if (live) { marker.showInfoWindow(); true } else false })
+        }
+    }
+    // The live marker: an accuracy circle, a grey dot for an old fix, and a direction arrow only while moving with a current fix.
+    if (position != null) {
+        val at = position.sample.latLng()
+        val accuracy = position.sample.accuracyMeters?.takeIf { position.fresh && position.sample.usablePosition && it > 0f }
+        if (accuracy != null) Circle(at, fillColor = routeColor.copy(alpha = 0.18f), radius = accuracy.toDouble(),
+            strokeWidth = 0f, zIndex = 2f)
+        val course = position.sample.takeIf { position.fresh }?.let(::courseRadians)
+        // A flat marker turns with the map, so the arrow keeps the true direction when the map is rotated.
+        if (course != null) Marker(rememberUpdatedMarkerState(at), contentDescription = null, anchor = Offset(0.5f, 0.5f), flat = true,
+            icon = icons.heading, rotation = Math.toDegrees(course).toFloat(), zIndex = 3f, onClick = { true })
+        Marker(rememberUpdatedMarkerState(at),
+            contentDescription = stringResource(if (position.fresh) R.string.map_position_current else R.string.map_position_old),
+            anchor = Offset(0.5f, 0.5f), icon = if (position.fresh) icons.position else icons.oldPosition, zIndex = 4f, onClick = { true })
+    }
+}
+
+/** Selects the map type. On the current trip map it also turns live traffic on or off. */
+@Composable
+private fun MapTypeButton(layer: MapLayer, traffic: Boolean?, onLayer: (MapLayer) -> Unit, onTraffic: (Boolean) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        FilledTonalIconButton(onClick = { open = true }, modifier = Modifier.size(48.dp).testTag("map_layers")) {
+            Icon(painterResource(R.drawable.ic_layers), contentDescription = stringResource(R.string.map_type))
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            for ((option, label) in listOf(MapLayer.Default to R.string.map_layer_default, MapLayer.Satellite to R.string.map_layer_satellite,
+                MapLayer.Terrain to R.string.map_layer_terrain)) {
+                val selected = option == layer
+                DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { onLayer(option); open = false },
+                    modifier = Modifier.testTag("map_layer_${option.key}").semantics { role = Role.RadioButton; this.selected = selected },
+                    leadingIcon = { RadioButton(selected = selected, onClick = null) })
+            }
+            if (traffic != null) {
+                HorizontalDivider()
+                DropdownMenuItem(text = { Text(stringResource(R.string.map_traffic)) }, onClick = { onTraffic(!traffic); open = false },
+                    modifier = Modifier.testTag("map_traffic").semantics { role = Role.Checkbox; toggleableState = ToggleableState(traffic) },
+                    leadingIcon = { Checkbox(checked = traffic, onCheckedChange = null) })
+            }
+        }
+    }
+}
+
+/** Opens the Google Play services dialog that installs, updates, or turns on the services that the map needs. */
+@Composable
+private fun PlayServicesAction(code: Int) {
+    val activity = LocalActivity.current ?: return
+    val availability = GoogleApiAvailability.getInstance()
+    if (!availability.isUserResolvableError(code)) return
+    TextButton(onClick = { availability.showErrorDialogFragment(activity, code, 0) }, modifier = Modifier.testTag("map_services")) {
+        Text(stringResource(when (code) {
+            ConnectionResult.SERVICE_MISSING -> R.string.map_services_install
+            ConnectionResult.SERVICE_DISABLED -> R.string.map_services_enable
+            else -> R.string.map_services_update
+        }))
+    }
+}
+
+/** The Google Play services result for the map, or null before the first check. It checks again when the screen resumes. */
+@Composable
+private fun rememberPlayServices(): Int? {
+    val context = LocalContext.current
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    return produceState<Int?>(null, lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            value = withContext(Dispatchers.Default) { GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context) }
+        }
+    }.value
+}
+
+private fun TrackSample.latLng() = LatLng(Math.toDegrees(latitudeRadians), Math.toDegrees(longitudeRadians))
+
 /** Direction of travel, only from a usable speed of at least 1 m/s. A slow or stopped fix has no reliable direction. */
 private fun courseRadians(sample: TrackSample): Double? =
     sample.bearingRadians?.takeIf { it.isFinite() && (sample.usableSpeed ?: 0f) >= 1f }
 
 /** A street scale at low speed and a wider view at road and plane speeds. */
-private fun speedZoom(sample: TrackSample): Double? = sample.usableSpeed?.let { speed ->
+private fun speedZoom(sample: TrackSample): Float? = sample.usableSpeed?.let { speed ->
     when {
-        speed < 3f -> 17.0
-        speed < 10f -> 16.0
-        speed < 25f -> 15.0
-        speed < 60f -> 14.0
-        else -> 11.0
+        speed < 3f -> 17f
+        speed < 10f -> 16f
+        speed < 25f -> 15f
+        speed < 60f -> 14f
+        else -> 11f
     }
 }
 
-/** A polygon for the horizontal accuracy around a sample. Small radii make a flat-earth approximation sufficient. */
-private fun circle(sample: TrackSample, radiusMeters: Double): Polygon {
-    val latitude = Math.toDegrees(sample.latitudeRadians)
-    val longitude = Math.toDegrees(sample.longitudeRadians)
-    val dLat = Math.toDegrees(radiusMeters / 6_371_008.8)
-    val dLon = dLat / cos(sample.latitudeRadians).coerceAtLeast(0.01)
-    val ring = (0..48).map { step ->
-        val angle = 2 * Math.PI * step / 48
-        Point.fromLngLat(longitude + dLon * cos(angle), latitude + dLat * sin(angle))
-    }
-    return Polygon.fromLngLats(listOf(ring))
-}
+/** Marker images. Make them only in the map content, after the Maps SDK is ready. */
+private class MapIcons(density: Density, route: Int) {
+    private val scale = density.density
+    val start = dot(7f, 2f, 0xFF237A3B.toInt())
+    val end = dot(7f, 2f, 0xFFB62929.toInt())
+    val position = dot(8f, 3f, route)
+    val oldPosition = dot(8f, 3f, 0xFF8A8F87.toInt())
+    val heading = headingArrow(22f, route)
 
-/** An arrow that points up. The symbol layer turns it to the direction of travel. */
-private fun headingArrow(size: Int, color: String): Bitmap {
-    val bitmap = createBitmap(size, size)
-    val canvas = Canvas(bitmap)
-    val path = Path().apply {
-        moveTo(size / 2f, size * 0.08f)
-        lineTo(size * 0.88f, size * 0.9f)
-        lineTo(size / 2f, size * 0.7f)
-        lineTo(size * 0.12f, size * 0.9f)
-        close()
+    /** A filled circle with a white edge. Sizes are in dp. */
+    private fun dot(radius: Float, edge: Float, color: Int): BitmapDescriptor {
+        val outer = (radius + edge) * scale
+        val bitmap = createBitmap((outer * 2).toInt() + 2, (outer * 2).toInt() + 2)
+        val canvas = Canvas(bitmap)
+        val centre = bitmap.width / 2f
+        canvas.drawCircle(centre, centre, outer, Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = android.graphics.Color.WHITE })
+        canvas.drawCircle(centre, centre, radius * scale, Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color })
+        return BitmapDescriptorFactory.fromBitmap(bitmap)
     }
-    canvas.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = android.graphics.Color.WHITE; style = Paint.Style.STROKE
-        strokeWidth = size * 0.12f; strokeJoin = Paint.Join.ROUND })
-    canvas.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color.toColorInt() })
-    return bitmap
+
+    /**
+     * An arrow that points up, at the top of a square image. The centre of the image is on the position,
+     * so a turn about the centre puts the arrow in front of the position dot.
+     */
+    private fun headingArrow(length: Float, color: Int): BitmapDescriptor {
+        val size = (length * scale).let { (it * 2.9f).toInt() }
+        val arrow = length * scale
+        val bitmap: Bitmap = createBitmap(size, size)
+        val canvas = Canvas(bitmap)
+        val middle = size / 2f
+        val path = Path().apply {
+            moveTo(middle, arrow * 0.08f)
+            lineTo(middle + arrow * 0.38f, arrow * 0.9f)
+            lineTo(middle, arrow * 0.7f)
+            lineTo(middle - arrow * 0.38f, arrow * 0.9f)
+            close()
+        }
+        canvas.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = android.graphics.Color.WHITE; style = Paint.Style.STROKE
+            strokeWidth = arrow * 0.12f; strokeJoin = Paint.Join.ROUND })
+        canvas.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color })
+        return BitmapDescriptorFactory.fromBitmap(bitmap)
+    }
 }

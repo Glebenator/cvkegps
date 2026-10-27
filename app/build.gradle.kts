@@ -1,9 +1,18 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.ksp)
     alias(libs.plugins.baselineprofile)
 }
+
+// The Maps SDK key stays out of Git. Set MAPS_API_KEY in local.properties or as a Gradle property.
+// Without a key the app builds and runs, but the map is empty.
+val mapsApiKey: String = providers.gradleProperty("MAPS_API_KEY").orElse(
+    providers.fileContents(rootProject.layout.projectDirectory.file("local.properties")).asText.map { text ->
+        Properties().apply { load(text.reader()) }.getProperty("MAPS_API_KEY", "")
+    }).getOrElse("").ifBlank { "NO_MAPS_API_KEY" }
 
 android {
     namespace = "com.example.cvkegps"
@@ -17,6 +26,8 @@ android {
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"
+
+        manifestPlaceholders["mapsApiKey"] = mapsApiKey
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testInstrumentationRunnerArguments["clearPackageData"] = "true"
@@ -48,8 +59,9 @@ android {
 }
 
 dependencies {
-    implementation(libs.maplibre)
-    implementation(libs.okhttp)
+    implementation(libs.maps.compose)
+    implementation(libs.play.services.maps)
+    implementation(libs.play.services.base)
     implementation(libs.androidx.room.runtime)
     ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit)

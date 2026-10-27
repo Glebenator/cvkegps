@@ -19,12 +19,15 @@ Update the report with each completed change, as specified in `AGENTS.md`.
    After 10 seconds without a fix, the bar, the current trip, and the notification show **No GPS signal**.
 5. The live map follows the newest position. The marker shows the accuracy and, while you move, the direction of travel.
    A map gesture stops following. Select the follow button to follow with north up. Select it again to turn the map
-   to the direction of travel. The zoom follows your speed until you use the zoom buttons.
+   to the direction of travel and tilt it to show more of the road ahead. The compass shows when the map is turned;
+   select it to show north up again. The zoom follows your speed until you use the zoom buttons.
+   The map type button selects **Default**, **Satellite**, or **Terrain**, and turns **Traffic** on or off.
 6. In **Current trip**, select the activity chip, or the information button and then **Change**, to correct the activity.
    The correction applies to the whole trip.
 7. **Stop and save** opens the saved trip with the message **Trip saved**. Select **Resume trip** in that message to
    continue the same trip as a new segment. This undoes an accidental stop.
-8. Select the **Trips** tab, then select a trip. Pan or pinch its map, use the zoom buttons, or select **Fit route**.
+8. Select the **Trips** tab, then select a trip. Pan, pinch, turn, or tilt its map, use the zoom buttons, or select **Fit route**.
+   Select the start or end marker to see its time and to open that place in Google Maps.
    The information button opens trip details. The menu button contains **Change activity**, **Share as GPX**, and **Delete trip**.
 
 Activity estimation uses recent GPS speed. The initial categories are **Bike or ski**, **Car or transit**,
@@ -40,14 +43,15 @@ Trips use local Room storage. One GPS request supplies both the recorder and liv
 updates can discard intermediate readings. Manual pauses and interruptions form separate segments. Missing GPS and poor positions do not
 form connected route lines. Distance is an estimate. Plane mode reports ground speed and GPS altitude relative to WGS84.
 
-Saved and interrupted trips use MapLibre with standard online OpenStreetMap tiles. Tile requests disclose the viewed area to OpenStreetMap.
-The app does not upload trip records. Maps have visible attribution, an app User-Agent, and no prefetch or offline-download controls.
-See the [tile policy](https://operations.osmfoundation.org/policies/tiles/). Map data can be unavailable; local trip measurements remain available.
+Trip maps use the native Android map, the Google Maps SDK, through `maps-compose`. See [ADR 0002](docs/adr/0002-use-google-maps-for-trip-maps.md).
+Google receives the map area that you look at, the IP address, and technical data about the app. The app does not upload trip records.
+The map needs Google Play services and a Maps API key (see **Open and run**). Without the services, the map area shows a message
+and the Play services dialog. Map data can be unavailable; local trip measurements remain available.
 
 The [implementation plan](docs/tracking-implementation-plan.html) records scope and the commit sequence.
 The [HTML tracker](PROGRESS.html#tracking-verification) records builds, tests, native screenshots, and unverified cases.
 Physical-device accuracy, battery use, flight reception, long trips, Doze, Battery Saver, and API 29/37 device flows remain open.
-Offline maps, specialist layers, automatic pause, sensor-based activity classification, GPX import, and elevation totals are not implemented.
+Offline map downloads, layers other than satellite, terrain, and traffic, automatic pause, sensor-based activity classification, GPX import, and elevation totals are not implemented.
 
 For the external process-loss and notification check, use a dedicated API 36 emulator with the debug APK installed:
 
@@ -70,6 +74,24 @@ The recording notification opens the current trip. Navigation uses Navigation 3 
 
 The launcher icon uses the confirmed Signal dial mark: an open speed ring, a short needle, and one satellite point.
 It is an adaptive vector icon with a monochrome layer for themed icons. `PROGRESS.html` uses the same mark as its favicon.
+
+## Native maps on 27 October 2026
+
+The trip maps now use the Google Maps SDK in place of MapLibre and OpenStreetMap tiles:
+
+- **Base map.** A vector map that follows the app's light or dark theme. The app no longer dims map images.
+- **Map type.** **Default**, **Satellite** (with labels), or **Terrain**. The current trip map can also show live **Traffic**.
+  The app remembers both choices. A saved trip does not show traffic, because traffic is current.
+- **Gestures and compass.** Turn and tilt gestures, 3D buildings, and the native compass. With the direction of travel up,
+  the map tilts 45 degrees. Selecting the compass returns to north up and keeps following.
+- **Markers.** Start and end markers show their time when selected. On a saved trip, the marker toolbar opens the place
+  in Google Maps. The position, accuracy circle, and direction arrow use the app's own fixes, so an old position stays grey.
+- **Layout.** Map padding keeps the Google logo, the compass, and fitted routes clear of the app buttons and system bars.
+  The app keeps its 48 dp buttons in place of the small SDK zoom controls.
+- **Recovery.** Without Google Play services, the map area explains the problem and opens the Play services dialog.
+
+MapLibre, OkHttp, and the OpenStreetMap caption are removed. Without a Maps API key, the map is empty: no map images,
+route, or markers, and no gestures. The camera, the buttons, and the map type still work. Results and limits are in [the report](PROGRESS.html#native-maps).
 
 ## Landscape, foldables, and trip usability on 26 October 2026
 
@@ -318,8 +340,11 @@ still identifies current speed and its unit. Measurement values fit on one line.
 2. Use JDK 25 for Gradle. The wrapper uses Gradle 9.6.0 and Android Gradle Plugin 9.4.1.
 3. Install Android SDK platform 37. The minimum supported API is 29.
 4. Let Android Studio create `local.properties` with your SDK path.
-5. Run the `app` configuration on a device or emulator.
-6. Select **Allow precise location**, then allow location while using the app.
+5. Add `MAPS_API_KEY=<your key>` to `local.properties`. Get the key from a Google Cloud project with the Maps SDK for Android
+   turned on. Restrict it to that API and to the app's application ID and signing certificate. Git ignores `local.properties`.
+   Without a key the app builds and runs, but the map is empty.
+6. Run the `app` configuration on a device or emulator with Google Play services.
+7. Select **Allow precise location**, then allow location while using the app.
 
 From a terminal with `JAVA_HOME` set to the Gradle JDK:
 
@@ -371,7 +396,7 @@ app/src/main/java/com/example/cvkegps/
     LiveTripScreen.kt            Current trip with the live map
     SavedTripScreen.kt           Saved trip with its map and details
     TripComponents.kt            Shared trip controls, values, and labels
-    RouteMap.kt                  MapLibre route map
+    RouteMap.kt                  Google Maps route map, map type, and Play services recovery
 ```
 
 State flows from the location source through the ViewModel to the screen.
@@ -649,5 +674,6 @@ Follow `AGENTS.md` for architecture, design, privacy, and test requirements.
 Route recording now uses local storage and a foreground service. Field validation and the publication requirements remain open.
 
 Before publication, select the final application ID and launcher artwork, configure release
-signing outside Git, and complete the store and privacy requirements. The current
+signing outside Git, and complete the store and privacy requirements. Declare the Maps SDK data in the Play Data
+safety form, and restrict the release Maps API key to the release ID and the Play App Signing certificate. The current
 `com.example.cvkegps` ID is a development ID. The release APK is unsigned.

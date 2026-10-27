@@ -53,6 +53,16 @@ class AppSettingsTest {
         assertEquals(Settings(keepScreenOn = true, tripAccessExplained = true), settings.values.value)
     }
 
+    @Test fun anUnknownStoredMapTypeShowsTheDefaultMapAndAMapChoiceIsStored() {
+        val stored = FakePreferences(mapOf(MAP_LAYER to "street-view", MAP_TRAFFIC to true))
+        val settings = onUi { AppSettings({ stored }, scope) }
+        waitFor { settings.values.value.mapTraffic }
+        assertEquals(MapLayer.Default, settings.values.value.mapLayer)
+        onUi { settings.setMapLayer(MapLayer.Terrain) }
+        waitFor { stored.values[MAP_LAYER] == "terrain" }
+        assertEquals(true, stored.values[MAP_TRAFFIC])
+    }
+
     private fun <T> onUi(block: () -> T): T = runBlocking(uiDispatcher) { block() }
 
     private fun waitFor(condition: () -> Boolean) {
@@ -61,17 +71,20 @@ class AppSettingsTest {
         assertTrue("Timed out", condition())
     }
 
-    private class FakePreferences(initial: Map<String, Boolean>) : SharedPreferences {
-        val values = ConcurrentHashMap<String, Boolean>(initial)
+    private class FakePreferences(initial: Map<String, Any>) : SharedPreferences {
+        val values = ConcurrentHashMap<String, Any>(initial)
         val readThreads: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
         override fun getBoolean(key: String, defValue: Boolean): Boolean {
             readThreads += Thread.currentThread().name
-            return values[key] ?: defValue
+            return values[key] as Boolean? ?: defValue
+        }
+        override fun getString(key: String, defValue: String?): String? {
+            readThreads += Thread.currentThread().name
+            return values[key] as String? ?: defValue
         }
         override fun contains(key: String) = values.containsKey(key)
         override fun getAll(): Map<String, *> = values
-        override fun getString(key: String, defValue: String?) = defValue
         override fun getStringSet(key: String, defValues: Set<String>?) = defValues
         override fun getInt(key: String, defValue: Int) = defValue
         override fun getLong(key: String, defValue: Long) = defValue
@@ -79,11 +92,11 @@ class AppSettingsTest {
         override fun registerOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener) = Unit
         override fun unregisterOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener) = Unit
         override fun edit(): SharedPreferences.Editor = object : SharedPreferences.Editor {
-            private val changes = mutableMapOf<String, Boolean>()
+            private val changes = mutableMapOf<String, Any>()
             override fun putBoolean(key: String, value: Boolean) = apply { changes[key] = value }
+            override fun putString(key: String, value: String?) = apply { if (value != null) changes[key] = value }
             override fun apply() { values.putAll(changes) }
             override fun commit(): Boolean { apply(); return true }
-            override fun putString(key: String, value: String?) = this
             override fun putStringSet(key: String, values: Set<String>?) = this
             override fun putInt(key: String, value: Int) = this
             override fun putLong(key: String, value: Long) = this
@@ -96,5 +109,7 @@ class AppSettingsTest {
     private companion object {
         const val KEEP_SCREEN_ON = "keep_screen_on"
         const val TRIP_ACCESS_EXPLAINED = "trip_access_explained"
+        const val MAP_LAYER = "map_layer"
+        const val MAP_TRAFFIC = "map_traffic"
     }
 }

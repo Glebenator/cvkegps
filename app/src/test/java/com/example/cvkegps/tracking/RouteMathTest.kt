@@ -5,6 +5,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.log2
 
 class RouteMathTest {
     private fun sample(seconds: Long, longitude: Double = 0.0, speed: Float = 10f, accuracy: Float = 2f) = TrackSample(
@@ -49,6 +52,20 @@ class RouteMathTest {
         assertTrue(live.add(TripPoint("trip", "b", second.last())))
         assertTrue(!live.add(TripPoint("trip", "b", sample(30, 4.0))))
         assertTrue(!live.add(TripPoint("trip", "a", sample(21, 0.004))))
+    }
+
+    @Test fun frameFitsTheRouteTakesTheShortWayAcrossTheDateLineAndKeepsAStreetScale() {
+        // One degree of longitude in a view 360 dp wide: at zoom z the world is 256 × 2^z dp wide.
+        val wide = RouteMath.frame(listOf(sample(1, 0.0), sample(2, 1.0)), 360.0, 2_000.0)!!
+        assertEquals(log2(360.0 * 360 / 256), wide.zoom, 0.001)
+        assertEquals(Math.toRadians(0.5), wide.longitudeRadians, 1e-9)
+        val dateLine = RouteMath.frame(listOf(sample(1, 179.5), sample(2, -179.5)), 360.0, 2_000.0)!!
+        assertEquals(wide.zoom, dateLine.zoom, 0.001)
+        assertEquals(PI, abs(dateLine.longitudeRadians), 1e-9)
+        // A route of a few metres stops at a street scale. One point uses a town scale.
+        assertEquals(17.0, RouteMath.frame(listOf(sample(1, 0.0), sample(2, 0.00001)), 360.0, 640.0)!!.zoom, 0.0)
+        assertEquals(14.0, RouteMath.frame(listOf(sample(1, 0.2), sample(2, 0.2)), 360.0, 640.0)!!.zoom, 0.0)
+        assertNull(RouteMath.frame(emptyList(), 360.0, 640.0))
     }
 
     @Test fun averageSpeedUsesRecordingTimeAndNeedsAKnownDistance() {

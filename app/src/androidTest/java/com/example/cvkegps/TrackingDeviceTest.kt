@@ -276,26 +276,10 @@ class TrackingDeviceTest {
         assertTrue(app.recorder.state.value.trip!!.automaticMode)
         assertEquals(TripMode.BikeOrSki, app.recorder.state.value.trip!!.mode)
         deliver(id, 8)
-        fun cameraAtLatest(): Boolean {
-            compose.waitForIdle()
-            var centred = false
-            scenario!!.onActivity { activity ->
-                fun findMap(view: android.view.View): org.maplibre.android.maps.MapView? {
-                    if (view is org.maplibre.android.maps.MapView) return view
-                    if (view is android.view.ViewGroup) for (index in 0 until view.childCount) {
-                        findMap(view.getChildAt(index))?.let { return it }
-                    }
-                    return null
-                }
-                findMap(activity.window.decorView)?.getMapAsync { map ->
-                    val target = map.cameraPosition.target
-                    centred = target != null && kotlin.math.abs(target.latitude - 49.2827) < 0.0001 &&
-                        kotlin.math.abs(target.longitude - (-123.1207 + sampleIndex * 0.0001)) < 0.0001 &&
-                        map.cameraPosition.zoom in 3.0..18.0
-                }
-            }
-            return centred
-        }
+        fun cameraAtLatest(): Boolean = mapCamera()?.let { camera ->
+            kotlin.math.abs(camera.target.latitude - 49.2827) < 0.0001 &&
+                kotlin.math.abs(camera.target.longitude - (-123.1207 + sampleIndex * 0.0001)) < 0.0001 && camera.zoom in 3f..18f
+        } == true
         waitUntil { cameraAtLatest() }
         val touchArea = compose.onNodeWithTag("route_map").fetchSemanticsNode().boundsInRoot
         device.swipe((touchArea.left + touchArea.width * 0.6f).toInt(),
@@ -451,16 +435,43 @@ class TrackingDeviceTest {
         capture("saved-menu")
         device.pressBack()
         compose.onNodeWithTag("trip_delete").assertDoesNotExist()
-        assertEquals(zoomed.zoom, mapCamera()!!.zoom, 0.01)
-        assertEquals(zoomed.target!!.latitude, mapCamera()!!.target!!.latitude, 0.0001)
+        assertEquals(zoomed.zoom, mapCamera()!!.zoom, 0.01f)
+        assertEquals(zoomed.target.latitude, mapCamera()!!.target.latitude, 0.0001)
         scenario!!.recreate()
         waitUntil { mapCamera()?.zoom?.let { kotlin.math.abs(it - zoomed.zoom) < 0.01 } == true }
-        assertEquals(zoomed.target!!.latitude, mapCamera()!!.target!!.latitude, 0.0001)
+        assertEquals(zoomed.target.latitude, mapCamera()!!.target.latitude, 0.0001)
         compose.onNodeWithTag("map_fit").performClick()
-        waitUntil { kotlin.math.abs(mapCamera()!!.target!!.latitude - fitted.target!!.latitude) < 0.0001 }
+        waitUntil { kotlin.math.abs(mapCamera()!!.target.latitude - fitted.target.latitude) < 0.0001 }
         compose.onNodeWithTag("top_back").performClick()
         compose.onNodeWithTag("saved_trip").assertIsDisplayed().performClick()
         compose.onNodeWithTag("route_map").assertIsDisplayed()
+    }
+
+    @Test fun mapTypeAndTrafficStayAfterRecreationAndTrafficShowsOnlyOnTheCurrentTrip() {
+        launch()
+        startTrip()
+        val id = app.recorder.state.value.trip!!.id
+        deliver(id, 3)
+        waitUntil { mapCamera() != null }
+        compose.onNodeWithTag("map_layers").performClick()
+        compose.onNodeWithTag("map_layer_terrain").performClick()
+        waitUntil { withMap { it.mapType } == com.google.android.gms.maps.GoogleMap.MAP_TYPE_TERRAIN }
+        compose.onNodeWithTag("map_layers").performClick()
+        capture("live-map-type-menu")
+        compose.onNodeWithTag("map_traffic").performClick()
+        waitUntil { withMap { it.isTrafficEnabled } == true }
+        capture("live-terrain-traffic")
+        scenario!!.recreate()
+        waitUntil { withMap { it.mapType == com.google.android.gms.maps.GoogleMap.MAP_TYPE_TERRAIN && it.isTrafficEnabled } == true }
+        clickVisible("trip_stop")
+        waitUntil { !app.recorder.state.value.needsService }
+        // A saved trip uses the same map type. Traffic is current, so a saved trip does not show it.
+        waitUntil { withMap { it.mapType == com.google.android.gms.maps.GoogleMap.MAP_TYPE_TERRAIN && !it.isTrafficEnabled } == true }
+        compose.onNodeWithTag("map_layers").performClick()
+        compose.onNodeWithTag("map_traffic").assertDoesNotExist()
+        compose.onNodeWithTag("map_layer_satellite").performClick()
+        waitUntil { withMap { it.mapType } == com.google.android.gms.maps.GoogleMap.MAP_TYPE_HYBRID }
+        capture("saved-satellite")
     }
 
     @Test fun homeAndSavedMapFitThemesLargeTextAndRotation() {
@@ -659,12 +670,12 @@ class TrackingDeviceTest {
                     compose.waitForIdle()
                     val map = compose.onNodeWithTag("route_map").assertIsDisplayed().getUnclippedBoundsInRoot()
                     assertTrue("The map must keep most of the window width", (map.right - map.left).value >= widthDp * 0.8f)
-                    for (tag in listOf("top_back", "map_follow", "map_zoom_in", "map_zoom_out", "trip_pause", "trip_stop", "trip_details")) {
+                    for (tag in listOf("top_back", "map_layers", "map_follow", "map_zoom_in", "map_zoom_out", "trip_pause", "trip_stop", "trip_details")) {
                         val touch = compose.onNodeWithTag(tag).assertIsDisplayed().fetchSemanticsNode().touchBoundsInRoot
                         assertTrue("$tag needs a 48 dp touch target", touch.width >= 47.5f * density && touch.height >= 47.5f * density)
                     }
                     // Each map control is inside the map.
-                    for (tag in listOf("map_follow", "map_zoom_in", "map_zoom_out")) {
+                    for (tag in listOf("map_layers", "map_follow", "map_zoom_in", "map_zoom_out")) {
                         val control = compose.onNodeWithTag(tag).getUnclippedBoundsInRoot()
                         assertTrue(tag, control.left >= map.left && control.right <= map.right && control.top >= map.top && control.bottom <= map.bottom)
                     }
@@ -991,20 +1002,28 @@ class TrackingDeviceTest {
         }
     }
 
-    private fun mapCamera(): org.maplibre.android.camera.CameraPosition? {
+    /** The camera of the Google map on the screen, or null when no map is ready. */
+    private fun mapCamera(): com.google.android.gms.maps.model.CameraPosition? = withMap { it.cameraPosition }
+
+    /** Reads the Google map on the screen on the main thread. Null when no map is ready. */
+    private fun <T> withMap(read: (com.google.android.gms.maps.GoogleMap) -> T): T? {
         compose.waitForIdle()
-        var camera: org.maplibre.android.camera.CameraPosition? = null
+        val value = java.util.concurrent.atomic.AtomicReference<T?>()
+        val done = java.util.concurrent.CountDownLatch(1)
         scenario!!.onActivity { activity ->
-            fun findMap(view: android.view.View): org.maplibre.android.maps.MapView? {
-                if (view is org.maplibre.android.maps.MapView) return view
+            fun findMap(view: android.view.View): com.google.android.gms.maps.MapView? {
+                if (view is com.google.android.gms.maps.MapView) return view
                 if (view is android.view.ViewGroup) for (i in 0 until view.childCount) {
                     findMap(view.getChildAt(i))?.let { return it }
                 }
                 return null
             }
-            findMap(activity.window.decorView)?.getMapAsync { camera = it.cameraPosition }
+            val map = findMap(activity.window.decorView)
+            if (map == null) done.countDown() else map.getMapAsync { value.set(read(it)); done.countDown() }
         }
-        return camera
+        // The map can answer on a later main-thread message.
+        done.await(2, java.util.concurrent.TimeUnit.SECONDS)
+        return value.get()
     }
 
     private fun capture(name: String) {
