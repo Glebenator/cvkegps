@@ -237,9 +237,13 @@ class SkyMapDeviceTest {
         fun face(magneticDegrees: Double, ageNanos: Long = 0) {
             headings.value = HeadingReading(Math.toRadians(magneticDegrees), SystemClock.elapsedRealtimeNanos() - ageNanos)
         }
-        fun fresh() = compose.runOnIdle { fix(); report(); face(75.0) }
+        // A heading expires after two seconds, which a slow screen change can exceed. Waits that expect a current
+        // heading supply new readings until the screen shows it. Production expiry does not change.
+        fun keepFresh() { fix(); report(); face(75.0) }
+        fun fresh() = compose.runOnIdle { keepFresh() }
         // The ring has no direction text. Its screen-reader state reports the phone direction.
-        fun awaitRing(state: String?) = compose.waitUntil(5_000) {
+        fun awaitRing(state: String?, keep: () -> Unit = {}) = compose.waitUntil(5_000) {
+            keep()
             runCatching {
                 compose.onNodeWithTag("home_sky_ring").assert(
                     if (state == null) SemanticsMatcher.keyNotDefined(SemanticsProperties.StateDescription)
@@ -277,39 +281,40 @@ class SkyMapDeviceTest {
             awaitRing(null)
             assertEquals(0, activeSensors.get())
             fresh()
-            awaitRing(EAST)
+            awaitRing(EAST, ::keepFresh)
             assertEquals(1, activeSensors.get())
             capture("sky-home-light")
             compose.runOnIdle { dark = true }
             fresh()
-            awaitRing(EAST)
+            awaitRing(EAST, ::keepFresh)
             capture("sky-home-dark")
             compose.runOnIdle { dark = false }
 
             // A lost GPS position keeps the last true-north correction.
             compose.runOnIdle { fixes.value = GpsEvent.Searching; report(); face(165.0) }
-            awaitRing("Phone direction: 180° from true north")
+            awaitRing("Phone direction: 180° from true north") { report(); face(165.0) }
             compose.runOnIdle { face(75.0, ageNanos = 1_900_000_000) }
             awaitRing("Compass unavailable. North is at the top.")
             fresh()
-            awaitRing(EAST)
+            awaitRing(EAST, ::keepFresh)
 
             scenario.moveToState(Lifecycle.State.CREATED)
             compose.waitUntil(5_000) { activeSensors.get() == 0 }
             scenario.moveToState(Lifecycle.State.RESUMED)
             fresh()
-            awaitRing(EAST)
+            awaitRing(EAST, ::keepFresh)
             compose.waitUntil(5_000) { activeSensors.get() == 1 }
 
             compose.onNodeWithTag("gps_details").performClick()
             compose.onNodeWithTag("gps_details_list").performScrollToNode(hasTestTag("satellite_sky_map"))
             compose.waitUntil(5_000) {
+                keepFresh()
                 runCatching { compose.onNodeWithTag("sky_heading").assertTextEquals("Phone direction: 90° from true north") }.isSuccess
             }
             assertEquals(1, activeSensors.get())
             compose.onNodeWithTag("details_back").performClick()
             fresh()
-            awaitRing(EAST)
+            awaitRing(EAST, ::keepFresh)
             assertEquals(1, activeSensors.get())
 
             // Paused GPS removes the satellite report, the markers, and the compass listener.
@@ -321,7 +326,7 @@ class SkyMapDeviceTest {
             compose.runOnIdle { fontScale = 2f }
             fresh()
             compose.waitForIdle()
-            if (ringShown()) awaitRing(EAST) else assertEquals(0, activeSensors.get())
+            if (ringShown()) awaitRing(EAST, ::keepFresh) else assertEquals(0, activeSensors.get())
             capture("sky-home-large-text")
             compose.runOnIdle { fontScale = 1f }
             val turned = turnToLandscape(scenario)
@@ -330,7 +335,7 @@ class SkyMapDeviceTest {
             compose.waitForIdle()
             // A short window gives the space to speed. It does not start the compass for a hidden ring.
             if (ringShown()) {
-                awaitRing(EAST)
+                awaitRing(EAST, ::keepFresh)
                 assertEquals(1, activeSensors.get())
             } else {
                 compose.waitUntil(5_000) { activeSensors.get() == 0 }

@@ -31,6 +31,12 @@ data class RecordingAccess(val precise: Boolean = false, val notifications: Bool
 }
 
 /**
+ * A start or resume that waits for access. A null [tripId] starts a new trip.
+ * [reopen] continues a trip that Stop and save ended a moment ago. The recorder checks the time limit.
+ */
+data class PendingStart(val tripId: String? = null, val reopen: Boolean = false)
+
+/**
  * Sends trip commands to the recording service. A start or resume first checks access.
  * The access explanation shows before the first trip, and again when access is missing. The app remembers
  * that the user read it, so it does not show again after a cold start.
@@ -43,17 +49,21 @@ class TrackingController(
     private val navigator: AppNavigator,
     private val settings: AppSettings,
     accessShown: Boolean = false,
-    pendingResume: String? = null,
+    pending: PendingStart = PendingStart(),
     private var explained: Boolean = false,
     asked: Boolean = false,
+    awaitedResume: String? = null,
 ) {
     var access by mutableStateOf(RecordingAccess())
         private set
     /** True while the access explanation shows. */
     var accessShown by mutableStateOf(accessShown)
         private set
-    /** The trip that continues when access is complete. Null starts a new trip. */
-    var pendingResume by mutableStateOf(pendingResume)
+    /** The command that runs when access is complete. It stays through activity recreation. */
+    var pending by mutableStateOf(pending)
+        private set
+    /** A trip that the user resumed from its saved screen. The live map opens when the recorder resumes it. */
+    var awaitedResume by mutableStateOf(awaitedResume)
         private set
     /** True after the first permission request. Android can then refuse to show its dialog, so settings are also offered. */
     var asked by mutableStateOf(asked)
@@ -80,7 +90,7 @@ class TrackingController(
     }
 
     fun start() {
-        pendingResume = null
+        pending = PendingStart()
         if (!explained && !settings.values.value.tripAccessExplained) accessShown = true else send(RecordingService.START)
     }
 
@@ -100,12 +110,22 @@ class TrackingController(
     fun confirmAccess() {
         explained = true
         settings.setTripAccessExplained()
-        val id = pendingResume
-        send(if (id == null) RecordingService.START else RecordingService.RESUME, id)
+        val command = pending
+        send(if (command.tripId == null) RecordingService.START else RecordingService.RESUME, command.tripId, command.reopen)
     }
 
     fun dismissAccess() {
         accessShown = false
+        pending = PendingStart()
+    }
+
+    /** The recorder answered a resume from a saved trip. A refusal keeps the saved trip, which shows the reason. */
+    fun resumeAnswered(state: RecordingState) {
+        val id = awaitedResume ?: return
+        awaitedResume = null
+        if (state.trip?.id == id && state.trip.status == TripStatus.Recording && navigator.backStack.last() is Destination.SavedTrip) {
+            navigator.open(Tab.Trips, Destination.LiveTrip)
+        }
     }
 
     fun permissionRequested() {
@@ -129,7 +149,7 @@ class TrackingController(
         refresh()
         val starts = action == RecordingService.START || action == RecordingService.RESUME
         if (starts && !access.complete) {
-            pendingResume = id
+            pending = PendingStart(id, reopen)
             accessShown = true
             return
         }
@@ -139,12 +159,12 @@ class TrackingController(
             .putExtra(RecordingService.AUTOMATIC, mode == null).putExtra(RecordingService.TRIP, id)
             .putExtra(RecordingService.REOPEN, reopen)
         try {
+            if (starts) vm.recorder.expectStart()
             if (starts) ContextCompat.startForegroundService(activity, intent) else activity.startService(intent)
             accessShown = false
-            // A resumed saved trip continues on the live map. Other resumes stay on the current screen.
-            if (action == RecordingService.RESUME && navigator.backStack.last() is Destination.SavedTrip) {
-                navigator.open(Tab.Trips, Destination.LiveTrip)
-            }
+            pending = PendingStart()
+            // A resumed saved trip continues on the live map after the recorder resumes it. Other resumes stay on the current screen.
+            if (action == RecordingService.RESUME && navigator.backStack.last() is Destination.SavedTrip) awaitedResume = id
             if (action == RecordingService.STOP && id != null) {
                 justSaved = id
                 navigator.open(Tab.Trips, Destination.SavedTrip(id))
@@ -156,7 +176,7 @@ class TrackingController(
 
     /** Writes the trip as GPX and opens the Android share sheet. Returns false when the file cannot be made or shared. */
     suspend fun shareGpx(id: String): Boolean {
-        val name = vm.trips.value?.find { it.id == id }?.let {
+        val name = vm.trips.value.ready?.find { it.id == id }?.let {
             DateUtils.formatDateTime(activity, it.startedMillis,
                 DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_SHOW_YEAR)
         } ?: activity.getString(R.string.app_name)
@@ -174,13 +194,16 @@ class TrackingController(
     }
 
     companion object {
-        /** Keeps the dialog state through activity recreation. Access is read again on resume. */
+        /** Keeps the dialog state and the pending command through activity recreation. Access is read again on resume. */
         fun saver(activity: Activity, vm: TrackingViewModel, navigator: AppNavigator, settings: AppSettings): Saver<TrackingController, Any> = Saver(
-            save = { arrayListOf(it.accessShown, it.pendingResume.orEmpty(), it.explained, it.asked) },
+            save = {
+                arrayListOf(it.accessShown, it.pending.tripId.orEmpty(), it.pending.reopen, it.explained, it.asked, it.awaitedResume.orEmpty())
+            },
             restore = { saved ->
-                val (shown, resume, explained, asked) = saved as List<*>
-                TrackingController(activity, vm, navigator, settings, shown as Boolean, (resume as String).ifEmpty { null },
-                    explained as Boolean, asked as Boolean)
+                val values = saved as List<*>
+                TrackingController(activity, vm, navigator, settings, values[0] as Boolean,
+                    PendingStart((values[1] as String).ifEmpty { null }, values[2] as Boolean),
+                    values[3] as Boolean, values[4] as Boolean, (values[5] as String).ifEmpty { null })
             },
         )
     }

@@ -9,6 +9,8 @@ import android.os.Bundle
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.heightIn
@@ -45,6 +47,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.createBitmap
@@ -130,7 +133,7 @@ private const val ROUTE_REDRAW_MILLIS = 5_000L
 /** How the live map follows the newest position. A map gesture turns following off. */
 private enum class FollowMode { Off, North, Course }
 
-/** The newest saved position of a recording trip. [fresh] is false when the last fix is old. */
+/** The newest plotted position of a recording trip. [fresh] is false when that position is old. */
 data class LivePosition(val sample: TrackSample, val fresh: Boolean)
 
 @Composable
@@ -337,10 +340,15 @@ private fun MapCanvas(
         if (positioned) map.animateCamera(camera, 800) else map.moveCamera(camera)
         positioned = true
     }
-    Box(modifier.testTag("route_map")) {
+    // The marker state is also read aloud, because its colour alone does not tell a screen reader user that it is old.
+    val positionState = position?.let { stringResource(if (it.fresh) R.string.map_position_current else R.string.map_position_old) }
+    Box(modifier.testTag("route_map").semantics { if (positionState != null) stateDescription = positionState }) {
         AndroidView(factory = { mapView }, modifier = Modifier.matchParentSize())
         // The map can run under the system bars. Its controls stay inside the safe area.
-        Box(Modifier.matchParentSize().windowInsetsPadding(insets)) {
+        BoxWithConstraints(Modifier.matchParentSize().windowInsetsPadding(insets)) {
+            // Three 48 dp buttons in a column need about 176 dp, and the attribution needs 48 dp below them.
+            // A shorter map, such as in a small window, shows the buttons in a row and the attribution on one line.
+            val shortMap = maxHeight < 232.dp
             // Keep the visible caption small and the touch target at least 48 dp high.
             Box(Modifier.align(Alignment.BottomStart).heightIn(min = 48.dp)
                 .clickable(role = Role.Button) {
@@ -350,11 +358,12 @@ private fun MapCanvas(
                     Text(stringResource(R.string.map_attribution),
                         Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                         color = MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.bodySmall)
+                        style = MaterialTheme.typography.bodySmall, maxLines = if (shortMap) 1 else Int.MAX_VALUE,
+                        overflow = TextOverflow.Ellipsis)
                 }
             }
             if (onBack != null) FloatingBackButton(onBack, Modifier.align(Alignment.TopStart).padding(8.dp))
-            Column(Modifier.align(Alignment.TopEnd).padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            val controls: @Composable () -> Unit = {
                 val hasRoute = lines.any { it.isNotEmpty() }
                 if (live) {
                     val label = stringResource(if (follow == FollowMode.Course) R.string.map_follow_course else R.string.map_follow)
@@ -386,6 +395,8 @@ private fun MapCanvas(
                     Icon(painterResource(R.drawable.ic_remove), contentDescription = stringResource(R.string.map_zoom_out))
                 }
             }
+            if (!shortMap) Column(Modifier.align(Alignment.TopEnd).padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { controls() }
+            else Row(Modifier.align(Alignment.TopEnd).padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { controls() }
             // A route that is still loading is not reported as empty. The map style loads at the same time.
             val noPoints = routeReady && lines.all { it.isEmpty() }
             if (noPoints || (!loaded && slow) || unavailable) Surface(

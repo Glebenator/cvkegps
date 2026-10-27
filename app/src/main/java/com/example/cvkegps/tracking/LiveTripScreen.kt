@@ -3,11 +3,16 @@ package com.example.cvkegps.tracking
 import android.os.SystemClock
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,6 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -70,8 +76,11 @@ fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> 
     // A route of an earlier trip can show for a moment after a new start. Show only this trip's route.
     val summary = route?.takeIf { it.tripId == trip?.id }?.summary
     val lines = summary?.lines
-    // The newest saved point is the position marker. An old fix shows it grey and without a direction.
-    val position = lines?.lastOrNull { it.isNotEmpty() }?.last()?.let { LivePosition(it, fresh = reading != null) }
+    // The newest plotted point is the position marker. Its own fix time sets its age, because a poor fix is not plotted.
+    // An old point shows grey, without an accuracy area or a direction.
+    val shownPoint = lines?.lastOrNull { it.isNotEmpty() }?.last()
+    val fresh = rememberPositionCurrent(shownPoint, trip?.status == TripStatus.Recording)
+    val position = shownPoint?.let { LivePosition(it, fresh) }
     // The side pane shows details in place, so the wide layouts do not use the sheet.
     val wideTrip = isWideWindow()
 
@@ -101,13 +110,56 @@ fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> 
         if (trip != null) TripActions(trip, actions.pause, { actions.resume(trip.id) }, { actions.stop(trip.id) })
     }
 
+    val detailsSheet: @Composable () -> Unit = {
+        if (details && trip != null) TripDetailsSheet({ details = false }) {
+            Metric(R.string.trip_ground_speed, reading?.speedMetersPerSecond?.let(format::speed))
+            if (reading == null && trip.status == TripStatus.Recording) Text(stringResource(R.string.trip_signal_wait))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) { Metric(R.string.trip_activity, activityText(trip)) }
+                TextButton(onClick = { actions.chooseMode(trip.id) }, modifier = Modifier.testTag("change_activity")) {
+                    Text(stringResource(R.string.mode_change_short))
+                }
+            }
+            LiveDetails(trip, summary, reading, elapsed, includeTotals = true)
+        }
+    }
+
     if (isCompactHeight() && trip != null) {
-        // Landscape on a phone: a full-height map and a side pane, without a top app bar.
-        MapWithPane(
-            map = { modifier, insets -> MapSurface(lines.orEmpty(), modifier, live = true, routeReady = lines != null,
-                insets = insets, onBack = onBack, position = position) },
-            bottom = buttons, pane = pane,
-        )
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            // Landscape on a phone: a full-height map and a side pane, without a top app bar.
+            // The pane needs at least 300 dp, so a narrower window keeps the full width for the map.
+            if (maxWidth >= 600.dp) MapWithPane(
+                map = { modifier, insets -> MapSurface(lines.orEmpty(), modifier, live = true, routeReady = lines != null,
+                    insets = insets, onBack = onBack, position = position) },
+                bottom = buttons, pane = pane,
+            ) else {
+                // A short and narrow window, such as split screen: a header, the map, and Pause and Stop below it.
+                // The other values are in the details sheet.
+                Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).testTag("live_short_narrow")) {
+                    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        BackButton(onBack)
+                        // One line keeps the height for the map. With large text the speed can be too wide for it:
+                        // then only the status shows here, and the speed is in the details sheet.
+                        FlowRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp), maxLines = 1,
+                            itemVerticalAlignment = Alignment.CenterVertically) {
+                            TripStatusChip(trip.status, noSignal)
+                            Text(reading?.speedMetersPerSecond?.let(format::speed) ?: stringResource(R.string.no_value),
+                                Modifier.testTag("tracking_speed"), style = MaterialTheme.typography.titleLarge, maxLines = 1)
+                        }
+                        DetailsAction { details = true }
+                    }
+                    actions.error?.let { Text(stringResource(it), Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.error) }
+                    MapSurface(lines.orEmpty(), Modifier.fillMaxWidth().weight(1f), live = true, routeReady = lines != null, position = position)
+                    Surface {
+                        Box(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                            TripActions(trip, actions.pause, { actions.resume(trip.id) }, { actions.stop(trip.id) })
+                        }
+                    }
+                }
+                detailsSheet()
+            }
+        }
         return
     }
 
@@ -147,17 +199,7 @@ fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> 
             }
         }
     }
-    if (details && trip != null && !wideTrip) TripDetailsSheet({ details = false }) {
-        Metric(R.string.trip_ground_speed, reading?.speedMetersPerSecond?.let(format::speed))
-        if (reading == null && trip.status == TripStatus.Recording) Text(stringResource(R.string.trip_signal_wait))
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.weight(1f)) { Metric(R.string.trip_activity, activityText(trip)) }
-            TextButton(onClick = { actions.chooseMode(trip.id) }, modifier = Modifier.testTag("change_activity")) {
-                Text(stringResource(R.string.mode_change_short))
-            }
-        }
-        LiveDetails(trip, summary, reading, elapsed, includeTotals = true)
-    }
+    if (!wideTrip) detailsSheet()
 }
 
 /** The landscape speed: the largest value in the pane. The number gets smaller instead of breaking. */

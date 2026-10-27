@@ -46,7 +46,8 @@ import com.example.cvkegps.ui.rememberDisplayFormat
 @Composable
 fun TripsScreen(actions: TrackingActions, onTrip: (String) -> Unit, onLive: () -> Unit, onSettings: (() -> Unit)?, selectedId: String? = null) {
     val format = rememberDisplayFormat()
-    val rows by actions.vm.trips.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
+    val read by actions.vm.trips.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
+    val rows = read.ready
     val activeTripId = actions.activeTripId
     // A failed delete shows its error here. It does not stay after the user leaves the list.
     DisposableEffect(actions.vm) { onDispose { actions.vm.clearStorageError() } }
@@ -63,6 +64,8 @@ fun TripsScreen(actions: TrackingActions, onTrip: (String) -> Unit, onLive: () -
             verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(16.dp)) {
             if (compact) item { PaneHeader(stringResource(R.string.tracking_trips), onBack = null) { settingsButton() } }
             actions.error?.let { error -> item { Text(stringResource(error), color = MaterialTheme.colorScheme.error) } }
+            // A failed read is not an empty list. The user can read the trips again.
+            if (read is StoredRead.Failed) item { ReadError(actions.vm::retryReads, Modifier.fillMaxWidth()) }
             // Before Room answers, show the empty list area instead of a status message.
             if (rows?.isEmpty() == true) item { EmptyTrips(Modifier.fillParentMaxSize()) }
             items(rows.orEmpty(), key = TripRecord::id, contentType = { "trip" }) { trip ->

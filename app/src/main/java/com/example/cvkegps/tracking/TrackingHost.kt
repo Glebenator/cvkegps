@@ -44,6 +44,7 @@ import com.example.cvkegps.R
 import com.example.cvkegps.ui.AppNavigator
 import com.example.cvkegps.ui.Destination
 import com.example.cvkegps.ui.Tab
+import kotlinx.coroutines.flow.first
 import java.io.File
 
 /**
@@ -116,6 +117,11 @@ fun TrackingHost(
             else navigator.open(Tab.Trips)
         }
     }
+    // A resume from a saved trip opens the live map only when the recorder has resumed the trip.
+    val awaitedResume = controller.awaitedResume
+    LaunchedEffect(controller, awaitedResume) {
+        if (awaitedResume != null) controller.resumeAnswered(vm.recorder.state.first { !it.starting })
+    }
     LifecycleResumeEffect(controller) {
         controller.refresh()
         // Quick Settings can turn location on or off without pausing the app. Read the access again when it changes.
@@ -136,6 +142,7 @@ fun TrackingHost(
                 RecordingError.Storage -> R.string.trip_storage_error
                 RecordingError.Queue -> R.string.trip_queue_error
                 RecordingError.Service -> R.string.trip_service_error
+                RecordingError.Refused -> R.string.trip_resume_refused
                 null -> null
             }
         }
@@ -213,7 +220,7 @@ private fun AccessDialog(controller: TrackingController, onRequestPermission: ()
             }
         }, confirmButton = {
             TextButton(onClick = controller::confirmAccess, enabled = access.complete, modifier = Modifier.testTag("confirm_start")) {
-                Text(stringResource(if (controller.pendingResume == null) R.string.trip_start else R.string.trip_resume))
+                Text(stringResource(if (controller.pending.tripId == null) R.string.trip_start else R.string.trip_resume))
             }
         }, dismissButton = { TextButton(onClick = controller::dismissAccess) { Text(stringResource(R.string.trip_cancel)) } })
 }

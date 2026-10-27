@@ -21,6 +21,9 @@ data class RouteSummary(
 object RouteMath {
     const val SIGNAL_GAP_NANOS = 10_000_000_000L
 
+    /** A position is current for [SIGNAL_GAP_NANOS] after its own fix time. A later fix of another sample does not extend it. */
+    fun positionCurrent(fixNanos: Long, nowNanos: Long): Boolean = nowNanos - fixNanos in 0 until SIGNAL_GAP_NANOS
+
     fun distance(a: TrackSample, b: TrackSample): Double {
         val lat = sin((b.latitudeRadians - a.latitudeRadians) / 2)
         val lon = sin((b.longitudeRadians - a.longitudeRadians) / 2)

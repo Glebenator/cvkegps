@@ -8,6 +8,9 @@ import android.location.LocationManager
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
@@ -627,6 +630,188 @@ class TrackingDeviceTest {
         deliver(id, 4)
         assertEquals(2, runBlocking { app.database.trips().segments(id).size })
         compose.onNodeWithTag("route_map").assertIsDisplayed()
+    }
+
+    @Test fun shortNarrowWindowKeepsTheMapBackAndTripButtonsUsable() {
+        val font = shell("settings get system font_scale").trim()
+        val rotation = shell("settings get system user_rotation").trim()
+        val auto = shell("settings get system accelerometer_rotation").trim()
+        try {
+            shell("settings put system accelerometer_rotation 0")
+            shell("settings put system user_rotation 0")
+            launch()
+            startTrip()
+            val id = app.recorder.state.value.trip!!.id
+            deliver(id, 2)
+            val density = context.resources.displayMetrics.densityDpi / 160f
+            for ((widthDp, heightDp) in listOf(320 to 400, 400 to 400)) {
+                for (scale in listOf(1f, 2f)) {
+                    shell("wm size ${(widthDp * density).toInt()}x${(heightDp * density).toInt()}")
+                    shell("settings put system font_scale $scale")
+                    compose.waitUntil(10_000) {
+                        var ready = false
+                        scenario!!.onActivity {
+                            val configuration = it.resources.configuration
+                            ready = configuration.fontScale == scale && configuration.screenWidthDp == widthDp
+                        }
+                        ready
+                    }
+                    compose.waitForIdle()
+                    val map = compose.onNodeWithTag("route_map").assertIsDisplayed().getUnclippedBoundsInRoot()
+                    assertTrue("The map must keep most of the window width", (map.right - map.left).value >= widthDp * 0.8f)
+                    for (tag in listOf("top_back", "map_follow", "map_zoom_in", "map_zoom_out", "trip_pause", "trip_stop", "trip_details")) {
+                        val touch = compose.onNodeWithTag(tag).assertIsDisplayed().fetchSemanticsNode().touchBoundsInRoot
+                        assertTrue("$tag needs a 48 dp touch target", touch.width >= 47.5f * density && touch.height >= 47.5f * density)
+                    }
+                    // Each map control is inside the map.
+                    for (tag in listOf("map_follow", "map_zoom_in", "map_zoom_out")) {
+                        val control = compose.onNodeWithTag(tag).getUnclippedBoundsInRoot()
+                        assertTrue(tag, control.left >= map.left && control.right <= map.right && control.top >= map.top && control.bottom <= map.bottom)
+                    }
+                    capture("short-narrow-${widthDp}x$heightDp-font-$scale")
+                }
+            }
+            compose.onNodeWithTag("trip_pause").performClick()
+            waitUntil { app.recorder.state.value.trip?.status == TripStatus.Paused }
+            compose.onNodeWithTag("trip_stop").performClick()
+            waitUntil { !app.recorder.state.value.needsService }
+        } finally {
+            shell("wm size reset")
+            shell("settings put system font_scale $font")
+            shell("settings put system user_rotation $rotation")
+            shell("settings put system accelerometer_rotation $auto")
+        }
+    }
+
+    @Test fun poorFixesDoNotKeepAnOldMapPositionCurrent() {
+        launch()
+        startTrip()
+        val id = app.recorder.state.value.trip!!.id
+        deliver(id, 2)
+        val current = context.getString(R.string.map_position_current)
+        val old = context.getString(R.string.map_position_old)
+        fun awaitPosition(state: String, millis: Long = 5_000) = compose.waitUntil(millis) {
+            runCatching {
+                compose.onNodeWithTag("route_map").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, state))
+            }.isSuccess
+        }
+        awaitPosition(current)
+        // Poor fixes are saved but not plotted. The plotted position keeps its own age, also through recreation.
+        val goodAt = SystemClock.elapsedRealtime()
+        var recreated = false
+        while (SystemClock.elapsedRealtime() - goodAt < 12_500) {
+            inject(100f)
+            Thread.sleep(1_000)
+            if (!recreated && SystemClock.elapsedRealtime() - goodAt > 4_000) { scenario!!.recreate(); recreated = true }
+        }
+        awaitPosition(old, 1_000)
+        // A poor fix is a fix. The separate No GPS signal rule does not apply.
+        compose.onNodeWithTag("recording_status", useUnmergedTree = true).assertTextEquals("Recording")
+        capture("old-position-poor-fixes")
+        deliver(id, savedCount(id) + 1)
+        awaitPosition(current)
+        // Without any new fix, the position becomes old at its own deadline.
+        awaitPosition(old, 15_000)
+    }
+
+    @Test fun storageReadFailureShowsAnErrorAndRetryReadsTheSameTrip() {
+        launch()
+        startTrip()
+        val id = app.recorder.state.value.trip!!.id
+        deliver(id, 3)
+        clickVisible("trip_stop")
+        waitUntil { !app.recorder.state.value.needsService }
+        // The fitted map shows that the route summary is ready, so the menu offers sharing.
+        waitUntil { mapCamera()?.zoom?.let { it > 1 } == true }
+        val points = savedCount(id)
+        val segments = runBlocking { app.database.trips().segments(id).size }
+        // Controlled fault through Room's own connection: reads of the trips table fail. No row changes.
+        val database = app.database.openHelper.writableDatabase
+        database.execSQL("ALTER TABLE trips RENAME TO trips_hidden")
+        try {
+            compose.onNodeWithTag("trip_menu").performClick()
+            compose.onNodeWithTag("trip_share_gpx").performClick()
+            val exportError = context.getString(R.string.trip_export_error)
+            compose.waitUntil(25_000) { compose.onAllNodesWithText(exportError).fetchSemanticsNodes().isNotEmpty() }
+            // The screen reads the trip again when it shows again.
+            scenario!!.moveToState(Lifecycle.State.CREATED)
+            scenario!!.moveToState(Lifecycle.State.RESUMED)
+            compose.waitUntil(10_000) { compose.onAllNodesWithTag("read_error").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithTag("read_retry").assertIsDisplayed()
+            capture("read-error-trip")
+            compose.onNodeWithTag("top_back").performClick()
+            compose.waitUntil(10_000) { compose.onAllNodesWithTag("read_error").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithTag("trips_content").assertIsDisplayed()
+            compose.onNodeWithTag("trips_empty", useUnmergedTree = true).assertDoesNotExist()
+            capture("read-error-list")
+        } finally {
+            database.execSQL("ALTER TABLE trips_hidden RENAME TO trips")
+        }
+        compose.onNodeWithTag("read_retry").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("saved_trip").fetchSemanticsNodes().size == 1 }
+        compose.onNodeWithTag("read_error").assertDoesNotExist()
+        assertEquals(points, savedCount(id))
+        assertEquals(segments, runBlocking { app.database.trips().segments(id).size })
+        assertEquals(TripStatus.Finished, runBlocking { app.database.trips().trip(id) }!!.status)
+        compose.onNodeWithTag("saved_trip").performClick()
+        compose.onNodeWithTag("route_map").assertIsDisplayed()
+        compose.onNodeWithTag("read_error").assertDoesNotExist()
+    }
+
+    @Test fun undoAfterLocationRecoveryContinuesTheSameTrip() {
+        val id = stopAndAskToResumeWithLocationOff()
+        // The access dialog and its pending resume stay through recreation.
+        scenario!!.recreate()
+        compose.onNodeWithTag("confirm_start").assertIsNotEnabled()
+        manager.setTestProviderEnabled(LocationManager.GPS_PROVIDER, true)
+        scenario!!.moveToState(Lifecycle.State.CREATED)
+        scenario!!.moveToState(Lifecycle.State.RESUMED)
+        compose.onNodeWithTag("confirm_start").performClick()
+        waitUntil { app.recorder.state.value.trip?.status == TripStatus.Recording }
+        assertEquals(id, app.recorder.state.value.trip!!.id)
+        assertEquals(2, runBlocking { app.database.trips().segments(id).size })
+        assertEquals(TripStatus.Recording, runBlocking { app.database.trips().trip(id) }!!.status)
+        deliver(id, savedCount(id) + 1)
+        assertEquals(1, requestCount())
+        waitUntil { runCatching { compose.onNodeWithTag("route_map").assertIsDisplayed() }.isSuccess }
+        compose.onNodeWithTag("recording_status", useUnmergedTree = true).assertTextEquals("Recording")
+    }
+
+    @Test fun undoAfterTheTimeLimitShowsARefusalOnTheSavedTrip() {
+        val id = stopAndAskToResumeWithLocationOff()
+        // The time to continue ends while the user turns location on. The recorder keeps its two-minute rule.
+        runBlocking {
+            val trip = app.database.trips().trip(id)!!
+            app.database.trips().update(trip.copy(endedMillis = System.currentTimeMillis() - 180_000))
+        }
+        manager.setTestProviderEnabled(LocationManager.GPS_PROVIDER, true)
+        scenario!!.moveToState(Lifecycle.State.CREATED)
+        scenario!!.moveToState(Lifecycle.State.RESUMED)
+        compose.onNodeWithTag("confirm_start").performClick()
+        val refused = context.getString(R.string.trip_resume_refused)
+        compose.waitUntil(10_000) { compose.onAllNodesWithText(refused).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("trip_review").assertIsDisplayed()
+        compose.onAllNodesWithText(context.getString(R.string.trip_starting)).assertCountEquals(0)
+        assertEquals(null, app.recorder.state.value.trip)
+        assertEquals(TripStatus.Finished, runBlocking { app.database.trips().trip(id) }!!.status)
+        assertEquals(1, runBlocking { app.database.trips().segments(id).size })
+        capture("resume-refused")
+    }
+
+    /** Stops a trip, turns location off, and selects Resume trip in the saved-trip message. Returns the trip ID. */
+    private fun stopAndAskToResumeWithLocationOff(): String {
+        launch()
+        startTrip()
+        val id = app.recorder.state.value.trip!!.id
+        deliver(id, 2)
+        clickVisible("trip_stop")
+        waitUntil { !app.recorder.state.value.needsService }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Resume trip").fetchSemanticsNodes().isNotEmpty() }
+        manager.setTestProviderEnabled(LocationManager.GPS_PROVIDER, false)
+        compose.onNodeWithText("Resume trip").performClick()
+        compose.onNodeWithTag("confirm_start").assertIsNotEnabled()
+        compose.onNodeWithTag("confirm_start").assertTextEquals("Resume trip")
+        return id
     }
 
     @Test fun recordingShowsNoSignalAndTheNotificationShowsTripValues() {

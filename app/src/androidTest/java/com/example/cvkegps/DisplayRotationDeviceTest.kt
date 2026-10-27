@@ -1,6 +1,7 @@
 package com.example.cvkegps
 
 import android.os.ParcelFileDescriptor
+import android.os.SystemClock
 import android.view.Surface
 import androidx.activity.compose.setContent
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
@@ -36,9 +37,15 @@ class DisplayRotationDeviceTest {
             shell("settings put system accelerometer_rotation 0")
             shell("settings put system user_rotation 1")
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-                var rotated = false
-                scenario.onActivity { rotated = it.display?.rotation == Surface.ROTATION_90 }
-                assumeTrue("The display must accept a landscape rotation", rotated)
+                // A display that has just started can turn after the activity opens. Wait for the turn before the check.
+                fun rotated(): Boolean {
+                    var value = false
+                    scenario.onActivity { value = it.display?.rotation == Surface.ROTATION_90 }
+                    return value
+                }
+                val deadline = SystemClock.elapsedRealtime() + 5_000
+                while (!rotated() && SystemClock.elapsedRealtime() < deadline) Thread.sleep(100)
+                assumeTrue("The display must accept a landscape rotation", rotated())
                 val model = CompassViewModel(source)
                 scenario.onActivity { activity -> activity.setContent { collectPhoneHeading(model, 0.0) } }
                 compose.waitUntil(5_000) { requested.lastOrNull() == Surface.ROTATION_90 }

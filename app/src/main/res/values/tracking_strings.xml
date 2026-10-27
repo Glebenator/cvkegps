@@ -52,6 +52,7 @@
     <string name="trip_plane_note">GPS speed is speed over the ground, not airspeed. GPS altitude is not the same as an aircraft altimeter.</string>
     <string name="trip_storage_error">Recording stopped because the trip could not be saved. Make free space on the phone. The trip is saved up to that point.</string>
     <string name="trip_queue_error">Recording stopped because the phone could not save the trip fast enough. The trip is saved up to that point.</string>
+    <string name="trip_resume_refused">This trip cannot continue. A saved trip can continue only for 2 minutes after Stop and save.</string>
     <string name="trip_service_error">Android stopped the recording. Open the trip to resume it.</string>
     <string name="recording_channel">Trip recording</string>
     <string name="recording_notification_title">Recording trip</string>
@@ -92,6 +93,8 @@
     <string name="trip_technical_details">Technical details</string>
     <string name="state_expanded">Expanded</string>
     <string name="state_collapsed">Collapsed</string>
+    <string name="trip_read_error">The app cannot read the saved trips. The trips stay on the phone.</string>
+    <string name="trip_read_retry">Try again</string>
     <string name="trip_export_error">The GPX file could not be made. Try again.</string>
     <string name="trip_no_signal">No GPS signal</string>
     <string name="trip_no_signal_short">No GPS</string>
@@ -102,6 +105,8 @@
     <string name="unit_metres">m</string>
     <string name="unit_kilometres">km</string>
     <string name="map_follow_course">Follow route with the direction of travel up</string>
+    <string name="map_position_current">Position: current</string>
+    <string name="map_position_old">Position: old. The last position is more than 10 seconds old.</string>
     <string name="map_follow_off">Not following</string>
     <string name="map_follow_north">Following with north up</string>
     <string name="map_follow_direction">Following with the direction of travel up</string>

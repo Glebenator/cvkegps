@@ -67,9 +67,11 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
     LaunchedEffect(id) { if (actions.vm.selectedId.value != id) actions.vm.select(id) }
     val rows by actions.vm.trips.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
     val detail by actions.vm.detail.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
-    val shown = detail?.takeIf { it.trip.id == id }
+    val shown = detail.ready?.takeIf { it.trip.id == id }
     // The list record is already in memory. The screen uses it until the route summary arrives.
-    val trip = shown?.trip ?: rows?.find { it.id == id }
+    val trip = shown?.trip ?: rows.ready?.find { it.id == id }
+    // A failed read shows an error and a retry action, not an empty trip.
+    val readFailed = detail is StoredRead.Failed
     var details by rememberSaveable { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val title = trip?.let { tripTime(it.startedMillis) } ?: ""
@@ -97,7 +99,7 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
                             overflow = TextOverflow.Ellipsis)
                         if (trip != null) TripMenu(actions, id, trip, shown, snackbar)
                     }
-                    SavedTripContent(actions, id, trip, shown)
+                    SavedTripContent(actions, id, trip, shown, readFailed = readFailed)
                 } else {
                     // The detail pane beside the trip list: a header, the map, and the values below it.
                     val panelHeight = maxHeight * 0.45f
@@ -109,7 +111,7 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
                         Surface {
                             Column(Modifier.fillMaxWidth().heightIn(max = panelHeight).verticalScroll(rememberScrollState())
                                 .padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                SavedTripContent(actions, id, trip, shown)
+                                SavedTripContent(actions, id, trip, shown, readFailed = readFailed)
                             }
                         }
                     }
@@ -134,6 +136,7 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
     }) { insets ->
         Column(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets).testTag("trip_review")) {
             actions.error?.let { Text(stringResource(it), Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.error) }
+            if (readFailed) ReadError(actions.vm::retryReads, Modifier.fillMaxWidth().padding(horizontal = 16.dp))
             BoxWithConstraints(Modifier.weight(1f)) {
                 // A wide area, such as an open foldable, uses the landscape side pane. A narrow detail pane keeps the portrait layout.
                 if (maxWidth >= 600.dp) MapWithPane(map = { modifier, _ ->
@@ -164,8 +167,11 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
 
 /** Landscape content: everything that the portrait details sheet shows, inside the pane. */
 @Composable
-private fun ColumnScope.SavedTripContent(actions: TrackingActions, id: String, trip: TripRecord?, shown: TripDetail?, showError: Boolean = true) {
+private fun ColumnScope.SavedTripContent(
+    actions: TrackingActions, id: String, trip: TripRecord?, shown: TripDetail?, showError: Boolean = true, readFailed: Boolean = false,
+) {
     if (showError) actions.error?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
+    if (readFailed) ReadError(actions.vm::retryReads)
     if (trip != null) ActivityChip(activityText(trip), onClick = { actions.chooseMode(id) })
     SavedTotals(trip, shown)
     InterruptedActions(actions, id, trip)

@@ -89,6 +89,7 @@
     th, td { padding: 14px 24px; vertical-align: top; border-top: 1px solid var(--line); }
     th { background: #f1f3ed; font-size: .8rem; color: var(--muted); font-weight: 600; }
     td:last-child { white-space: nowrap; }
+    .wrap-cells td:last-child { white-space: normal; min-width: 16rem; }
     .test-note { margin-top: 14px; color: var(--muted); font-size: .88rem; }
     .flow { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center; gap: 12px; margin-bottom: 18px; }
     .flow > div { padding: 18px 12px; border: 1px solid var(--line); border-radius: 14px; text-align: center; background: var(--surface); }
@@ -166,18 +167,19 @@
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-10-27">27 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>be7e5ce</code> + GPS and performance changes</dd></div>
+          <div><dt>App code baseline</dt><dd><code>ab5d49a</code> + uncommitted review fixes</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
       </aside>
     </div>
     <div class="metrics" aria-label="Last verified results">
-      <div class="metric"><strong>35 / 36</strong><span>Emulator device tests passed</span><span class="small">API 36 phone · the other test stopped at its landscape precondition</span></div>
-      <div class="metric"><strong>28 / 28</strong><span>Calculation tests passed</span><span class="small">One new: the live route equals the saved route</span></div>
-      <div class="metric"><strong>Passed</strong><span>Debug build, test build, and debug lint</span><span class="small">Release Baseline Profile generated · no release build check</span></div>
+      <div class="metric"><strong>40 / 41</strong><span>Emulator device tests passed</span><span class="small">Pixel 10 Pro, API 37 · one intermittent location-setting test failed</span></div>
+      <div class="metric"><strong>31 / 31</strong><span>Calculation tests passed</span><span class="small">New: position age limit and settings load</span></div>
+      <div class="metric"><strong>Passed</strong><span>Debug build, test build, debug lint, and unsigned release build</span><span class="small">Release APK not installed or run</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#review-fixes">Review fixes · 27 Oct</a>
       <a href="#performance">GPS and performance</a>
       <a href="#landscape-fold">Landscape and foldables</a>
       <a href="#fix-rules">Fix rules</a>
@@ -198,6 +200,82 @@
       <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
     </nav>
+
+    <section id="review-fixes" aria-labelledby="review-fixes-heading">
+      <div class="section-head"><h2 id="review-fixes-heading">GPS app review fixes · 27 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
+      <p class="section-intro">A review of commit <code>be7e5ce</code> (<code>reports/gps-app-review.md</code>, not in Git) found five defects and one unstable test that the GPS and performance change did not correct.
+      Each fix is a separate small change with a regression test. The changes are not committed. GPS rate, accuracy, gap rules, stored points, GPX output, the one shared GPS request,
+      grouped background delivery, the route in memory, and the live map camera animation did not change.</p>
+      <div class="table-wrap"><table class="wrap-cells">
+        <thead><tr><th scope="col">Finding</th><th scope="col">Change</th><th scope="col">Regression test</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">R03 · A trip read failure closed the app</th>
+            <td>Trip list and trip detail reads have three states: loading, data, and failed. A failed read shows <strong>The app cannot read the saved trips. The trips stay on the phone.</strong> and <strong>Try again</strong>, which starts new reads.
+            GPX export also catches database errors. Cancellation is not an error. The database is never deleted or made again.
+            (<a href="app/src/main/java/com/example/cvkegps/tracking/TrackingViewModel.kt">TrackingViewModel.kt</a>)</td>
+            <td><code>storageReadFailureShowsAnErrorAndRetryReadsTheSameTrip</code>: renames the trips table through Room's own connection, checks export, the saved trip, and the list, then restores the name and retries. Point and segment counts stay the same.
+            With the earlier export code, the test stopped with <code>SQLiteException: no such table: trips</code>.</td></tr>
+          <tr><th scope="row">R01 · Poor fixes kept an old map position current</th>
+            <td>The marker's colour, accuracy area, and direction arrow use the shown point's own fix time and the 10 second limit. The screen schedules the expiry, so it happens also without a new fix.
+            The map also tells a screen reader whether the position is current or old.
+            (<a href="app/src/main/java/com/example/cvkegps/tracking/TripComponents.kt">rememberPositionCurrent</a>)</td>
+            <td><code>poorFixesDoNotKeepAnOldMapPositionCurrent</code>: good fixes, then 100 m fixes for 12.5 seconds with a recreation. The marker becomes old, the status stays <strong>Recording</strong>, a good fix makes it current again, and it becomes old again without fixes.
+            It fails with the earlier rule. A calculation test checks the 10 second limit exactly.</td></tr>
+          <tr><th scope="row">R05 · Resume after Stop and save stayed on Starting…</th>
+            <td>The controller keeps the whole pending command, with its reopen flag, through the access dialog and activity recreation. A resume from a saved trip opens Current trip only after the recorder resumes the trip.
+            A refusal stays on the saved trip and shows <strong>This trip cannot continue. A saved trip can continue only for 2 minutes after Stop and save.</strong> The 2-minute rule stays in <code>TripRecorder</code>.
+            (<a href="app/src/main/java/com/example/cvkegps/tracking/TrackingController.kt">TrackingController.kt</a>)</td>
+            <td><code>undoAfterLocationRecoveryContinuesTheSameTrip</code> (fails with the earlier code) and <code>undoAfterTheTimeLimitShowsARefusalOnTheSavedTrip</code>. The same trip records in a second segment with one GPS request.</td></tr>
+          <tr><th scope="row">R02 · A short, narrow window hid the map</th>
+            <td>Current trip uses the side pane at compact height only when it has 600 dp of width. A narrower window shows a header with Back, the status, the speed, and Details; the full-width map; and Pause and Stop below it.
+            A short map shows its three 48 dp buttons in a row and the attribution on one line. With 200% text the speed moves to the details sheet, so the map keeps its height.
+            (<a href="app/src/main/java/com/example/cvkegps/tracking/LiveTripScreen.kt">LiveTripScreen.kt</a>)</td>
+            <td><code>shortNarrowWindowKeepsTheMapBackAndTripButtonsUsable</code>: 320 × 400 dp and 400 × 400 dp at text scale 1.0 and 2.0. The map keeps at least 80% of the width. Back, the map buttons, Details, Pause, and Stop have 48 dp touch areas. Display size and text scale are restored.</td></tr>
+          <tr><th scope="row">R04 · Settings were read on the main thread, and an early Off was lost</th>
+            <td>All preference access runs in order on one IO worker. A choice made before the first read wins, also when it is false, and a write changes only its own value.
+            (<a href="app/src/main/java/com/example/cvkegps/settings/AppSettings.kt">AppSettings.kt</a>)</td>
+            <td><code>AppSettingsTest</code>: a delayed read with an Off choice and with On choices before it finishes. The preference file is opened and read away from the screen thread.</td></tr>
+          <tr><th scope="row">V01 · Two device tests depended on time</th>
+            <td>The home ring test supplies new compass readings while it waits for a current heading, because a reading expires after 2 seconds. The production limit did not change.
+            The rotation test waits up to 5 seconds for landscape before its precondition.</td>
+            <td>The ring test passed 3 of 3 separate runs, and both tests passed in the full suite. The earlier failure was not reproduced, so the cause stays an inference.</td></tr>
+        </tbody>
+      </table></div>
+      <h3 style="margin-top:24px">Pixel 10 Pro emulator, Android 17 (API 37)</h3>
+      <div class="screens">
+      <figure class="shot"><a href="docs/progress/images/2026-10-27-review-old-position.png"><img src="docs/progress/images/2026-10-27-review-old-position.png" loading="lazy" alt="Current trip after 12 seconds of fixes with 100 m uncertainty: the status still says Recording, and the position marker is grey, without an accuracy area or a direction arrow."></a>
+      <figcaption><strong>Old position after poor fixes</strong>27 October 2026. Baseline <code>ab5d49a</code> plus these uncommitted fixes. Debug APK <code>06c7e8a8</code>. Pixel 10 Pro emulator, Android 17 (API 37). Simulated locations from an Android test provider. The poor fixes are saved but not plotted. The marker uses its own fix time.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-27-review-read-error.png"><img src="docs/progress/images/2026-10-27-review-read-error.png" loading="lazy" alt="The Trips tab with the message The app cannot read the saved trips. The trips stay on the phone, and a Try again button. No empty-list message shows."></a>
+      <figcaption><strong>Trip list read error</strong>27 October 2026. Baseline <code>ab5d49a</code> plus these uncommitted fixes. Debug APK <code>06c7e8a8</code>. Pixel 10 Pro emulator, Android 17 (API 37). Simulated locations from an Android test provider. Controlled fault: the trips table was renamed during the test, then restored.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-27-review-resume-refused.png"><img src="docs/progress/images/2026-10-27-review-resume-refused.png" loading="lazy" alt="A saved trip with the message This trip cannot continue. A saved trip can continue only for 2 minutes after Stop and save, above the map and the trip values."></a>
+      <figcaption><strong>Resume refused after the time limit</strong>27 October 2026. Baseline <code>ab5d49a</code> plus these uncommitted fixes. Debug APK <code>06c7e8a8</code>. Pixel 10 Pro emulator, Android 17 (API 37). Simulated locations from an Android test provider. The test moved the end time back by 3 minutes before it confirmed Resume.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-27-review-short-narrow.png"><img src="docs/progress/images/2026-10-27-review-short-narrow.png" loading="lazy" alt="Current trip in a 320 by 400 dp window: a header with Back, Recording, 36 km/h, and Details; a full-width map with three map buttons in a row; and Pause trip and Stop and save below it."></a>
+      <figcaption><strong>Current trip, 320 × 400 dp</strong>27 October 2026. Baseline <code>ab5d49a</code> plus these uncommitted fixes. Debug APK <code>06c7e8a8</code>. Pixel 10 Pro emulator, Android 17 (API 37). Simulated locations from an Android test provider. Display size set with <code>wm size</code> and restored after the test.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-27-review-short-narrow-large-text.png"><img src="docs/progress/images/2026-10-27-review-short-narrow-large-text.png" loading="lazy" alt="The same window at 200 percent text: the header shows Back, Recording, and Details; the map is shorter, with the buttons in a row and the attribution on one line; Pause trip and Stop and save are stacked."></a>
+      <figcaption><strong>Current trip, 320 × 400 dp, 200% text</strong>27 October 2026. Baseline <code>ab5d49a</code> plus these uncommitted fixes. Debug APK <code>06c7e8a8</code>. Pixel 10 Pro emulator, Android 17 (API 37). Simulated locations from an Android test provider. The speed is in the details sheet at this size.</figcaption></figure>
+      </div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li>Pixel 10 Pro emulator, Android 17 (API 37), debug APK SHA-256 <code>06c7e8a8</code>. Full device suite: 40 of 41 tests passed, none skipped.
+          <code>reverseLandscapeTurnsTheCompassAxes</code> and <code>homeSkyRingTurnsWithThePhoneAndReleasesTheCompass</code> passed.</li>
+          <li>The failed test is <code>locationTurnedOnWhileTheAppShowsBringsBackStartTrip</code>: Start trip did not return within 10 seconds after location was turned on again.
+          Alone, it passed 8 of 10 runs on this code; one other run stopped in its teardown (the activity did not close). On the unchanged <code>ab5d49a</code> source it passed 5 of 5 runs.
+          These changes do not change the access check, the location setting receiver, or the GPS status. The cause is not known. It stays open.</li>
+          <li>Each new regression test ran alone and passed. With the earlier code, the R03, R01, and R05 recovery tests failed.</li>
+          <li>Calculation tests: 31 of 31 passed (new: the 10 second position limit and two settings tests). Debug lint passed with no warnings. The debug build and the test build passed.</li>
+          <li>The unsigned release build passed (<code>:app:assembleRelease</code>, APK SHA-256 <code>c2237d6d</code>). It is the first release build since the Baseline Profile module was added. It was not installed or run.</li>
+          <li>The display size, text scale, rotation, location setting, and test provider were restored after the tests. Raw captures: <code>artifacts/review-fixes/</code> and <code>artifacts/r02/</code> (not in Git).</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>The read fault is a renamed table, not a full disk or a file permission fault. It uses the real Room path and the real exception type family (<code>SQLiteException</code>).</li>
+          <li>The settings test uses a fake preference store. No startup trace was made, so no ANR or start time improvement is claimed.</li>
+          <li>At 320 × 400 dp with 200% text, the speed is only in the details sheet, and the map is about 100 dp high. Three-button navigation, TalkBack order, and the dark theme were not checked in the small window.</li>
+          <li>U01 (the full route of a saved trip is read again when its row changes) was not changed. It needs a measurement on a physical phone first.</li>
+          <li>All checks used simulated locations on an emulator. Battery use and GPS accuracy need a physical phone.</li>
+        </ul>
+      </article>
+    </section>
 
     <section id="performance" aria-labelledby="performance-heading">
       <div class="section-head"><h2 id="performance-heading">GPS lifetime and performance · 27 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
@@ -1506,7 +1584,7 @@ val angle = azimuthRadians - headingRadians</code></pre>
           <span class="tag pending">Required · Before Android publication</span>
           <h3>Validate and prepare the app</h3>
           <ol>
-            <li>Repeat release lint and verify the final release build. The emulator layout check and final debug lint passed.</li>
+            <li>Repeat release lint and verify the final release build. The unsigned release build passed on 27 October 2026, but it was not installed or run.</li>
             <li>Test GPS outdoors on physical devices. Include stationary use, movement, weak signal, and signal recovery.</li>
             <li>Compare the home ring and the sky map with a known direction on physical devices. Check compass calibration, magnetic interference, and power use with the ring on home.</li>
             <li>Measure battery use against an idle baseline. Measure cold start and frame timing in a release build.</li>
@@ -1559,6 +1637,12 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-27">27 October 2026</time><div><h3>GPS app review fixes</h3>
+<p>Fixed five defects from the review of <code>be7e5ce</code>, each with a regression test: a trip read failure now shows an error with Try again instead of closing the app;
+the live map position becomes old 10 seconds after its own fix, also while poor fixes arrive; Resume after Stop and save keeps its command through the access dialog and shows a refusal after 2 minutes;
+a short, narrow window keeps a full-width map with Back, the map buttons, Pause, and Stop; and settings are read off the main thread with the latest choice kept, also Off.
+Two time-dependent device tests now control their timing. 40 of 41 device tests passed on a Pixel 10 Pro API 37 emulator; one location-setting test fails intermittently and stays open.
+31 calculation tests, lint, and the unsigned release build passed. Not committed. See <a href="#review-fixes">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-27">27 October 2026</time><div><h3>GPS lifetime and performance</h3>
 <p>GPS now stays on while the app is visible and does not restart between screens or on rotation. A trip that records in the background receives fixes in groups of up to 5 seconds.
 Current trip adds each saved point to a route in memory instead of reading and calculating the whole route for each fix, and the live route line redraws at most every 5 seconds.

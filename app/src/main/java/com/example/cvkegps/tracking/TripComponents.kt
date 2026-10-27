@@ -41,6 +41,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -204,6 +205,27 @@ internal fun rememberSignalLost(state: RecordingState): Boolean {
     return lost
 }
 
+/**
+ * True while [sample] is a current position of a recording trip. It changes to false at the sample's own age limit,
+ * also when no new point arrives.
+ */
+@Composable
+internal fun rememberPositionCurrent(sample: TrackSample?, recording: Boolean): Boolean {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    fun current(now: Long) = recording && sample != null && RouteMath.positionCurrent(sample.elapsedNanos, now)
+    val fresh by produceState(current(SystemClock.elapsedRealtimeNanos()), sample, recording, lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            val now = SystemClock.elapsedRealtimeNanos()
+            value = current(now)
+            if (value && sample != null) {
+                delay((sample.elapsedNanos + RouteMath.SIGNAL_GAP_NANOS - now) / 1_000_000 + 1)
+                value = false
+            }
+        }
+    }
+    return fresh
+}
+
 @Composable
 internal fun activityText(trip: TripRecord): String = estimateText(trip.mode, trip.automaticMode)
 
@@ -279,6 +301,17 @@ internal fun TripDetailsSheet(onDismiss: () -> Unit, content: @Composable () -> 
 internal fun DetailsAction(onClick: () -> Unit) {
     IconButton(onClick = onClick, modifier = Modifier.testTag("trip_details")) {
         Icon(painterResource(R.drawable.ic_info), contentDescription = stringResource(R.string.trip_details))
+    }
+}
+
+/** A failed read of saved trips, with an action that reads them again. */
+@Composable
+internal fun ReadError(onRetry: () -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier.testTag("read_error"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(stringResource(R.string.trip_read_error), color = MaterialTheme.colorScheme.error)
+        OutlinedButton(onClick = onRetry, modifier = Modifier.heightIn(min = 48.dp).testTag("read_retry")) {
+            Text(stringResource(R.string.trip_read_retry))
+        }
     }
 }
 

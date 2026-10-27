@@ -26,4 +26,12 @@ class RecordingStateTest {
         assertNull(RecordingState(segmentStartNanos = second).signalLostAtNanos)
         assertFalse(RecordingState(trip.copy(status = TripStatus.Paused)).signalLost(Long.MAX_VALUE))
     }
+
+    @Test fun aShownPositionIsCurrentForTenSecondsAfterItsOwnFix() {
+        assertTrue(RouteMath.positionCurrent(100 * second, 100 * second))
+        assertTrue(RouteMath.positionCurrent(100 * second, 110 * second - 1))
+        assertFalse(RouteMath.positionCurrent(100 * second, 110 * second))
+        // A fix time after the clock reading is not a current position.
+        assertFalse(RouteMath.positionCurrent(100 * second, 100 * second - 1))
+    }
 }

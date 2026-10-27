@@ -13,7 +13,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
 
-enum class RecordingError { Access, Storage, Queue, Service }
+/** [Refused] is a resume that the recorder did not do, for example after the time to continue a saved trip ended. */
+enum class RecordingError { Access, Storage, Queue, Service, Refused }
 
 data class RecordingState(
     val trip: TripRecord? = null,
@@ -119,10 +120,16 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
         }
     }
 
+    /**
+     * Shows that a start or resume is on its way through the recording service. The recorder's answer clears it.
+     * A screen can then wait for the answer instead of the service start.
+     */
+    fun expectStart() {
+        mutableState.value = mutableState.value.copy(starting = true, error = null)
+    }
+
     fun send(command: RecordingCommand) {
-        if (command is RecordingCommand.Start || command is RecordingCommand.Resume) {
-            mutableState.value = mutableState.value.copy(starting = true, error = null)
-        }
+        if (command is RecordingCommand.Start || command is RecordingCommand.Resume) expectStart()
         if (commands.trySend(command).isFailure) {
             overflow = true
             source.pauseRecording()
@@ -164,9 +171,12 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
                 val saved = dao.trip(command.id)
                 val reopen = command.reopen && saved?.status == TripStatus.Finished &&
                     saved.endedMillis?.let { System.currentTimeMillis() - it in 0..REOPEN_WINDOW_MILLIS } == true
-                if (saved == null || (saved.status == TripStatus.Finished && !reopen) || current?.status == TripStatus.Recording) {
-                    publish(); return
+                if (saved == null || (saved.status == TripStatus.Finished && !reopen)) {
+                    publish()
+                    mutableState.value = mutableState.value.copy(error = RecordingError.Refused)
+                    return
                 }
+                if (current?.status == TripStatus.Recording) { publish(); return }
                 val distance = saved.distanceMeters ?: routeDistance(saved.id)
                 val trip = saved.copy(status = TripStatus.Recording, endedMillis = null, distanceMeters = distance)
                 val priorSegments = dao.segments(trip.id)
