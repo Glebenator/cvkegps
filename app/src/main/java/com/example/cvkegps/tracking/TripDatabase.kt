@@ -75,9 +75,6 @@ abstract class TripDao {
     abstract suspend fun segments(id: String): List<TripSegment>
 
     @Query("SELECT * FROM points WHERE tripId = :id ORDER BY elapsedNanos")
-    abstract fun points(id: String): Flow<List<TripPoint>>
-
-    @Query("SELECT * FROM points WHERE tripId = :id ORDER BY elapsedNanos")
     abstract suspend fun savedPoints(id: String): List<TripPoint>
 
     @Query("SELECT id FROM trips WHERE distanceMeters IS NULL AND status NOT IN ('Recording', 'Paused')")

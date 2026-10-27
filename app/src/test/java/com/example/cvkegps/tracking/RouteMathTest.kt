@@ -33,6 +33,24 @@ class RouteMathTest {
         assertEquals(16_000_000_000L, result.gapNanos)
     }
 
+    @Test fun liveRouteAddsPointsWithTheSavedRouteRules() {
+        val first = listOf(sample(1), sample(2, 0.001), sample(3, 1.0, accuracy = 200f), sample(4, 0.002), sample(20, 0.003))
+        val second = listOf(sample(30, 4.0), sample(31, 4.001, speed = 25f))
+        val live = LiveRoute("trip")
+        val shown = mutableListOf<RouteSummary>()
+        (first.map { TripPoint("trip", "a", it) } + second.map { TripPoint("trip", "b", it) }).forEach { point ->
+            assertTrue(live.add(point))
+            shown += live.summary()
+        }
+        assertEquals(RouteMath.summarize(listOf(first, second)), live.summary())
+        // A summary that a screen holds does not change when later points arrive.
+        assertEquals(RouteMath.summarize(listOf(first.take(2))), shown[1])
+        // A repeated point changes nothing. An older point needs a new load.
+        assertTrue(live.add(TripPoint("trip", "b", second.last())))
+        assertTrue(!live.add(TripPoint("trip", "b", sample(30, 4.0))))
+        assertTrue(!live.add(TripPoint("trip", "a", sample(21, 0.004))))
+    }
+
     @Test fun averageSpeedUsesRecordingTimeAndNeedsAKnownDistance() {
         assertEquals(5f, averageSpeed(300.0, 60_000_000_000)!!, 0f)
         assertEquals(0f, averageSpeed(0.0, 60_000_000_000)!!, 0f)

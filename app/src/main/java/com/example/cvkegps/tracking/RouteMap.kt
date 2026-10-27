@@ -30,8 +30,10 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance
@@ -56,6 +58,7 @@ import com.example.cvkegps.location.TrackSample
 import com.example.cvkegps.ui.FloatingBackButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import org.maplibre.android.MapLibre
@@ -120,6 +123,9 @@ private object OnlineMap {
         return """{"version":8,"sources":{"osm":{"type":"raster","tiles":["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],"tileSize":256,"maxzoom":19,"attribution":"© OpenStreetMap contributors"}},"layers":[{"id":"background","type":"background","paint":{"background-color":"$background"}},{"id":"osm","type":"raster","source":"osm","paint":{$paint}}]}"""
     }
 }
+
+/** The shortest time between two redraws of a live route line. The position marker still moves with each fix. */
+private const val ROUTE_REDRAW_MILLIS = 5_000L
 
 /** How the live map follows the newest position. A map gesture turns following off. */
 private enum class FollowMode { Off, North, Course }
@@ -267,60 +273,69 @@ private fun MapCanvas(
         style.getSourceAs<GeoJsonSource>("heading")?.setGeoJson(FeatureCollection.fromFeatures(listOfNotNull(
             course?.let { radians -> Feature.fromGeometry(point).apply { addNumberProperty("bearing", Math.toDegrees(radians)) } })))
     }
-    LaunchedEffect(mapStyle, lines, follow, fitRequest) {
+    // The route line. A live route redraws at most every ROUTE_REDRAW_MILLIS, so a long trip does not rebuild the line for each fix.
+    val latestLines by rememberUpdatedState(lines)
+    LaunchedEffect(mapStyle, fitRequest) {
         val style = mapStyle ?: return@LaunchedEffect
-        val geometry = withContext(Dispatchers.Default) {
-            FeatureCollection.fromFeatures(lines.flatMap { line ->
-                val pieces = mutableListOf<MutableList<TrackSample>>()
-                for (sample in line) {
-                    val previous = pieces.lastOrNull()?.lastOrNull()
-                    if (previous == null || kotlin.math.abs(sample.longitudeRadians - previous.longitudeRadians) > Math.PI) pieces += mutableListOf<TrackSample>()
-                    pieces.last().add(sample)
-                }
-                pieces.filter { it.size > 1 }.map { piece ->
-                    Feature.fromGeometry(LineString.fromLngLats(piece.map { Point.fromLngLat(Math.toDegrees(it.longitudeRadians), Math.toDegrees(it.latitudeRadians)) }))
-                }
-            })
-        }
-        style.getSourceAs<GeoJsonSource>("route")?.setGeoJson(geometry)
-        val first = lines.firstOrNull { it.isNotEmpty() }?.first()
-        val last = lines.lastOrNull { it.isNotEmpty() }?.last()
-        // While recording, the position marker shows the newest point instead of an end marker.
-        for ((name, sample) in listOf("start" to first, "end" to last.takeIf { !live })) {
-            style.getSourceAs<GeoJsonSource>(name)?.setGeoJson(FeatureCollection.fromFeatures(
-                sample?.let { listOf(Feature.fromGeometry(Point.fromLngLat(Math.toDegrees(it.longitudeRadians), Math.toDegrees(it.latitudeRadians)))) }.orEmpty()))
-        }
-        val map = nativeMap
-        if (live && follow != FollowMode.Off && last != null && map != null) {
-            val target = LatLng(Math.toDegrees(last.latitudeRadians), Math.toDegrees(last.longitudeRadians))
-            val nextZoom = when {
-                !positioned -> speedZoom(last) ?: 15.0
-                userZoomed -> map.cameraPosition.zoom.coerceIn(3.0, 18.0)
-                else -> speedZoom(last) ?: map.cameraPosition.zoom.coerceIn(3.0, 18.0)
+        snapshotFlow { latestLines }.conflate().collect { lines ->
+            val geometry = withContext(Dispatchers.Default) {
+                FeatureCollection.fromFeatures(lines.flatMap { line ->
+                    val pieces = mutableListOf<MutableList<TrackSample>>()
+                    for (sample in line) {
+                        val previous = pieces.lastOrNull()?.lastOrNull()
+                        if (previous == null || kotlin.math.abs(sample.longitudeRadians - previous.longitudeRadians) > Math.PI) pieces += mutableListOf<TrackSample>()
+                        pieces.last().add(sample)
+                    }
+                    pieces.filter { it.size > 1 }.map { piece ->
+                        Feature.fromGeometry(LineString.fromLngLats(piece.map { Point.fromLngLat(Math.toDegrees(it.longitudeRadians), Math.toDegrees(it.latitudeRadians)) }))
+                    }
+                })
             }
-            val nextBearing = if (follow == FollowMode.Course) courseRadians(last)?.let(Math::toDegrees) ?: map.cameraPosition.bearing else 0.0
-            val camera = CameraUpdateFactory.newCameraPosition(CameraPosition.Builder().target(target).zoom(nextZoom).bearing(nextBearing).build())
-            // One short camera move for each new fix. There is no continuous animation.
-            if (positioned) map.animateCamera(camera, 800) else map.moveCamera(camera)
-            positioned = true
-        }
-        if (fitRequest > 0 && !positioned) { latitude = null; longitude = null }
-        // Review fits once. Route updates must not reset a user pan or reload the map style.
-        if (!positioned && first != null) {
-            map ?: return@LaunchedEffect
-            if (latitude != null && longitude != null) {
-                map.moveCamera(CameraUpdateFactory.newCameraPosition(CameraPosition.Builder().target(LatLng(latitude!!, longitude!!)).zoom(zoom).bearing(bearing).build()))
-            } else {
-                val bounds = withContext(Dispatchers.Default) { lines.flatten().map { LatLng(Math.toDegrees(it.latitudeRadians), Math.toDegrees(it.longitudeRadians)) } }
-                if (bounds.distinct().size > 1) {
-                    map.moveCamera(CameraUpdateFactory.newLatLngBounds(LatLngBounds.Builder().includes(bounds).build(), routePadding))
-                    // Keep short routes at a useful street scale.
-                    if (map.cameraPosition.zoom > 17.0) map.moveCamera(CameraUpdateFactory.zoomTo(17.0))
-                }
-                else map.moveCamera(CameraUpdateFactory.newLatLngZoom(bounds.first(), 14.0))
+            style.getSourceAs<GeoJsonSource>("route")?.setGeoJson(geometry)
+            val first = lines.firstOrNull { it.isNotEmpty() }?.first()
+            val last = lines.lastOrNull { it.isNotEmpty() }?.last()
+            // While recording, the position marker shows the newest point instead of an end marker.
+            for ((name, sample) in listOf("start" to first, "end" to last.takeIf { !live })) {
+                style.getSourceAs<GeoJsonSource>(name)?.setGeoJson(FeatureCollection.fromFeatures(
+                    sample?.let { listOf(Feature.fromGeometry(Point.fromLngLat(Math.toDegrees(it.longitudeRadians), Math.toDegrees(it.latitudeRadians)))) }.orEmpty()))
             }
-            positioned = true
+            if (fitRequest > 0 && !positioned) { latitude = null; longitude = null }
+            // Review fits once. Route updates must not reset a user pan or reload the map style.
+            // A live map that follows the position places the camera itself.
+            val map = nativeMap
+            if (!positioned && first != null && map != null && !(live && follow != FollowMode.Off)) {
+                if (latitude != null && longitude != null) {
+                    map.moveCamera(CameraUpdateFactory.newCameraPosition(CameraPosition.Builder().target(LatLng(latitude!!, longitude!!)).zoom(zoom).bearing(bearing).build()))
+                } else {
+                    val bounds = withContext(Dispatchers.Default) { lines.flatten().map { LatLng(Math.toDegrees(it.latitudeRadians), Math.toDegrees(it.longitudeRadians)) } }
+                    if (bounds.distinct().size > 1) {
+                        map.moveCamera(CameraUpdateFactory.newLatLngBounds(LatLngBounds.Builder().includes(bounds).build(), routePadding))
+                        // Keep short routes at a useful street scale.
+                        if (map.cameraPosition.zoom > 17.0) map.moveCamera(CameraUpdateFactory.zoomTo(17.0))
+                    }
+                    else map.moveCamera(CameraUpdateFactory.newLatLngZoom(bounds.first(), 14.0))
+                }
+                positioned = true
+            }
+            if (live) delay(ROUTE_REDRAW_MILLIS)
         }
+    }
+    // A live map that follows moves to each new position. The route line can update later.
+    LaunchedEffect(mapStyle, nativeMap, position?.sample, follow) {
+        val last = position?.sample ?: return@LaunchedEffect
+        val map = nativeMap ?: return@LaunchedEffect
+        if (!live || follow == FollowMode.Off || mapStyle == null) return@LaunchedEffect
+        val target = LatLng(Math.toDegrees(last.latitudeRadians), Math.toDegrees(last.longitudeRadians))
+        val nextZoom = when {
+            !positioned -> speedZoom(last) ?: 15.0
+            userZoomed -> map.cameraPosition.zoom.coerceIn(3.0, 18.0)
+            else -> speedZoom(last) ?: map.cameraPosition.zoom.coerceIn(3.0, 18.0)
+        }
+        val nextBearing = if (follow == FollowMode.Course) courseRadians(last)?.let(Math::toDegrees) ?: map.cameraPosition.bearing else 0.0
+        val camera = CameraUpdateFactory.newCameraPosition(CameraPosition.Builder().target(target).zoom(nextZoom).bearing(nextBearing).build())
+        // One short camera move for each new fix. There is no continuous animation.
+        if (positioned) map.animateCamera(camera, 800) else map.moveCamera(camera)
+        positioned = true
     }
     Box(modifier.testTag("route_map")) {
         AndroidView(factory = { mapView }, modifier = Modifier.matchParentSize())

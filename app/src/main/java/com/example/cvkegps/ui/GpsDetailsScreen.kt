@@ -32,6 +32,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -72,7 +73,7 @@ fun GpsDetailsRoute(
 ) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     // Refresh ages only while this screen is visible. This timer does not request GPS data.
-    val now by produceState(SystemClock.elapsedRealtimeNanos(), lifecycle) {
+    val now = produceState(SystemClock.elapsedRealtimeNanos(), lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             while (true) {
                 value = SystemClock.elapsedRealtimeNanos()
@@ -80,7 +81,8 @@ fun GpsDetailsRoute(
             }
         }
     }
-    GpsDetailsScreen(state, gnss, maxOf(now, SystemClock.elapsedRealtimeNanos()), permissionNeedsSettings, onAction, onBack, compassViewModel)
+    // Only the two age values read the time, so the timer does not recompose the whole screen.
+    GpsDetailsScreen(state, gnss, { maxOf(now.value, SystemClock.elapsedRealtimeNanos()) }, permissionNeedsSettings, onAction, onBack, compassViewModel)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -88,7 +90,7 @@ fun GpsDetailsRoute(
 private fun GpsDetailsScreen(
     state: SpeedometerUiState,
     gnss: GnssSnapshot,
-    now: Long,
+    now: () -> Long,
     permissionNeedsSettings: Boolean,
     onAction: () -> Unit,
     onBack: () -> Unit,
@@ -98,10 +100,12 @@ private fun GpsDetailsScreen(
     val decimal = remember(locale) { NumberFormat.getNumberInstance(locale).apply { maximumFractionDigits = 1 } }
     val whole = remember(locale) { NumberFormat.getIntegerInstance(locale) }
     val missing = stringResource(R.string.details_not_available)
-    val fixAge = state.lastFixElapsedNanos?.let { (now - it).takeIf { age -> age >= 0 }?.div(1e9) }
-    val reading = state.reading.takeIf { fixAge != null && fixAge < 10.0 }
-    val satelliteAge = gnss.reportedAtNanos?.let { (now - it).takeIf { age -> age >= 0 }?.div(1e9) }
-    val signals = gnss.signals.takeIf { satelliteAge != null && satelliteAge < 10.0 }
+    fun ageSeconds(nanos: Long?) = nanos?.let { (now() - it).takeIf { age -> age >= 0 }?.div(1e9) }
+    // These change only when a value becomes 10 seconds old, so the one-second timer does not recompose the screen.
+    val readingFresh by remember(state.lastFixElapsedNanos) { derivedStateOf { ageSeconds(state.lastFixElapsedNanos)?.let { it < 10.0 } == true } }
+    val signalsFresh by remember(gnss.reportedAtNanos) { derivedStateOf { ageSeconds(gnss.reportedAtNanos)?.let { it < 10.0 } == true } }
+    val reading = state.reading.takeIf { readingFresh }
+    val signals = gnss.signals.takeIf { signalsFresh }
     val reportState = when {
         gnss.observation == GnssObservation.Inactive -> R.string.details_not_monitoring
         gnss.observation == GnssObservation.Unavailable -> R.string.details_callback_unavailable
@@ -148,7 +152,7 @@ private fun GpsDetailsScreen(
                 DetailValue(R.string.details_provider, stringResource(R.string.details_provider_value))
                 DetailValue(R.string.details_interval, stringResource(R.string.details_seconds, decimal.format(1)))
                 DetailValue(R.string.details_readings, whole.format(state.receivedFixes), "details_reading_count")
-                DetailValue(R.string.details_fix_age, fixAge?.let { stringResource(R.string.details_seconds, decimal.format(it)) } ?: missing, "details_fix_age")
+                DetailValue(R.string.details_fix_age, ageSeconds(state.lastFixElapsedNanos)?.let { stringResource(R.string.details_seconds, decimal.format(it)) } ?: missing, "details_fix_age")
                 Text(stringResource(R.string.details_request_note), style = MaterialTheme.typography.bodySmall)
             }
         }
@@ -173,7 +177,7 @@ private fun GpsDetailsScreen(
                 }))
                 DetailValue(R.string.details_first_fix, gnss.firstFixSeconds?.let { stringResource(R.string.details_seconds, decimal.format(it)) } ?: missing)
                 DetailValue(R.string.details_satellite_report, stringResource(reportState), "details_satellite_report")
-                DetailValue(R.string.details_report_age, satelliteAge?.let { stringResource(R.string.details_seconds, decimal.format(it)) } ?: missing)
+                DetailValue(R.string.details_report_age, ageSeconds(gnss.reportedAtNanos)?.let { stringResource(R.string.details_seconds, decimal.format(it)) } ?: missing)
                 DetailValue(R.string.details_satellites, signals?.distinctBy { it.system to it.id }?.size?.let(whole::format) ?: missing)
                 DetailValue(R.string.details_used_satellites, signals?.filter { it.usedInFix }?.distinctBy { it.system to it.id }?.size?.let(whole::format) ?: missing)
                 Text(stringResource(R.string.details_receiver_note), style = MaterialTheme.typography.bodySmall)
@@ -189,13 +193,13 @@ private fun GpsDetailsScreen(
         }
         if (compact) {
             // Two signal cards in each row, so the pane does not hold one long column.
-            items(signals.orEmpty().chunked(2)) { pair ->
+            items(signals.orEmpty().chunked(2), contentType = { "signal_pair" }) { pair ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     pair.forEach { signal -> Box(Modifier.weight(1f)) { SignalCard(signal, decimal, whole, missing) } }
                     if (pair.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
-        } else items(signals.orEmpty()) { signal -> SignalCard(signal, decimal, whole, missing) }
+        } else items(signals.orEmpty(), contentType = { "signal" }) { signal -> SignalCard(signal, decimal, whole, missing) }
         item { Text(stringResource(R.string.privacy_note), style = MaterialTheme.typography.bodySmall) }
     }
 

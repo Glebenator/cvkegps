@@ -133,7 +133,8 @@ class TrackingDeviceTest {
         assertEquals(TripMode.Bike, trip.mode)
         assertEquals(TripStatus.Finished, trip.status)
         assertEquals(3, runBlocking { app.database.trips().segments(id).size })
-        assertEquals(0, requestCount())
+        // The visible app keeps GPS on after the trip ends.
+        assertEquals(1, requestCount())
         assertFalse(context.getSystemService(NotificationManager::class.java).activeNotifications.any { it.id == 100 })
         // Stop opens the saved trip directly.
         compose.onNodeWithTag("route_map").assertIsDisplayed()
@@ -408,7 +409,7 @@ class TrackingDeviceTest {
         compose.onNodeWithTag("trip_stop").performClick()
         waitUntil { !app.recorder.state.value.needsService }
         compose.onNodeWithTag("route_map").assertIsDisplayed()
-        assertEquals(0, requestCount())
+        assertEquals(1, requestCount())
     }
 
     @Test fun savedMapPansZoomsAndKeepsCameraThroughDetailsAndRotation() {

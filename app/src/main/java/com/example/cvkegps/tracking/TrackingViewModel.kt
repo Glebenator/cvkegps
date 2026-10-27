@@ -11,7 +11,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -53,26 +52,24 @@ class TrackingViewModel(
     val storageError = mutationError.asStateFlow()
 
     /**
-     * Room invalidates whole tables. A recording elsewhere therefore re-runs these queries.
-     * Unchanged results stop here, so the route summary is calculated only when this trip changes.
+     * Room invalidates whole tables, so a recording elsewhere re-runs the trip query once for each fix.
+     * Each save also changes the saved trip's row, so the route is read again only when this trip's row changes.
      */
-    private fun detailOf(id: String) = combine(
-        dao.watchTrip(id).distinctUntilChanged(),
-        dao.points(id).distinctUntilChanged().mapLatest { points ->
-            val segments = dao.segments(id)
-            withContext(Dispatchers.Default) {
-                val grouped = points.groupBy { it.segmentId }
-                Triple(points.size, segments.size, RouteMath.summarize(segments.map { grouped[it.id].orEmpty().map(TripPoint::sample) }))
-            }
-        },
-    ) { trip, (positions, segments, summary) -> trip?.let { TripDetail(it, positions, segments, summary) } }
+    private fun detailOf(id: String) = dao.watchTrip(id).distinctUntilChanged().mapLatest { trip ->
+        trip ?: return@mapLatest null
+        val segments = dao.segments(id)
+        val points = dao.savedPoints(id)
+        withContext(Dispatchers.Default) {
+            val grouped = points.groupBy { it.segmentId }
+            TripDetail(trip, points.size, segments.size, RouteMath.summarize(segments.map { grouped[it.id].orEmpty().map(TripPoint::sample) }))
+        }
+    }
 
     val detail = selection.flatMapLatest { id -> if (id == null) flowOf(null) else detailOf(id) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), null)
 
-    val activeDetail = recorder.state.map { it.trip?.id }.distinctUntilChanged()
-        .flatMapLatest { id -> if (id == null) flowOf(null) else detailOf(id) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), null)
+    /** The recording trip's route. The recorder keeps it while this flow has a collector. */
+    val activeRoute = recorder.route
 
     val reading = recorder.state.map { it.trip?.status == TripStatus.Recording }.distinctUntilChanged()
         .flatMapLatest { active -> if (active) source.updates() else flowOf(GpsEvent.Paused) }

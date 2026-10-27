@@ -165,19 +165,20 @@
       </div>
       <aside class="meta" aria-label="Report details">
         <dl>
-          <div><dt>Report updated</dt><dd><time datetime="2026-10-26">26 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>10aa486</code> + landscape, foldables, and trip usability</dd></div>
+          <div><dt>Report updated</dt><dd><time datetime="2026-10-27">27 October 2026</time></dd></div>
+          <div><dt>App code baseline</dt><dd><code>be7e5ce</code> + GPS and performance changes</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
       </aside>
     </div>
     <div class="metrics" aria-label="Last verified results">
-      <div class="metric"><strong>36 / 36</strong><span>Emulator device tests passed</span><span class="small">Pixel 10 Pro Fold, Android 17 · API 36 phone: one SkyMap failure, then 3 of 3 passes</span></div>
-      <div class="metric"><strong>27 / 27</strong><span>Calculation tests passed</span><span class="small">Two new: trip clock and No GPS signal limit</span></div>
-      <div class="metric"><strong>Passed</strong><span>Debug build, test build, and debug lint</span><span class="small">No release build for these changes</span></div>
+      <div class="metric"><strong>35 / 36</strong><span>Emulator device tests passed</span><span class="small">API 36 phone · the other test stopped at its landscape precondition</span></div>
+      <div class="metric"><strong>28 / 28</strong><span>Calculation tests passed</span><span class="small">One new: the live route equals the saved route</span></div>
+      <div class="metric"><strong>Passed</strong><span>Debug build, test build, and debug lint</span><span class="small">Release Baseline Profile generated · no release build check</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#performance">GPS and performance</a>
       <a href="#landscape-fold">Landscape and foldables</a>
       <a href="#fix-rules">Fix rules</a>
       <a href="#ux-review">Review fixes</a>
@@ -197,6 +198,54 @@
       <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
     </nav>
+
+    <section id="performance" aria-labelledby="performance-heading">
+      <div class="section-head"><h2 id="performance-heading">GPS lifetime and performance · 27 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
+      <p class="section-intro">An Android skills review ranked performance changes. The user approved all of them except the live map camera change,
+      and asked for GPS to stay on while the app is open. The review is in <code>artifacts/review/android-skills-review.md</code> (not in Git).
+      The screens look the same, so this section has no screenshots.</p>
+      <div class="grid">
+        <article class="panel"><h3>GPS</h3><ul>
+          <li>GPS stays on while the app is visible, on every screen. A change of screen or a rotation does not restart it.
+          The process lifecycle waits briefly before it stops, so a recreated activity keeps the one request.</li>
+          <li>GPS stops when the app is no longer visible, unless a trip records. A paused trip still stops GPS.</li>
+          <li>A trip that records while the app is not visible asks for fixes in groups of up to 5 seconds (<code>setMaxUpdateDelayMillis</code>, Android 12 and later).
+          Android can then keep the processor asleep between groups. The delay is shorter than the 10 second <strong>No GPS signal</strong> limit.</li>
+          <li>The location source reads the location setting again when it changes, because a request that stays registered does not always receive that callback.</li>
+        </ul></article>
+        <article class="panel"><h3>Performance</h3><ul>
+          <li>Current trip no longer reads all saved points and calculates the route again for each fix. The recorder reads the route once while the screen shows it,
+          then adds each saved point. <code>RouteMath.summarize</code> and the live route use the same <code>RouteBuilder</code>.</li>
+          <li>The live route line redraws at most every 5 seconds. The position marker and the camera still follow each fix. The camera animation did not change.</li>
+          <li>A saved trip reads its route again only when its own trip record changes, not for each save of another trip.</li>
+          <li>The app shell and the trip list read only the active trip ID, so they do not recompose for each fix.
+          GPS details recomposes only the two age values each second. Satellite colours are remembered. Lists have content types.</li>
+          <li>A new <code>baselineprofile</code> module generates the release Baseline Profile and has a cold start benchmark. The app installs the profile with <code>profileinstaller</code>.</li>
+        </ul></article>
+      </div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li>Medium Phone emulator, API 36, debug APK SHA-256 <code>667cbe3a</code>: 35 of 36 device tests passed.
+          <code>reverseLandscapeTurnsTheCompassAxes</code> stopped at its precondition 4 times: the emulator did not turn to landscape before the check.
+          It passed in the full run before the last source change. That test does not use the changed code.</li>
+          <li>New device test: <code>gpsStaysOnBetweenScreensAndStopsInBackground</code> counts GPS registrations through the Trips tab and a rotation, then checks that Home stops GPS.
+          Two tracking tests now expect GPS to stay on after Stop and save while the app is visible.</li>
+          <li>The first run found two faults, which are corrected: an old satellite report showed on GPS details, and Start trip did not return after location was turned on again.</li>
+          <li>Calculation tests: 28 of 28 passed. The new test checks that the live route equals the saved route, and that an older point needs a new read.</li>
+          <li>The debug build, the test build, and debug lint passed. The release Baseline Profile was generated on the API 36 emulator (about 20,600 rules).</li>
+          <li>Logs: <code>artifacts/review/</code> (not in Git).</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>Battery use, grouped delivery on real GNSS hardware, cold start time, and frame time are not measured. Measure them on a physical phone.
+          Simulated test locations do not show grouped delivery.</li>
+          <li>Stop or Pause from the notification while the app is not visible can lose up to 5 seconds of fixes that are still in a group.</li>
+          <li>The cold start benchmark was not run. Emulator times would not be representative.</li>
+          <li>GPS now stays on while any screen of the app is visible, including Trips and Settings. AGENTS.md says to release display listeners when the screen becomes inactive.
+          The user chose this product behaviour.</li>
+        </ul>
+      </article>
+    </section>
 
     <section id="landscape-fold" aria-labelledby="landscape-fold-heading">
       <div class="section-head"><h2 id="landscape-fold-heading">Landscape, foldables, and trip usability · 26 October 2026</h2><span class="tag done">Implemented and checked on emulators</span></div>
@@ -743,7 +792,7 @@ builder.setWhen(System.currentTimeMillis() - elapsedMillis.coerceAtLeast(0)).set
           <h3>GPS with a limited request lifetime</h3>
           <ul>
             <li>Use the Android GPS provider. Request updates once per second.</li>
-            <li>Release the request when the screen becomes inactive, unless a trip is recording.</li>
+            <li>Keep one request while the app is visible. Release it when the app is not visible, unless a trip is recording. Group fixes for a trip that records in the background.</li>
             <li>Reject poor readings. Clear readings that are at least 10 seconds old.</li>
             <li>Keep measurements in SI units. Use the current locale for display.</li>
             <li>Trips use a location foreground service and local storage. No wake lock or route upload.</li>
@@ -754,7 +803,7 @@ builder.setWhen(System.currentTimeMillis() - elapsedMillis.coerceAtLeast(0)).set
         </article>
       </div>
       <div class="note"><strong>Performance is a requirement, not a measured result yet.</strong>
-        The device tests confirm that GPS stops during pause and inactive display use. An active recording keeps one request after Home or lock.
+        The device tests confirm that GPS stops during pause and when the app is not visible, and that it does not restart between screens. An active recording keeps one request after Home or lock.
         Battery use, startup time, and frame timing still need physical-device measurements.</div>
       <p class="test-note">The local repository contains source, build files, rules, and this report.
         IDE state, build output, local SDK paths, and prototype exports are excluded.
@@ -1510,6 +1559,11 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-27">27 October 2026</time><div><h3>GPS lifetime and performance</h3>
+<p>GPS now stays on while the app is visible and does not restart between screens or on rotation. A trip that records in the background receives fixes in groups of up to 5 seconds.
+Current trip adds each saved point to a route in memory instead of reading and calculating the whole route for each fix, and the live route line redraws at most every 5 seconds.
+Fewer recompositions during recording, and a release Baseline Profile with its generator module. 35 of 36 device tests passed on the API 36 emulator; the other test stopped at its landscape precondition.
+28 calculation tests, the debug build, and lint passed. Battery and frame time need a physical phone. See <a href="#performance">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-26">26 October 2026</time><div><h3>Landscape, foldables, and trip usability</h3>
 <p>Completed the twelve approved review items: landscape layouts for every main screen without a top app bar at compact height,
 a side pane for trip maps on landscape phones and open foldables, a saved trip beside the trip list on wide windows, no broken words at 200% text,

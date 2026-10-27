@@ -6,6 +6,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -68,7 +69,7 @@ internal fun SatelliteConstellation(satellites: List<SatelliteSignal>?, heading:
     val northText = stringResource(R.string.sky_north)
     val north = remember(measurer, northStyle, northText) { measurer.measure(northText, northStyle) }
     val markers = remember(satellites) { satellites?.distinctSatellites()?.sortedBy { signalStrength(it.cn0DbHz) } }
-    val colors = markers?.map { satelliteColor(it.system) }
+    val colors = remember(markers, scheme) { markers?.map { satelliteColor(it.system, scheme) } }
     val turn = rememberSkyTurn(heading)
     val description = stringResource(R.string.sky_ring_description)
     val locale = LocalConfiguration.current.locales[0]
@@ -145,7 +146,7 @@ internal fun SatelliteSkyPlot(
     val labelSpace = skyLabelSpace()
     // Draw strong signals last so that they stay on top.
     val markers = remember(satellites) { satellites.distinctSatellites().sortedBy { signalStrength(it.cn0DbHz) } }
-    val colors = markers.map { satelliteColor(it.system) }
+    val colors = remember(markers, scheme) { markers.map { satelliteColor(it.system, scheme) } }
     val turn = rememberSkyTurn(heading)
     Canvas(modifier.semantics { contentDescription = description }) {
         val line = 1.dp.toPx()
@@ -251,18 +252,17 @@ private fun skyDirectionLabels(): List<TextLayoutResult> {
 
 @Composable
 internal fun SatelliteMarker(system: SatelliteSystem, used: Boolean) {
-    val color = satelliteColor(system)
+    val color = satelliteColor(system, MaterialTheme.colorScheme)
     Canvas(Modifier.size(16.dp)) {
         drawSatellite(system, center, 5.dp.toPx(), color, used)
     }
 }
 
-@Composable
-private fun satelliteColor(system: SatelliteSystem): Color = when (system) {
-    SatelliteSystem.Gps, SatelliteSystem.Qzss -> MaterialTheme.colorScheme.primary
-    SatelliteSystem.Glonass, SatelliteSystem.Beidou -> MaterialTheme.colorScheme.tertiary
-    SatelliteSystem.Galileo, SatelliteSystem.Irnss -> MaterialTheme.colorScheme.secondary
-    SatelliteSystem.Sbas, SatelliteSystem.Unknown -> MaterialTheme.colorScheme.onSurfaceVariant
+private fun satelliteColor(system: SatelliteSystem, scheme: ColorScheme): Color = when (system) {
+    SatelliteSystem.Gps, SatelliteSystem.Qzss -> scheme.primary
+    SatelliteSystem.Glonass, SatelliteSystem.Beidou -> scheme.tertiary
+    SatelliteSystem.Galileo, SatelliteSystem.Irnss -> scheme.secondary
+    SatelliteSystem.Sbas, SatelliteSystem.Unknown -> scheme.onSurfaceVariant
 }
 
 private fun DrawScope.drawSatellite(system: SatelliteSystem, point: Offset, radius: Float, color: Color, used: Boolean) {

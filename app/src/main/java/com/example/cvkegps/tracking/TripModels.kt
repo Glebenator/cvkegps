@@ -30,33 +30,84 @@ object RouteMath {
 
     /** Each supplied segment is a separate recording interval. Never connect two segments. */
     fun summarize(segments: List<List<TrackSample>>): RouteSummary {
-        var total = 0.0
-        var maximum: Float? = null
-        var gaps = 0
-        var missingNanos = 0L
-        val lines = mutableListOf<List<TrackSample>>()
+        val route = RouteBuilder()
         for (segment in segments) {
-            val track = SegmentTrack()
-            var line = mutableListOf<TrackSample>()
-            for (sample in segment.filter { it.valid() }.distinctBy { it.elapsedNanos }.sortedBy { it.elapsedNanos }) {
-                sample.usableSpeed?.let { maximum = maxOf(maximum ?: it, it) }
-                val step = track.add(sample)
-                if (step.gapNanos > 0) {
-                    gaps++
-                    missingNanos += step.gapNanos
-                }
-                if (step.poorGap) gaps++
-                if (step.gapNanos > 0 || !step.joined) {
-                    if (line.isNotEmpty()) lines += line
-                    line = mutableListOf()
-                }
-                if (step.joined) line += sample
-            }
-            if (line.isNotEmpty()) lines += line
-            total += track.distanceMeters
+            route.newSegment()
+            for (sample in segment.filter { it.valid() }.distinctBy { it.elapsedNanos }.sortedBy { it.elapsedNanos }) route.add(sample)
         }
-        return RouteSummary(total, maximum, gaps, missingNanos, lines)
+        return route.summary()
     }
+}
+
+/**
+ * Builds a [RouteSummary] sample by sample. [RouteMath.summarize] uses it, so a live route and a saved route use the same rules.
+ * Samples must be valid and in time order within each segment.
+ */
+class RouteBuilder {
+    private var closedDistance = 0.0
+    private var maximum: Float? = null
+    private var gaps = 0
+    private var missingNanos = 0L
+    private val closedLines = mutableListOf<List<TrackSample>>()
+    private var track: SegmentTrack? = null
+    private var line = mutableListOf<TrackSample>()
+
+    /** Time of the newest sample in the open segment. Null before its first sample. */
+    val lastElapsedNanos: Long? get() = track?.lastElapsedNanos
+
+    /** Starts a new recording interval. Its first sample starts a new line. */
+    fun newSegment() {
+        track?.let { closedDistance += it.distanceMeters }
+        closeLine()
+        track = SegmentTrack()
+    }
+
+    fun add(sample: TrackSample) {
+        val open = track ?: SegmentTrack().also { track = it }
+        sample.usableSpeed?.let { maximum = maxOf(maximum ?: it, it) }
+        val step = open.add(sample)
+        if (step.gapNanos > 0) {
+            gaps++
+            missingNanos += step.gapNanos
+        }
+        if (step.poorGap) gaps++
+        if (step.gapNanos > 0 || !step.joined) closeLine()
+        if (step.joined) line += sample
+    }
+
+    /** A copy. Later samples do not change a summary that a screen already shows. */
+    fun summary() = RouteSummary(closedDistance + (track?.distanceMeters ?: 0.0), maximum, gaps, missingNanos,
+        if (line.isEmpty()) closedLines.toList() else closedLines + listOf(line.toList()))
+
+    private fun closeLine() {
+        if (line.isNotEmpty()) closedLines += line
+        line = mutableListOf()
+    }
+}
+
+/** The route of the recording trip, added point by point while a screen shows it. */
+class LiveRoute(val tripId: String) {
+    private val route = RouteBuilder()
+    private val segments = mutableSetOf<String>()
+    private var segmentId: String? = null
+
+    /**
+     * Adds one saved point. A repeated point changes nothing. Returns false for a point that is older than the route,
+     * or that belongs to an earlier segment: the caller must then load the route again.
+     */
+    fun add(point: TripPoint): Boolean {
+        if (point.segmentId != segmentId) {
+            if (!segments.add(point.segmentId)) return false
+            segmentId = point.segmentId
+            route.newSegment()
+        }
+        val last = route.lastElapsedNanos
+        if (last != null && point.sample.elapsedNanos <= last) return point.sample.elapsedNanos == last
+        if (point.sample.valid()) route.add(point.sample)
+        return true
+    }
+
+    fun summary(): RouteSummary = route.summary()
 }
 
 /**

@@ -59,7 +59,7 @@ fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> 
     val format = rememberDisplayFormat()
     val state = actions.recording
     val trip = state.trip
-    val detail by actions.vm.activeDetail.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
+    val route by actions.vm.activeRoute.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
     val reading by actions.vm.reading.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
     var details by rememberSaveable { mutableStateOf(false) }
     val elapsed = rememberElapsed(state)
@@ -67,7 +67,9 @@ fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> 
     // Close this screen when the trip ends elsewhere, for example from the notification.
     val seen = remember { booleanArrayOf(false) }
     LaunchedEffect(trip == null) { if (trip != null) seen[0] = true else if (seen[0]) onEnded() }
-    val lines = detail?.summary?.lines
+    // A route of an earlier trip can show for a moment after a new start. Show only this trip's route.
+    val summary = route?.takeIf { it.tripId == trip?.id }?.summary
+    val lines = summary?.lines
     // The newest saved point is the position marker. An old fix shows it grey and without a direction.
     val position = lines?.lastOrNull { it.isNotEmpty() }?.last()?.let { LivePosition(it, fresh = reading != null) }
     // The side pane shows details in place, so the wide layouts do not use the sheet.
@@ -91,7 +93,7 @@ fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> 
             }
             ActivityChip(activityText(trip), onClick = { actions.chooseMode(trip.id) })
             if (details) Column(Modifier.testTag("trip_details_content"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                LiveDetails(trip, detail, reading, elapsed, includeTotals = true)
+                LiveDetails(trip, summary, reading, elapsed, includeTotals = true)
             }
         }
     }
@@ -154,7 +156,7 @@ fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> 
                 Text(stringResource(R.string.mode_change_short))
             }
         }
-        LiveDetails(trip, detail, reading, elapsed, includeTotals = true)
+        LiveDetails(trip, summary, reading, elapsed, includeTotals = true)
     }
 }
 
@@ -184,10 +186,10 @@ private fun LargeSpeed(reading: GpsReading?) {
 
 /** Values that most users need only sometimes. The portrait sheet and the landscape pane show the same set. */
 @Composable
-private fun LiveDetails(trip: TripRecord, detail: TripDetail?, reading: GpsReading?, elapsed: Long, includeTotals: Boolean) {
+private fun LiveDetails(trip: TripRecord, summary: RouteSummary?, reading: GpsReading?, elapsed: Long, includeTotals: Boolean) {
     val format = rememberDisplayFormat()
     if (includeTotals) TripTotals(trip.distanceMeters, distancePending = false, durationNanos = elapsed,
-        maximumSpeed = detail?.summary?.maximumSpeedMetersPerSecond, maximumPending = detail == null)
+        maximumSpeed = summary?.maximumSpeedMetersPerSecond, maximumPending = summary == null)
     TechnicalDetails {
         Metric(R.string.trip_altitude, reading?.altitudeMeters?.let {
             stringResource(R.string.trip_altitude_value, format.decimal(it))

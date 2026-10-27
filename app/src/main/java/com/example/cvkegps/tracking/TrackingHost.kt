@@ -54,6 +54,7 @@ import java.io.File
 class TrackingActions(
     val vm: TrackingViewModel,
     private val recordingState: State<RecordingState>,
+    private val activeTripState: State<String?>,
     private val errorState: State<Int?>,
     private val readyState: State<Boolean>,
     private val estimateState: State<TripMode>,
@@ -71,7 +72,10 @@ class TrackingActions(
     val delete: (String) -> Unit,
     val shareGpx: suspend (String) -> Boolean,
 ) {
+    /** The recorder state changes with each saved fix. Read [activeTripId] when only the trip matters. */
     val recording get() = recordingState.value
+    /** The ID of the trip that records or is paused. It changes only when a trip starts or ends. */
+    val activeTripId get() = activeTripState.value
     @get:StringRes val error get() = errorState.value
     val ready get() = readyState.value
     val estimate get() = estimateState.value
@@ -99,6 +103,7 @@ fun TrackingHost(
     val estimateState = vm.estimate.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
     val selectedModeState = vm.mode.collectAsStateWithLifecycle()
     val justSavedState = remember(controller) { derivedStateOf { controller.justSaved } }
+    val activeTripState = remember { derivedStateOf { recordingState.value.trip?.id } }
     val storageError by vm.storageError.collectAsStateWithLifecycle()
     var changeMode by rememberSaveable { mutableStateOf(false) }
     var modeTrip by rememberSaveable { mutableStateOf<String?>(null) }
@@ -138,7 +143,7 @@ fun TrackingHost(
     val ready = remember(controller) { derivedStateOf { controller.access.precise && controller.access.locationOn } }
     content(remember(vm, controller) {
         TrackingActions(
-            vm = vm, recordingState = recordingState, errorState = error, readyState = ready, estimateState = estimateState,
+            vm = vm, recordingState = recordingState, activeTripState = activeTripState, errorState = error, readyState = ready, estimateState = estimateState,
             selectedModeState = selectedModeState, justSavedState = justSavedState,
             start = controller::start,
             pause = controller::pause,

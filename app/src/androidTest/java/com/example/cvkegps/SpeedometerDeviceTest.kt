@@ -33,6 +33,7 @@ import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -166,15 +167,22 @@ class SpeedometerDeviceTest {
     }
 
     @Test
-    fun automaticDisplayStopsInBackgroundAndTripsList() {
+    fun gpsStaysOnBetweenScreensAndStopsInBackground() {
         launch()
         awaitSpeed(10f, "36")
         compose.waitUntil(5_000) { hasGpsRequest() }
+        val registrations = gpsRegistrations()
         compose.onNodeWithTag("gps_action").assertDoesNotExist()
+        // Other screens and a rotation keep the one request. GPS does not start again on return.
         compose.onNodeWithTag("nav_tab_trips").performClick()
-        compose.waitUntil(5_000) { !hasGpsRequest() }
+        compose.onNodeWithTag("trips_content").assertIsDisplayed()
+        Thread.sleep(1_500)
+        assertTrue("The Trips tab must keep the request", hasGpsRequest())
         compose.onNodeWithTag("nav_tab_speed").performClick()
         awaitSpeed(5f, "18")
+        scenario!!.recreate()
+        awaitSpeed(5f, "18")
+        assertEquals("GPS must not register again in the visible app", registrations, gpsRegistrations())
         scenario!!.moveToState(Lifecycle.State.CREATED)
         compose.waitUntil(5_000) { !hasGpsRequest() }
         scenario!!.moveToState(Lifecycle.State.RESUMED)
@@ -332,6 +340,10 @@ class SpeedometerDeviceTest {
         assertTrue("The device must expose the GNSS status listener section", dump.contains("Status Provider:"))
         return dump.substringAfter("Status Provider:").substringBefore("Measurements Provider:").contains(packageName)
     }
+
+    /** Registrations in the location event log. Each restart of GPS adds one. */
+    private fun gpsRegistrations(): Int = shell("dumpsys location").lineSequence()
+        .count { it.contains("gps provider +registration") && it.contains(packageName) }
 
     private fun gpsRequestCount(): Int = shell("dumpsys location")
         .substringBefore("Historical Aggregate Location Provider Data")

@@ -131,7 +131,7 @@ fun AppShell(
             // A saved trip beside the trip list is still the Trips tab, so the navigation stays visible.
             val bars = navigator.atRoot || (listDetail && navigator.tab == Tab.Trips &&
                 navigator.backStack.size == 3 && navigator.backStack.last() is Destination.SavedTrip)
-            val recording = tracking.recording.trip != null
+            val recording = tracking.activeTripId != null
             // The bars pad for the system bars. Content must not pad for the same insets again.
             val consumed = when {
                 !bars -> WindowInsets(0)

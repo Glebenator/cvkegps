@@ -47,6 +47,7 @@ import com.example.cvkegps.ui.rememberDisplayFormat
 fun TripsScreen(actions: TrackingActions, onTrip: (String) -> Unit, onLive: () -> Unit, onSettings: (() -> Unit)?, selectedId: String? = null) {
     val format = rememberDisplayFormat()
     val rows by actions.vm.trips.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
+    val activeTripId = actions.activeTripId
     // A failed delete shows its error here. It does not stay after the user leaves the list.
     DisposableEffect(actions.vm) { onDispose { actions.vm.clearStorageError() } }
     val compact = isCompactHeight()
@@ -64,8 +65,8 @@ fun TripsScreen(actions: TrackingActions, onTrip: (String) -> Unit, onLive: () -
             actions.error?.let { error -> item { Text(stringResource(error), color = MaterialTheme.colorScheme.error) } }
             // Before Room answers, show the empty list area instead of a status message.
             if (rows?.isEmpty() == true) item { EmptyTrips(Modifier.fillParentMaxSize()) }
-            items(rows.orEmpty(), key = TripRecord::id) { trip ->
-                val live = trip.id == actions.recording.trip?.id
+            items(rows.orEmpty(), key = TripRecord::id, contentType = { "trip" }) { trip ->
+                val live = trip.id == activeTripId
                 // Entries fade in when the first database answer arrives, and move smoothly after a delete.
                 val selected = trip.id == selectedId
                 // The trip that shows beside the list has a highlighted card.

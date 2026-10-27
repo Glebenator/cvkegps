@@ -187,8 +187,10 @@ accuracy, battery use, TalkBack, and long trips remain unverified. See [the repo
 - Show a position accuracy bar that fills at 1 m or better, with a 5 m reference notch.
 
 The app saves trips locally and estimates the activity from GPS speed. It does not upload trip records.
-GPS stops when the activity leaves the resumed state unless a trip is recording.
-The app does not keep the screen on.
+GPS stays on while the app is visible, on every screen, so a change of screen or a rotation does not restart it.
+GPS stops when the app is no longer visible, unless a trip is recording. A paused trip also stops GPS.
+A trip that records while the app is not visible receives fixes in groups of up to 5 seconds, so Android can keep the processor asleep between groups.
+The app keeps the screen on only when the user turns on that setting, and only on the Speed tab.
 
 ## GPS details
 

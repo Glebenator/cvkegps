@@ -7,6 +7,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
@@ -36,6 +38,9 @@ data class RecordingState(
     fun signalLost(nowNanos: Long): Boolean = signalLostAtNanos?.let { nowNanos >= it } == true
 }
 
+/** The route of the current trip, as a screen shows it. */
+data class ActiveRoute(val tripId: String, val summary: RouteSummary)
+
 /** A saved trip can continue within this time after Stop and save. This undoes an accidental stop. */
 const val REOPEN_WINDOW_MILLIS = 120_000L
 
@@ -48,12 +53,22 @@ sealed interface RecordingCommand {
     data class Finish(val id: String? = null) : RecordingCommand
     data class Interrupt(val error: RecordingError) : RecordingCommand
     data class Batch(val tripId: String, val samples: List<TrackSample>, val estimate: TripMode) : RecordingCommand
+    /** A screen starts or stops showing the current route. */
+    data class ShowRoute(val shown: Boolean) : RecordingCommand
 }
 
 /** One ordered command queue owns database changes and location demand. */
 class TripRecorder(private val dao: TripDao, private val source: SharedLocationSource, scope: CoroutineScope) {
     private val mutableState = MutableStateFlow(RecordingState())
     val state = mutableState.asStateFlow()
+    private val mutableRoute = MutableStateFlow<ActiveRoute?>(null)
+    /**
+     * The current trip's route while a screen collects it. The recorder reads the saved route once,
+     * then adds each saved point, so a long trip is not read again for each fix. Null while it loads.
+     */
+    val route = mutableRoute.asStateFlow()
+    private var routeShown = false
+    private var liveRoute: LiveRoute? = null
     private val commands = Channel<RecordingCommand>(256)
     private val processRunId = UUID.randomUUID().toString()
     private var current: TripRecord? = null
@@ -69,6 +84,10 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
     private var lastFixNanos: Long? = null
 
     init {
+        // The route is kept in memory only while a screen shows it.
+        scope.launch {
+            mutableRoute.subscriptionCount.map { it > 0 }.distinctUntilChanged().collect { send(RecordingCommand.ShowRoute(it)) }
+        }
         scope.launch {
             try { dao.markInterrupted() }
             catch (_: Exception) { mutableState.value = RecordingState(error = RecordingError.Storage) }
@@ -91,6 +110,7 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
                     catch (_: Exception) {
                         current = null
                         segment = null
+                        clearRoute()
                         source.releaseRecording()
                         mutableState.value = RecordingState(error = RecordingError.Storage)
                     }
@@ -131,6 +151,7 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
                 startTrack(0.0)
                 publish()
                 request(trip.id)
+                if (routeShown) loadRoute()
             }
             is RecordingCommand.SetMode -> {
                 val saved = dao.trip(command.id) ?: return
@@ -159,6 +180,7 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
                 startTrack(distance)
                 publish()
                 request(trip.id)
+                if (routeShown) loadRoute()
             }
             RecordingCommand.Pause -> {
                 if (current?.status != TripStatus.Recording) return
@@ -172,6 +194,7 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
                     close(TripStatus.Finished, BreakReason.Stop)
                     current = null
                     segment = null
+                    clearRoute()
                     source.releaseRecording()
                     publish()
                 } else if (command.id != null) {
@@ -182,6 +205,10 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
                 } else publish()
             }
             is RecordingCommand.Interrupt -> interrupt(command.error)
+            is RecordingCommand.ShowRoute -> {
+                routeShown = command.shown
+                if (command.shown) loadRoute() else clearRoute()
+            }
             is RecordingCommand.Batch -> {
                 val trip = current?.takeIf { it.id == command.tripId && it.status == TripStatus.Recording } ?: return
                 val points = command.samples.filter { it.valid() }.mapNotNull { sample ->
@@ -200,6 +227,9 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
                     dao.save(updated, points)
                     current = updated
                     publish()
+                    liveRoute?.let { route ->
+                        if (points.sortedBy { it.sample.elapsedNanos }.all(route::add)) publishRoute() else loadRoute()
+                    }
                 }
             }
         }
@@ -272,8 +302,34 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
         })
         current = null
         segment = null
+        clearRoute()
         source.releaseRecording()
         mutableState.value = RecordingState(error = error)
+    }
+
+    /** Reads the current trip's route once. A failed read leaves the route unavailable and does not stop the recording. */
+    private suspend fun loadRoute() {
+        val id = current?.id ?: return clearRoute()
+        liveRoute = try {
+            val segments = dao.segments(id)
+            val points = dao.savedPoints(id)
+            withContext(Dispatchers.Default) {
+                val grouped = points.groupBy { it.segmentId }
+                LiveRoute(id).apply { for (segment in segments) grouped[segment.id].orEmpty().forEach { add(it) } }
+            }
+        } catch (_: Exception) {
+            null
+        }
+        publishRoute()
+    }
+
+    private fun publishRoute() {
+        mutableRoute.value = liveRoute?.let { ActiveRoute(it.tripId, it.summary()) }
+    }
+
+    private fun clearRoute() {
+        liveRoute = null
+        mutableRoute.value = null
     }
 
     private fun publish() {

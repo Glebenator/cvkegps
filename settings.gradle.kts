@@ -24,3 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "CvkeGps"
 include(":app")
+include(":baselineprofile")
