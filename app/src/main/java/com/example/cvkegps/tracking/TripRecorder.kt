@@ -1,6 +1,7 @@
 package com.example.cvkegps.tracking
 
 import android.os.SystemClock
+import com.example.cvkegps.location.FixSource
 import com.example.cvkegps.location.TrackSample
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,8 +23,10 @@ data class RecordingState(
     val starting: Boolean = false,
     val segmentStartNanos: Long? = null,
     val segmentBaseDurationNanos: Long = 0,
-    /** Fix time of the newest saved sample in the open segment. Null before the first sample. */
+    /** Fix time of the newest saved GPS sample in the open segment. Null before the first sample. */
     val lastFixNanos: Long? = null,
+    /** Fix time of the newest saved network sample in the open segment. Null before the first one. */
+    val lastNetworkFixNanos: Long? = null,
 ) {
     val needsService: Boolean get() = starting || trip?.status == TripStatus.Recording || trip?.status == TripStatus.Paused
 
@@ -37,7 +40,20 @@ data class RecordingState(
     }
 
     fun signalLost(nowNanos: Long): Boolean = signalLostAtNanos?.let { nowNanos >= it } == true
+
+    /** The time until which the newest network sample is a current approximate position, or null without one. */
+    val approximateUntilNanos: Long? get() =
+        lastNetworkFixNanos?.takeIf { trip?.status == TripStatus.Recording }?.plus(RouteMath.SIGNAL_GAP_NANOS)
+
+    /** True while the trip has no GPS signal and a current network position replaces it. */
+    fun approximate(nowNanos: Long): Boolean = signalLost(nowNanos) && approximateUntilNanos?.let { nowNanos < it } == true
 }
+
+/**
+ * The recording choices for a segment. [highAccuracy] requests the fastest fixes with the GPS receiver fully on.
+ * [networkFallback] records network positions while the trip has no GPS signal.
+ */
+data class RecordingOptions(val highAccuracy: Boolean = false, val networkFallback: Boolean = false)
 
 /** The route of the current trip, as a screen shows it. */
 data class ActiveRoute(val tripId: String, val summary: RouteSummary)
@@ -54,12 +70,23 @@ sealed interface RecordingCommand {
     data class Finish(val id: String? = null) : RecordingCommand
     data class Interrupt(val error: RecordingError) : RecordingCommand
     data class Batch(val tripId: String, val samples: List<TrackSample>, val estimate: TripMode) : RecordingCommand
+    /** Phone sensor readings. They can arrive shortly after Pause or Stop. */
+    class Sensors(val tripId: String, val chunks: List<SensorChunk>) : RecordingCommand
     /** A screen starts or stops showing the current route. */
     data class ShowRoute(val shown: Boolean) : RecordingCommand
 }
 
-/** One ordered command queue owns database changes and location demand. */
-class TripRecorder(private val dao: TripDao, private val source: SharedLocationSource, scope: CoroutineScope) {
+/**
+ * One ordered command queue owns database changes, location demand, and sensor recording.
+ * [options] gives the user's recording choices when a segment starts.
+ */
+class TripRecorder(
+    private val dao: TripDao,
+    private val source: SharedLocationSource,
+    scope: CoroutineScope,
+    private val motion: MotionSource,
+    private val options: () -> RecordingOptions,
+) {
     private val mutableState = MutableStateFlow(RecordingState())
     val state = mutableState.asStateFlow()
     private val mutableRoute = MutableStateFlow<ActiveRoute?>(null)
@@ -83,6 +110,7 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
     private var trackInOrder = true
     private var overflow = false
     private var lastFixNanos: Long? = null
+    private var lastNetworkFixNanos: Long? = null
 
     init {
         // The route is kept in memory only while a screen shows it.
@@ -92,11 +120,6 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
         scope.launch {
             try { dao.markInterrupted() }
             catch (_: Exception) { mutableState.value = RecordingState(error = RecordingError.Storage) }
-            // Trips saved before database version 3 get their distance. Commands do not wait for it.
-            launch {
-                try { TripDistances.fillMissing(dao) }
-                catch (_: Exception) { } // The distance stays unavailable. The next start tries again.
-            }
             for (command in commands) {
                 try {
                     if (overflow) {
@@ -107,6 +130,7 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
                 } catch (_: Exception) {
                     // No exception text or coordinates enter diagnostic logs.
                     source.pauseRecording()
+                    motion.stop()
                     try { interrupt(RecordingError.Storage) }
                     catch (_: Exception) {
                         current = null
@@ -133,6 +157,7 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
         if (commands.trySend(command).isFailure) {
             overflow = true
             source.pauseRecording()
+            motion.stop()
         }
     }
 
@@ -149,7 +174,8 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
                 if (current != null) { publish(); return }
                 val trip = TripRecord(UUID.randomUUID().toString(), command.mode, TripStatus.Recording, System.currentTimeMillis(),
                     automaticMode = command.automatic, distanceMeters = 0.0)
-                val next = newSegment(trip.id, BreakReason.Start, 0)
+                val chosen = options()
+                val next = newSegment(trip.id, BreakReason.Start, 0, chosen)
                 dao.start(trip, next)
                 current = trip
                 segment = next
@@ -157,7 +183,7 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
                 baseDuration = 0
                 startTrack(0.0)
                 publish()
-                request(trip.id)
+                request(trip.id, chosen)
                 if (routeShown) loadRoute()
             }
             is RecordingCommand.SetMode -> {
@@ -181,7 +207,8 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
                 val trip = saved.copy(status = TripStatus.Recording, endedMillis = null, distanceMeters = distance)
                 val priorSegments = dao.segments(trip.id)
                 val reason = if (saved.status == TripStatus.Interrupted) BreakReason.ProcessLost else BreakReason.Resume
-                val next = newSegment(trip.id, reason, priorSegments.size)
+                val chosen = options()
+                val next = newSegment(trip.id, reason, priorSegments.size, chosen)
                 dao.resume(trip, next)
                 current = trip
                 segment = next
@@ -189,18 +216,20 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
                 baseDuration = trip.durationNanos
                 startTrack(distance)
                 publish()
-                request(trip.id)
+                request(trip.id, chosen)
                 if (routeShown) loadRoute()
             }
             RecordingCommand.Pause -> {
                 if (current?.status != TripStatus.Recording) return
                 source.pauseRecording()
+                motion.stop()
                 close(TripStatus.Paused, BreakReason.ManualPause)
                 publish()
             }
             is RecordingCommand.Finish -> {
                 if (current != null && (command.id == null || command.id == current?.id)) {
                     source.pauseRecording()
+                    motion.stop()
                     close(TripStatus.Finished, BreakReason.Stop)
                     current = null
                     segment = null
@@ -229,7 +258,11 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
                     TripPoint(trip.id, target.id, sample)
                 }
                 if (points.isNotEmpty()) {
-                    lastFixNanos = maxOf(lastFixNanos ?: 0L, points.maxOf { it.sample.elapsedNanos })
+                    // Only a GPS fix ends the state without a GPS signal.
+                    points.filter { it.sample.source == FixSource.Gps }.maxOfOrNull { it.sample.elapsedNanos }
+                        ?.let { lastFixNanos = maxOf(lastFixNanos ?: 0L, it) }
+                    points.filter { it.sample.source == FixSource.Network }.maxOfOrNull { it.sample.elapsedNanos }
+                        ?.let { lastNetworkFixNanos = maxOf(lastNetworkFixNanos ?: 0L, it) }
                     addToTrack(points)
                     val updated = trip.copy(durationNanos = duration(), lastSavedMillis = System.currentTimeMillis(),
                         mode = if (trip.automaticMode && command.estimate != TripMode.Unknown) command.estimate else trip.mode,
@@ -242,21 +275,38 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
                     }
                 }
             }
+            is RecordingCommand.Sensors -> {
+                // Readings can arrive after Pause or Stop. They belong to the segment that was open at their time.
+                if (segments.firstOrNull()?.tripId != command.tripId) return
+                val rows = command.chunks.mapNotNull { chunk ->
+                    val first = chunk.elapsedNanos.first()
+                    val target = segments.lastOrNull {
+                        it.runId == processRunId && first >= it.startedElapsedNanos && (it.endedElapsedNanos == null || first < it.endedElapsedNanos)
+                    } ?: return@mapNotNull null
+                    TripSensorChunk(command.tripId, target.id, chunk.kind, first, chunk.elapsedNanos.last(), chunk.count, chunk.encode())
+                }
+                if (rows.isNotEmpty()) dao.insertSensors(rows)
+            }
         }
     }
 
-    private fun request(id: String) = source.recording(
-        onBatch = { send(RecordingCommand.Batch(id, it, source.activityEstimate.value.fresh(SystemClock.elapsedRealtimeNanos()))) },
-        onAccessLost = { send(RecordingCommand.Interrupt(RecordingError.Access)) },
-    )
+    private fun request(id: String, chosen: RecordingOptions) {
+        source.recording(
+            onBatch = { send(RecordingCommand.Batch(id, it, source.activityEstimate.value.fresh(SystemClock.elapsedRealtimeNanos()))) },
+            onAccessLost = { send(RecordingCommand.Interrupt(RecordingError.Access)) },
+            options = chosen,
+        )
+        motion.start { send(RecordingCommand.Sensors(id, it)) }
+    }
 
-    private fun newSegment(id: String, reason: BreakReason, sequence: Int) = TripSegment(
+    private fun newSegment(id: String, reason: BreakReason, sequence: Int, chosen: RecordingOptions) = TripSegment(
         UUID.randomUUID().toString(), id, processRunId, sequence, SystemClock.elapsedRealtimeNanos(), System.currentTimeMillis(),
-        reason = reason,
+        reason = reason, highAccuracy = chosen.highAccuracy, networkFallback = chosen.networkFallback,
     )
 
     private fun startTrack(distance: Double) {
         lastFixNanos = null
+        lastNetworkFixNanos = null
         baseDistance = distance
         track = SegmentTrack()
         trackInOrder = true
@@ -305,6 +355,7 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
 
     private suspend fun interrupt(error: RecordingError) {
         source.pauseRecording()
+        motion.stop()
         close(TripStatus.Interrupted, when (error) {
             RecordingError.Access -> BreakReason.AccessLost
             RecordingError.Service -> BreakReason.ProcessLost
@@ -344,6 +395,7 @@ class TripRecorder(private val dao: TripDao, private val source: SharedLocationS
 
     private fun publish() {
         mutableState.value = RecordingState(current, segmentStartNanos = segment?.startedElapsedNanos,
-            segmentBaseDurationNanos = baseDuration, lastFixNanos = lastFixNanos.takeIf { segment != null })
+            segmentBaseDurationNanos = baseDuration, lastFixNanos = lastFixNanos.takeIf { segment != null },
+            lastNetworkFixNanos = lastNetworkFixNanos.takeIf { segment != null })
     }
 }

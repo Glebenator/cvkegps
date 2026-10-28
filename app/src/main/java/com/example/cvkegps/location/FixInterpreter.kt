@@ -17,6 +17,8 @@ data class RawFix(
     val bearingRadians: Double? = null,
     val bearingAccuracyRadians: Double? = null,
     val isMock: Boolean = false,
+    val source: FixSource = FixSource.Gps,
+    val satellitesUsed: Int? = null,
 )
 
 /** The stored sample and the displayed reading of one fix. */
@@ -31,19 +33,23 @@ class FixInterpreter(private val declination: (TrackSample) -> Double) {
         val speedAccuracy = raw.speedAccuracyMetersPerSecond.nonNegative()
         // A stored sample cannot show that the accuracy was reported. The speed is therefore stored as missing (ADR 0001).
         val speedAccuracyInvalid = raw.speedAccuracyMetersPerSecond != null && speedAccuracy == null
+        // A network position has no measured motion or height. Android can add values to it, so they are not stored.
+        val gps = raw.source == FixSource.Gps
         val sample = TrackSample(
             raw.latitudeRadians, raw.longitudeRadians, raw.timeMillis, raw.elapsedNanos, raw.receivedElapsedNanos,
             raw.accuracyMeters.nonNegative(),
-            raw.speedMetersPerSecond.nonNegative()?.takeIf { !speedAccuracyInvalid },
-            speedAccuracy,
-            raw.altitudeMeters?.takeIf { it.isFinite() },
-            raw.verticalAccuracyMeters.nonNegative(),
-            raw.bearingRadians?.takeIf { it.isFinite() },
-            raw.bearingAccuracyRadians?.takeIf { it.isFinite() && it >= 0 },
+            raw.speedMetersPerSecond.nonNegative()?.takeIf { gps && !speedAccuracyInvalid },
+            speedAccuracy?.takeIf { gps },
+            raw.altitudeMeters?.takeIf { gps && it.isFinite() },
+            raw.verticalAccuracyMeters.nonNegative()?.takeIf { gps },
+            raw.bearingRadians?.takeIf { gps && it.isFinite() },
+            raw.bearingAccuracyRadians?.takeIf { gps && it.isFinite() && it >= 0 },
             raw.isMock,
+            raw.source,
+            raw.satellitesUsed?.takeIf { it >= 0 },
         )
         val speed = sample.usableSpeed
-        val rawSpeed = raw.speedMetersPerSecond
+        val rawSpeed = raw.speedMetersPerSecond?.takeIf { gps }
         val issue = when {
             !sample.usablePosition -> SpeedIssue.PositionAccuracy
             rawSpeed == null -> SpeedIssue.Missing

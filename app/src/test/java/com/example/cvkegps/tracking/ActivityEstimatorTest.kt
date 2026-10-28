@@ -22,6 +22,17 @@ class ActivityEstimatorTest {
         }
     }
 
+    @Test fun tenFixesEachSecondGiveTheSameEstimateAsOne() {
+        val detector = ActivityEstimator()
+        var estimate: ActivityEstimate? = null
+        for (tenth in 0..160) {
+            val nanos = 1_000_000_000L + tenth * 100_000_000L
+            estimate = detector.accept(sample(0, 20f).copy(timeMillis = 1_000L + tenth * 100L, elapsedNanos = nanos,
+                receivedElapsedNanos = nanos))
+        }
+        assertEquals(TripMode.CarOrTransit, estimate!!.mode)
+    }
+
     @Test fun noiseGapsAndBadReadingsCannotSupplySustainedEvidence() {
         val detector = ActivityEstimator()
         (0..16).forEach { detector.accept(sample(it, 20f)) }

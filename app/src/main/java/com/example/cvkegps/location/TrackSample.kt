@@ -1,5 +1,8 @@
 package com.example.cvkegps.location
 
+/** The receiver that measured a fix. Only [Gps] fixes give speed, direction, and height. */
+enum class FixSource { Gps, Network }
+
 /** One fix as a trip stores it. Linear measurements use SI units. Angular measurements use radians. */
 data class TrackSample(
     val latitudeRadians: Double,
@@ -15,6 +18,9 @@ data class TrackSample(
     val bearingRadians: Double?,
     val bearingAccuracyRadians: Double?,
     val isMock: Boolean,
+    val source: FixSource = FixSource.Gps,
+    /** The number of satellites that the receiver used for this fix. Null when the receiver does not report it. */
+    val satellitesUsed: Int? = null,
 ) {
     fun valid(): Boolean = latitudeRadians.isFinite() && longitudeRadians.isFinite() &&
         latitudeRadians in -Math.PI / 2..Math.PI / 2 && longitudeRadians in -Math.PI..Math.PI &&
@@ -23,7 +29,7 @@ data class TrackSample(
     /** The usability rules for the Speed tab, the recorder, and saved trips. See GLOSSARY.md. */
     val usablePosition: Boolean get() = accuracyMeters?.let { it.isFinite() && it in 0f..MAX_HORIZONTAL_ERROR_METERS } == true
     val usableSpeed: Float? get() = speedMetersPerSecond?.takeIf { speed ->
-        usablePosition && speed.isFinite() && speed >= 0 &&
+        source == FixSource.Gps && usablePosition && speed.isFinite() && speed >= 0 &&
             (speedAccuracyMetersPerSecond == null || speedAccuracyMetersPerSecond in 0f..MAX_SPEED_ERROR_METERS_PER_SECOND)
     }
 }

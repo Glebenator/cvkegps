@@ -167,18 +167,19 @@
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-10-28">28 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>ac1fcd8</code> plus the Settings screen (branch <code>native-maps</code>, not committed)</dd></div>
+          <div><dt>App code baseline</dt><dd><code>6c51d0a</code> plus trip data collection (branch <code>native-maps</code>, not committed)</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
       </aside>
     </div>
     <div class="metrics" aria-label="Last verified results">
-      <div class="metric"><strong>45 / 45</strong><span>Device tests passed with the Settings screen</span><span class="small">Pixel 10 Pro, API 37, with a Maps API key · the 4 settings tests passed again on the final code</span></div>
-      <div class="metric"><strong>37 / 37</strong><span>Calculation tests passed</span><span class="small">New: unit conversion, region units, and settings migration</span></div>
+      <div class="metric"><strong>47 / 47</strong><span>Device tests passed with trip data collection</span><span class="small">Pixel 10 Pro emulator, API 37, with a Maps API key · the GPX and network tests passed again on the final code</span></div>
+      <div class="metric"><strong>44 / 44</strong><span>Calculation tests passed</span><span class="small">New: sensor storage, network fixes, source lines, 10 fixes each second, GPX source</span></div>
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, debug lint, and unsigned release build</span><span class="small">Release APK not installed or run</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#trip-data">Trip data collection · 28 Oct</a>
       <a href="#settings-screen">Settings screen · 28 Oct</a>
       <a href="#keep-screen-on-trip">Screen on during a trip · 28 Oct</a>
       <a href="#design-language">Design language · 27 Oct</a>
@@ -204,6 +205,61 @@
       <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
     </nav>
+
+    <section id="trip-data" aria-labelledby="trip-data-heading">
+      <div class="section-head"><h2 id="trip-data-heading">Trip data collection · 28 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
+      <p class="section-intro">A trip now collects the data for a later playback and analysis, for example the highest point, the fastest speed, and the strongest acceleration. The app does not show the new data yet.
+      The Speed tab and a recording trip still share one GPS request, which uses the strictest need of the active features. See <a href="docs/adr/0003-collect-all-trip-measurements.md">ADR 0003</a> and the new terms in <a href="GLOSSARY.md">GLOSSARY.md</a>.</p>
+      <div class="table-wrap"><table class="wrap-cells">
+        <thead><tr><th scope="col">Part</th><th scope="col">Behaviour</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Sensor record</th><td>While a trip records, <a href="app/src/main/java/com/example/cvkegps/tracking/AndroidMotionSource.kt"><code>AndroidMotionSource</code></a> stores the accelerometer (m/s², with gravity, along the phone's axes) and the game rotation vector at 50 readings each second, and the barometer (hPa) at up to 10 each second.
+          Events arrive on a worker thread. About every 2 seconds, one chunk for each sensor goes through the recorder's command queue into the <code>sensor_chunks</code> table, in the segment that was open at its time. Pause, Stop, and an interruption stop the sensors; the last readings arrive after them. A sensor that the phone does not have is not recorded.</td></tr>
+          <tr><th scope="row">Network positions</th><td>After 10 seconds without a GPS fix, a recording trip asks Android's network provider for a position every 5 seconds, until the next GPS fix. The Speed tab never uses them. A network position stores its position and accuracy only: no speed, direction, or height, also when Android supplies them.
+          It forms its own route line. The change between sources adds no distance. The current trip shows <strong>No GPS: approximate position</strong>, and the map draws the line dashed in the warning colour. A saved trip explains the dashed line in its technical details. GPX files mark these points with <code>&lt;src&gt;network&lt;/src&gt;</code>. On by default; Settings can turn it off.</td></tr>
+          <tr><th scope="row">High accuracy</th><td>Settings &gt; Trip recording &gt; <strong>High accuracy</strong> asks for a fix every 100 ms with no minimum interval and no grouped delivery. On Android 12 and later, a GNSS measurement request with full tracking turns off the receiver's duty cycling. <strong>Standard</strong> keeps one fix each second. The choice applies to the next trip that starts or resumes, and each segment stores it.</td></tr>
+          <tr><th scope="row">More fix data</th><td>Each stored fix has its source (GPS or network) and the number of satellites in the fix, from the GNSS provider's <code>satellites</code> extra.</td></tr>
+          <tr><th scope="row">Activity estimate</th><td>The evidence window is now 30 seconds of time. Before, it also stopped at 60 fixes, so 10 fixes each second would never give an estimate.</td></tr>
+          <tr><th scope="row">Storage</th><td>Database version 4 deletes older trips. The app is not published, so it has no migration. The old distance migration and its device test are removed.</td></tr>
+        </tbody>
+      </table></div>
+      <pre><code><a href="app/src/main/java/com/example/cvkegps/tracking/SharedLocationSource.kt">SharedLocationSource.kt</a> · the GPS request for the active features
+val high = recordingOwned &amp;&amp; options.highAccuracy
+val next = if (high) Profile(HIGH_INTERVAL_MILLIS, 0L, batch = false)
+    else Profile(1_000L, 1_000L, batch = !foreground &amp;&amp; displayCount == 0)</code></pre>
+      <h3 style="margin-top:24px">Pixel 10 Pro emulator, Android 17 (API 37)</h3>
+      <div class="screens">
+      <figure class="shot"><a href="docs/progress/images/2026-10-28-network-position-live.webp"><img src="docs/progress/images/2026-10-28-network-position-live.webp" loading="lazy" alt="Current trip map: a green start marker, a short dashed amber line, and the blue position at its end. Below the map, a red dot and the status No GPS: approximate position."></a>
+      <figcaption><strong>No GPS: approximate position</strong>28 October 2026. Baseline <code>6c51d0a</code> plus trip data collection. Pixel 10 Pro emulator, Android 17 (API 37). Simulated GPS and network test locations near Vancouver: GPS stopped, then two network positions 5 seconds apart.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-28-network-position-saved.webp"><img src="docs/progress/images/2026-10-28-network-position-saved.webp" loading="lazy" alt="Saved trip map: the green start and red end markers at the left, and a separate dashed amber line to the right. Below, Distance, Recording time, and Average speed, and the Trip saved message."></a>
+      <figcaption><strong>Saved trip with a network part</strong>28 October 2026. Baseline <code>6c51d0a</code> plus trip data collection. Pixel 10 Pro emulator, Android 17 (API 37). Same simulated trip. The GPS lines are very short, so the start and end markers cover them.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-28-trip-recording-settings-light.webp"><img src="docs/progress/images/2026-10-28-trip-recording-settings-light.webp" loading="lazy" alt="Settings, Trip recording card: Position updates with Standard selected and High accuracy, the switch for Wi-Fi and mobile networks without GPS turned on with its explanation, and two notes about the sensors and when changes apply."></a>
+      <figcaption><strong>Trip recording settings</strong>28 October 2026. Baseline <code>6c51d0a</code> plus trip data collection. Pixel 10 Pro emulator, Android 17 (API 37). Default values.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-28-trip-recording-settings-dark-large.webp"><img src="docs/progress/images/2026-10-28-trip-recording-settings-dark-large.webp" loading="lazy" alt="The same card in the dark theme at 200% text. The choice texts wrap over several lines and nothing is cut."></a>
+      <figcaption><strong>Dark, 200% text</strong>28 October 2026. Baseline <code>6c51d0a</code> plus trip data collection. Pixel 10 Pro emulator, Android 17 (API 37). Display settings were restored after the capture.</figcaption></figure>
+      </div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li>Pixel 10 Pro emulator, Android 17 (API 37), with the development Maps API key: all 47 device tests passed (19 minutes). The suite has 3 new tests, and the old distance migration test is removed. That run used the code before two last changes: the GPX source field and the clock step in the network test. After them, the GPX share test and the network test passed again.</li>
+          <li><code>networkPositionsReplaceAMissingGpsSignalUntilTheNextGpsFix</code> uses Android test providers for GPS and network: one request for 10 seconds, then a second (network) request; two stored network positions without speed or height, although the test positions report a speed; the status text; GPS, network, and GPS lines; one request again after the next GPS fix; and the legend in the saved trip.</li>
+          <li><code>aTripRecordsThePhoneSensorsOnlyWhileItRecords</code>: chunks for each sensor that the device has, in the segment's time window and in time order; at least 50 accelerometer readings with an average size of 9.81 m/s² ± 1; no new readings 3 seconds after Pause.</li>
+          <li><code>highAccuracyRecordsEachFastFixAndStandardKeepsOnePerSecond</code> selects High accuracy in Settings: 10 fixes 150 ms apart are all stored and the segment stores the choice. With Standard, the same fixes store at most 2.</li>
+          <li>44 of 44 calculation tests passed. New: sensor chunk storage and damaged data, network fixes, source lines and distance, the activity estimate at 10 fixes each second, the approximate state, and the GPX source. Debug lint, the debug build, and the unsigned release build passed.</li>
+          <li>Found while capturing: the live map redraws the route at most every 5 seconds. In Compose device tests, that wait uses the test clock, which does not move during <code>Thread.sleep</code>, so a live map capture shows no route line. The 27 October live map capture shows this. The network test now moves the test clock. This is a test effect, not an app defect.</li>
+          <li>Inspected the Trip recording card in light mode, and in dark mode at 200% text. The tests ran only on the emulator. The connected physical phone was not used.</li>
+          <li>Raw captures: <code>artifacts/trip-data-2026-10-28/</code> (not in Git).</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>Checked on an emulator with simulated locations and the emulator's simulated sensors. The real fix rate in High accuracy, the battery use of High accuracy and of the sensor record, and lost sensor readings with the screen off need a physical phone.</li>
+          <li>The app does not yet show the sensor record, the fastest acceleration, the highest point, or a playback.</li>
+          <li>Barometer altitude is not calculated or combined with GPS altitude yet. The raw pressure is stored.</li>
+          <li>Network positions with an accuracy worse than 50 m are stored but not drawn, as for GPS fixes. In a long tunnel, Wi-Fi and mobile signals can also be missing.</li>
+          <li>The recording choices apply at the next start or resume, not during a segment.</li>
+          <li>The Play Data safety form and the privacy policy must declare the network location service before release.</li>
+        </ul>
+      </article>
+    </section>
 
     <section id="settings-screen" aria-labelledby="settings-screen-heading">
       <div class="section-head"><h2 id="settings-screen-heading">Settings screen · 28 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
@@ -1857,6 +1913,10 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-28">28 October 2026</time><div><h3>Trip data collection</h3>
+<p>Trips now store the data for a later playback and analysis: the accelerometer, orientation, and barometer at up to 50 readings each second; the fix source and satellite count of each fix; and the recording choices of each segment.
+Without a GPS signal for 10 seconds, a trip records approximate network positions, shown dashed in the warning colour and marked in GPX. A new High accuracy setting asks for up to 10 fixes each second with full GNSS tracking. The database deletes older trips.
+On a Pixel 10 Pro API 37 emulator, 47 of 47 device tests and 44 of 44 calculation tests passed, with lint and the release build. Battery use and the real fix rate need a physical phone. See <a href="#trip-data">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-28">28 October 2026</time><div><h3>Settings screen</h3>
 <p>Built out Settings in the owner's design language: units for speed, distance, and altitude (region default); altitude above sea level from Android's geoid model, or the GPS height; when and where the screen stays on, with dimming after 1 minute without touch; map type and traffic; and the app version.
 The units apply to every screen and to the notification. On a Pixel 10 Pro API 37 emulator, 45 of 45 device tests and 37 of 37 calculation tests passed, with lint and the release build. See <a href="#settings-screen">evidence and limits</a>.</p></div></li>

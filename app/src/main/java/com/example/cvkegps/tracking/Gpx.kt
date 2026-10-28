@@ -1,5 +1,6 @@
 package com.example.cvkegps.tracking
 
+import com.example.cvkegps.location.FixSource
 import com.example.cvkegps.location.TrackSample
 import java.io.Writer
 import java.time.Instant
@@ -10,6 +11,7 @@ import java.util.Locale
 /**
  * Writes GPX 1.1. Each route line becomes one track segment, so gaps stay unconnected, as on the map.
  * Altitude is not written: Android reports height above the WGS84 ellipsoid, and GPX readers expect height above sea level.
+ * A network position has the GPX source "network", so a reader can tell it from a GPS fix.
  */
 object Gpx {
     const val MIME_TYPE = "application/gpx+xml"
@@ -28,7 +30,8 @@ object Gpx {
                 // Locale.ROOT keeps a decimal point in every language.
                 val lat = String.format(Locale.ROOT, "%.7f", Math.toDegrees(sample.latitudeRadians))
                 val lon = String.format(Locale.ROOT, "%.7f", Math.toDegrees(sample.longitudeRadians))
-                out.write("      <trkpt lat=\"$lat\" lon=\"$lon\"><time>${Instant.ofEpochMilli(sample.timeMillis)}</time></trkpt>\n")
+                val source = if (sample.source == FixSource.Network) "<src>network</src>" else ""
+                out.write("      <trkpt lat=\"$lat\" lon=\"$lon\"><time>${Instant.ofEpochMilli(sample.timeMillis)}</time>$source</trkpt>\n")
             }
             out.write("    </trkseg>\n")
         }

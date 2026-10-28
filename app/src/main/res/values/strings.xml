@@ -61,6 +61,16 @@
     <string name="settings_map_type">Map type</string>
     <string name="settings_traffic">Traffic on the current trip map</string>
     <string name="settings_traffic_body">Loads more map data.</string>
+    <string name="settings_recording">Trip recording</string>
+    <string name="settings_recording_accuracy">Position updates</string>
+    <string name="settings_recording_standard">Standard</string>
+    <string name="settings_recording_standard_body">One position each second. Uses less battery.</string>
+    <string name="settings_recording_high">High accuracy</string>
+    <string name="settings_recording_high_body">Up to 10 positions each second, and the GPS receiver stays fully on. Uses much more battery. Most phones supply fewer positions.</string>
+    <string name="settings_network_fallback">Use Wi-Fi and mobile networks without GPS</string>
+    <string name="settings_network_fallback_body">When a trip has no GPS signal, it records an approximate position. The map shows it as a dashed line. The Android network location service can send nearby Wi-Fi and mobile network data to Google.</string>
+    <string name="settings_recording_sensors">Trips also record the motion sensors and the air pressure sensor of the phone. This data stays on this device.</string>
+    <string name="settings_recording_note">Changes apply to the next trip that you start or resume.</string>
     <string name="settings_about">About</string>
     <string name="settings_version">Version</string>
     <string name="unit_kmh_spoken">kilometres per hour</string>

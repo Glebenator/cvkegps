@@ -1,5 +1,6 @@
 package com.example.cvkegps.tracking
 
+import com.example.cvkegps.location.FixSource
 import com.example.cvkegps.location.TrackSample
 import java.io.StringWriter
 import java.time.ZoneOffset
@@ -31,9 +32,16 @@ class GpxTest {
             assertTrue(gpx.contains("<name>Trip &lt;1&gt; &amp; &quot;A&quot;</name>"))
             // The recorded altitude is ellipsoidal, so it is not written as a GPX elevation.
             assertFalse(gpx.contains("<ele>"))
+            assertFalse(gpx.contains("<src>"))
         } finally {
             Locale.setDefault(previous)
         }
+    }
+
+    @Test fun aNetworkPositionNamesItsSource() {
+        val out = StringWriter()
+        Gpx.write(out, "Trip", listOf(listOf(sample(49.2827, -123.1207, 1_000).copy(source = FixSource.Network))))
+        assertTrue(out.toString().contains("<time>1970-01-01T00:00:01Z</time><src>network</src></trkpt>"))
     }
 
     @Test fun fileNameUsesTheLocalStartTime() {

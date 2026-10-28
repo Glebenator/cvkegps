@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.cvkegps.R
+import com.example.cvkegps.location.FixSource
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MenuDefaults
@@ -211,6 +212,9 @@ private fun SavedTechnicalDetails(shown: TripDetail) {
         }
         Text(stringResource(R.string.trip_gap_note), style = MaterialTheme.typography.bodySmall)
         Text(stringResource(R.string.map_start_end), style = MaterialTheme.typography.bodySmall)
+        if (shown.summary.lines.any { line -> line.firstOrNull()?.source == FixSource.Network }) {
+            Text(stringResource(R.string.map_network_legend), Modifier.testTag("network_legend"), style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
 

@@ -93,6 +93,8 @@
     <string name="trip_read_retry">Try again</string>
     <string name="trip_export_error">The GPX file could not be made. Try again.</string>
     <string name="trip_no_signal">No GPS signal</string>
+    <string name="trip_network_position">No GPS: approximate position</string>
+    <string name="map_network_legend">A dashed line shows an approximate position from Wi-Fi and mobile networks, where the trip had no GPS signal.</string>
     <string name="trip_no_signal_short">No GPS</string>
     <string name="trip_saved_message">Trip saved</string>
     <string name="recording_notification_values">%1$s · %2$s average</string>

@@ -31,6 +31,10 @@ data class Settings(
     val mapLayer: MapLayer = MapLayer.Default,
     /** Live traffic on the current trip map. Off by default, because it loads more map data. */
     val mapTraffic: Boolean = false,
+    /** How often a trip records a position. It applies to the next trip that starts or resumes. */
+    val recordingAccuracy: RecordingAccuracy = RecordingAccuracy.Standard,
+    /** A recording trip uses a network position while it has no GPS signal. It applies to the next trip that starts or resumes. */
+    val networkFallback: Boolean = true,
 ) {
     /** The chosen units, with the region's units where the user made no choice. */
     fun units(country: String): Units = Units.forCountry(country).let {
@@ -43,6 +47,14 @@ enum class MapLayer(override val key: String) : StoredChoice {
     Default("default"),
     Satellite("satellite"),
     Terrain("terrain"),
+}
+
+/** How a trip uses the GPS receiver. [High] uses much more battery. */
+enum class RecordingAccuracy(override val key: String) : StoredChoice {
+    /** One position each second. While no screen shows, Android can deliver positions in groups. */
+    Standard("standard"),
+    /** The fastest positions that the phone can supply, delivered at once, with the GPS receiver fully on. */
+    High("high"),
 }
 
 /**
@@ -80,6 +92,8 @@ class AppSettings(
                 tripAccessExplained = pick(TRIP_ACCESS_EXPLAINED) { tripAccessExplained },
                 mapLayer = pick(MAP_LAYER) { mapLayer },
                 mapTraffic = pick(MAP_TRAFFIC) { mapTraffic },
+                recordingAccuracy = pick(RECORDING_ACCURACY) { recordingAccuracy },
+                networkFallback = pick(NETWORK_FALLBACK) { networkFallback },
             )
         }
     }
@@ -98,6 +112,9 @@ class AppSettings(
         change(TRIP_ACCESS_EXPLAINED, { copy(tripAccessExplained = true) }) { putBoolean(TRIP_ACCESS_EXPLAINED, true) }
     fun setMapLayer(value: MapLayer) = change(MAP_LAYER, { copy(mapLayer = value) }) { putString(MAP_LAYER, value.key) }
     fun setMapTraffic(value: Boolean) = change(MAP_TRAFFIC, { copy(mapTraffic = value) }) { putBoolean(MAP_TRAFFIC, value) }
+    fun setRecordingAccuracy(value: RecordingAccuracy) =
+        change(RECORDING_ACCURACY, { copy(recordingAccuracy = value) }) { putString(RECORDING_ACCURACY, value.key) }
+    fun setNetworkFallback(value: Boolean) = change(NETWORK_FALLBACK, { copy(networkFallback = value) }) { putBoolean(NETWORK_FALLBACK, value) }
 
     /** Shows the change at once and writes only the changed value, so a change before the first read keeps the other stored values. */
     private fun change(key: String, update: Settings.() -> Settings, write: SharedPreferences.Editor.() -> Unit) {
@@ -127,6 +144,8 @@ class AppSettings(
         const val TRIP_ACCESS_EXPLAINED = "trip_access_explained"
         const val MAP_LAYER = "map_layer"
         const val MAP_TRAFFIC = "map_traffic"
+        const val RECORDING_ACCURACY = "recording_accuracy"
+        const val NETWORK_FALLBACK = "network_fallback"
 
         /** An unknown stored value, for example from a later app version, reads as the default. */
         fun read(read: SharedPreferences) = Settings(
@@ -142,6 +161,8 @@ class AppSettings(
             tripAccessExplained = read.getBoolean(TRIP_ACCESS_EXPLAINED, false),
             mapLayer = read.getString(MAP_LAYER, null).toChoice<MapLayer>() ?: MapLayer.Default,
             mapTraffic = read.getBoolean(MAP_TRAFFIC, false),
+            recordingAccuracy = read.getString(RECORDING_ACCURACY, null).toChoice<RecordingAccuracy>() ?: RecordingAccuracy.Standard,
+            networkFallback = read.getBoolean(NETWORK_FALLBACK, true),
         )
     }
 }

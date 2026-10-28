@@ -121,7 +121,7 @@ class RouteBuilder {
             missingNanos += step.gapNanos
         }
         if (step.poorGap) gaps++
-        if (step.gapNanos > 0 || !step.joined) closeLine()
+        if (step.gapNanos > 0 || !step.joined || step.sourceChanged) closeLine()
         if (step.joined) line += sample
     }
 
@@ -163,10 +163,14 @@ class LiveRoute(val tripId: String) {
 /**
  * One recording segment, sample by sample in time order. Trip summaries and the recorder use the same rules,
  * so the distance on a trip card agrees with the trip details.
+ * A line contains fixes of one [com.example.cvkegps.location.FixSource]. The step between two sources adds no distance.
  */
 class SegmentTrack {
-    /** One sample's effect: the signal gap before it, the start of a poor-position gap, and whether it joins the line. */
-    data class Step(val gapNanos: Long, val poorGap: Boolean, val joined: Boolean)
+    /**
+     * One sample's effect: the signal gap before it, the start of a poor-position gap, whether it joins the line,
+     * and whether it starts a line of another source.
+     */
+    data class Step(val gapNanos: Long, val poorGap: Boolean, val joined: Boolean, val sourceChanged: Boolean = false)
 
     var distanceMeters = 0.0
         private set
@@ -186,12 +190,13 @@ class SegmentTrack {
             return Step(gapNanos, poorGap, joined = false)
         }
         poorFix = false
-        previous?.let { last ->
+        val sourceChanged = previous?.let { it.source != sample.source } == true
+        previous?.takeIf { !sourceChanged }?.let { last ->
             // Do not accumulate position noise while reported speed is zero.
             if (sample.usableSpeed != 0f || last.usableSpeed != 0f) distanceMeters += RouteMath.distance(last, sample)
         }
         previous = sample
-        return Step(gapNanos, poorGap = false, joined = true)
+        return Step(gapNanos, poorGap = false, joined = true, sourceChanged = sourceChanged)
     }
 }
 

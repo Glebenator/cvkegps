@@ -21,6 +21,18 @@ class RecordingStateTest {
         assertEquals(110 * second, fresh.copy(lastFixNanos = 90 * second).signalLostAtNanos)
     }
 
+    @Test fun aNetworkPositionIsApproximateOnlyWithoutGpsAndForTenSeconds() {
+        val state = RecordingState(trip, segmentStartNanos = 100 * second, lastFixNanos = 100 * second,
+            lastNetworkFixNanos = 112 * second)
+        assertEquals(122 * second, state.approximateUntilNanos)
+        assertFalse(state.approximate(109 * second))
+        assertTrue(state.approximate(112 * second))
+        assertFalse(state.approximate(122 * second))
+        // A GPS fix after the network position ends the state without a GPS signal.
+        assertFalse(state.copy(lastFixNanos = 113 * second).approximate(114 * second))
+        assertNull(state.copy(trip = trip.copy(status = TripStatus.Paused)).approximateUntilNanos)
+    }
+
     @Test fun pausedAndEndedTripsDoNotReportNoSignal() {
         assertNull(RecordingState(trip.copy(status = TripStatus.Paused), segmentStartNanos = second).signalLostAtNanos)
         assertNull(RecordingState(segmentStartNanos = second).signalLostAtNanos)

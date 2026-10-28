@@ -1,8 +1,5 @@
 package com.example.cvkegps.tracking
 
-import androidx.room.ColumnInfo
-import androidx.room.migration.Migration
-import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Embedded
@@ -17,9 +14,7 @@ import androidx.room.RoomDatabase
 import androidx.room.Transaction
 import androidx.room.Update
 import com.example.cvkegps.location.TrackSample
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.withContext
 
 @Entity(tableName = "trips")
 data class TripRecord(
@@ -31,8 +26,8 @@ data class TripRecord(
     val durationNanos: Long = 0,
     val lastSavedMillis: Long = startedMillis,
     val policyVersion: Int = 1,
-    @ColumnInfo(defaultValue = "0") val automaticMode: Boolean = false,
-    /** Null until it is known. Trips saved before database version 3 get it from a background calculation. */
+    val automaticMode: Boolean = false,
+    /** Null until it is known. The recorder calculates it again from the saved route when it resumes a trip without one. */
     val distanceMeters: Double? = null,
 )
 
@@ -49,6 +44,9 @@ data class TripSegment(
     val endedElapsedNanos: Long? = null,
     val reason: BreakReason,
     val endReason: BreakReason? = null,
+    /** The recording choices of this segment. See RecordingOptions. */
+    val highAccuracy: Boolean = false,
+    val networkFallback: Boolean = false,
 )
 
 @Entity(tableName = "points", primaryKeys = ["segmentId", "elapsedNanos"], foreignKeys = [ForeignKey(
@@ -59,6 +57,22 @@ data class TripPoint(
     val segmentId: String,
     @Embedded val sample: TrackSample,
 )
+
+/** Readings of one phone sensor in one segment, as [SensorChunk.encode] stores them. */
+@Entity(tableName = "sensor_chunks", primaryKeys = ["segmentId", "kind", "firstElapsedNanos"], foreignKeys = [ForeignKey(
+    entity = TripSegment::class, parentColumns = ["id"], childColumns = ["segmentId"], onDelete = ForeignKey.CASCADE,
+)], indices = [Index("tripId")])
+class TripSensorChunk(
+    val tripId: String,
+    val segmentId: String,
+    val kind: SensorKind,
+    val firstElapsedNanos: Long,
+    val lastElapsedNanos: Long,
+    val count: Int,
+    val data: ByteArray,
+) {
+    fun chunk(): SensorChunk? = SensorChunk.decode(kind, data)
+}
 
 @Dao
 abstract class TripDao {
@@ -77,16 +91,13 @@ abstract class TripDao {
     @Query("SELECT * FROM points WHERE tripId = :id ORDER BY elapsedNanos")
     abstract suspend fun savedPoints(id: String): List<TripPoint>
 
-    @Query("SELECT id FROM trips WHERE distanceMeters IS NULL AND status NOT IN ('Recording', 'Paused')")
-    abstract suspend fun tripsWithoutDistance(): List<String>
-
-    /** Never replaces a distance that the recorder has already saved. */
-    @Query("UPDATE trips SET distanceMeters = :meters WHERE id = :id AND distanceMeters IS NULL")
-    abstract suspend fun setMissingDistance(id: String, meters: Double)
+    @Query("SELECT * FROM sensor_chunks WHERE tripId = :id ORDER BY kind, firstElapsedNanos")
+    abstract suspend fun sensorChunks(id: String): List<TripSensorChunk>
 
     @Insert abstract suspend fun insert(trip: TripRecord)
     @Insert abstract suspend fun insert(segment: TripSegment)
     @Insert(onConflict = OnConflictStrategy.IGNORE) abstract suspend fun insert(points: List<TripPoint>)
+    @Insert(onConflict = OnConflictStrategy.IGNORE) abstract suspend fun insertSensors(chunks: List<TripSensorChunk>)
     @Update abstract suspend fun update(trip: TripRecord)
     @Update abstract suspend fun update(segment: TripSegment)
 
@@ -128,33 +139,11 @@ abstract class TripDao {
     }
 }
 
-@Database(entities = [TripRecord::class, TripSegment::class, TripPoint::class], version = 3, exportSchema = false)
+/**
+ * The app is not published, so a schema change deletes the saved trips instead of a migration.
+ * Add migrations before the first release.
+ */
+@Database(entities = [TripRecord::class, TripSegment::class, TripPoint::class, TripSensorChunk::class], version = 4, exportSchema = false)
 abstract class TripDatabase : RoomDatabase() {
     abstract fun trips(): TripDao
-
-    companion object {
-        val MIGRATION_1_2 = object : Migration(1, 2) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE trips ADD COLUMN automaticMode INTEGER NOT NULL DEFAULT 0")
-            }
-        }
-
-        /** Existing trips get a null distance. [TripDistances.fillMissing] calculates it after the database opens. */
-        val MIGRATION_2_3 = object : Migration(2, 3) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE trips ADD COLUMN distanceMeters REAL")
-            }
-        }
-    }
-}
-
-/** Calculates the distance of trips that do not have one. Run it once after the database opens. */
-object TripDistances {
-    suspend fun fillMissing(dao: TripDao) {
-        for (id in dao.tripsWithoutDistance()) {
-            val route = dao.route(id)
-            val meters = withContext(Dispatchers.Default) { RouteMath.summarize(route).distanceMeters }
-            dao.setMissingDistance(id, meters)
-        }
-    }
 }

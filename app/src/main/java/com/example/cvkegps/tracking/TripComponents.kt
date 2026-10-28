@@ -144,7 +144,7 @@ internal fun ActivityChip(text: String, onClick: () -> Unit, tag: String = "chan
 
 /** Recording, Paused, or No GPS signal. The colour and the text both show the state. */
 @Composable
-internal fun TripStatusChip(status: TripStatus, noSignal: Boolean, modifier: Modifier = Modifier) {
+internal fun TripStatusChip(status: TripStatus, noSignal: Boolean, modifier: Modifier = Modifier, approximate: Boolean = false) {
     val recording = status == TripStatus.Recording
     val colors = CvkeTheme.colors
     // A lost signal is a problem, so it uses the danger tint. Otherwise the pill is neutral and the icon carries the state.
@@ -154,8 +154,11 @@ internal fun TripStatusChip(status: TripStatus, noSignal: Boolean, modifier: Mod
             horizontalArrangement = Arrangement.spacedBy(Space.s2)) {
             Icon(painterResource(if (recording) R.drawable.ic_record else R.drawable.ic_pause), contentDescription = null,
                 Modifier.size(Size.iconSm), tint = if (recording) colors.danger else colors.inkMuted)
-            Text(stringResource(if (recording && noSignal) R.string.trip_no_signal else status.title()),
-                Modifier.testTag("recording_status"), style = MaterialTheme.typography.labelLarge)
+            Text(stringResource(when {
+                recording && noSignal && approximate -> R.string.trip_network_position
+                recording && noSignal -> R.string.trip_no_signal
+                else -> status.title()
+            }), Modifier.testTag("recording_status"), style = MaterialTheme.typography.labelLarge)
         }
     }
 }
@@ -214,6 +217,24 @@ internal fun rememberSignalLost(state: RecordingState): Boolean {
         }
     }
     return lost
+}
+
+/** True while the trip has no GPS signal and a current network position replaces it. It ends at the position's age limit. */
+@Composable
+internal fun rememberApproximate(state: RecordingState): Boolean {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val approximate by produceState(state.approximate(SystemClock.elapsedRealtimeNanos()), state, lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                val now = SystemClock.elapsedRealtimeNanos()
+                value = state.approximate(now)
+                // The state can change when the signal-loss time or the network position's age limit passes.
+                val next = listOfNotNull(state.signalLostAtNanos, state.approximateUntilNanos).filter { it > now }.minOrNull() ?: break
+                delay((next - now) / 1_000_000 + 1)
+            }
+        }
+    }
+    return approximate
 }
 
 /**

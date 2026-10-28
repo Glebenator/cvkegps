@@ -56,6 +56,7 @@ import com.example.cvkegps.settings.AltitudeUnit
 import com.example.cvkegps.settings.AppSettings
 import com.example.cvkegps.settings.DistanceUnit
 import com.example.cvkegps.settings.MapLayer
+import com.example.cvkegps.settings.RecordingAccuracy
 import com.example.cvkegps.settings.ScreenOn
 import com.example.cvkegps.settings.SpeedUnit
 import com.example.cvkegps.ui.theme.CvkeTheme
@@ -63,7 +64,7 @@ import com.example.cvkegps.ui.theme.SavedNote
 import com.example.cvkegps.ui.theme.SegmentedChoice
 import com.example.cvkegps.ui.theme.Space
 
-private enum class Section { Units, Altitude, Screen, Maps }
+private enum class Section { Units, Altitude, Screen, Maps, Recording }
 
 /** One long page with a heading and a card for each section. Each change saves at once and shows "Saved" by its heading. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -130,6 +131,24 @@ fun SettingsScreen(settings: AppSettings, onBack: () -> Unit) {
                 }
                 SwitchRow(R.string.settings_traffic, R.string.settings_traffic_body, values.mapTraffic, "setting_traffic") {
                     saved(Section.Maps) { settings.setMapTraffic(it) }
+                }
+            }
+            SettingsSection(R.string.settings_recording, changes[Section.Recording] ?: 0) {
+                Column(Modifier.selectableGroup()) {
+                    Label(R.string.settings_recording_accuracy)
+                    RecordingAccuracy.entries.forEach { choice ->
+                        ChoiceRow(choice.title, choice.body, values.recordingAccuracy == choice, "recording_${choice.key}") {
+                            saved(Section.Recording) { settings.setRecordingAccuracy(choice) }
+                        }
+                    }
+                }
+                SwitchRow(R.string.settings_network_fallback, R.string.settings_network_fallback_body, values.networkFallback,
+                    "setting_network_fallback") { saved(Section.Recording) { settings.setNetworkFallback(it) } }
+                Column(Modifier.padding(Space.s4), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
+                    Text(stringResource(R.string.settings_recording_sensors), style = MaterialTheme.typography.bodySmall,
+                        color = CvkeTheme.colors.inkMuted)
+                    Text(stringResource(R.string.settings_recording_note), style = MaterialTheme.typography.bodySmall,
+                        color = CvkeTheme.colors.inkMuted)
                 }
             }
             SettingsSection(R.string.settings_about, 0) {
@@ -247,6 +266,16 @@ private fun transparent(enabled: Boolean = true) = CvkeTheme.colors.let {
     ScreenOn.Off -> R.string.settings_screen_off_body
     ScreenOn.DuringTrip -> R.string.settings_screen_trip_body
     ScreenOn.Always -> R.string.settings_screen_always_body
+}
+
+@get:StringRes private val RecordingAccuracy.title get() = when (this) {
+    RecordingAccuracy.Standard -> R.string.settings_recording_standard
+    RecordingAccuracy.High -> R.string.settings_recording_high
+}
+
+@get:StringRes private val RecordingAccuracy.body get() = when (this) {
+    RecordingAccuracy.Standard -> R.string.settings_recording_standard_body
+    RecordingAccuracy.High -> R.string.settings_recording_high_body
 }
 
 @get:StringRes private val MapLayer.title get() = when (this) {

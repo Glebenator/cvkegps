@@ -16,6 +16,21 @@ class FixInterpreterTest {
         assertEquals(it.sample.usableSpeed, it.reading.speedMetersPerSecond)
     }
 
+    @Test fun networkFixKeepsItsPositionButNoMotionOrHeight() {
+        val raw = fix().copy(source = FixSource.Network, bearingRadians = 1.0, verticalAccuracyMeters = 3f, satellitesUsed = 7)
+        val (sample, reading) = interpret(raw)
+        assertEquals(FixSource.Network, sample.source)
+        assertEquals(4f, sample.accuracyMeters)
+        assertNull(sample.speedMetersPerSecond)
+        assertNull(sample.altitudeMeters)
+        assertNull(sample.bearingRadians)
+        assertNull(sample.verticalAccuracyMeters)
+        assertNull(reading.speedMetersPerSecond)
+        assertEquals(SpeedIssue.Missing, reading.speedIssue)
+        assertEquals(7, sample.satellitesUsed)
+        assertNull(interpret(fix().copy(satellitesUsed = -1)).sample.satellitesUsed)
+    }
+
     @Test fun usableFixGivesSpeedAltitudeAndDeclination() {
         val reading = interpret(fix()).reading
         assertEquals(10f, reading.speedMetersPerSecond)

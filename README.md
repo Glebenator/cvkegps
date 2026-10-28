@@ -17,6 +17,9 @@ Update the report with each completed change, as specified in `AGENTS.md`.
    In landscape and on wide windows, the navigation rail shows the recording time and the same buttons.
    Select the bar text to open **Current trip** with the live map. Use the back arrow or Android Back to return.
    After 10 seconds without a fix, the bar, the current trip, and the notification show **No GPS signal**.
+   When **Use Wi-Fi and mobile networks without GPS** is on in Settings, the trip then records approximate network
+   positions. The current trip shows **No GPS: approximate position**, and the map draws that part as a dashed line in
+   another colour. The next GPS fix ends the network positions.
 5. The live map follows the newest position. The marker shows the accuracy and, while you move, the direction of travel.
    A map gesture stops following. Select the follow button to follow with north up. Select it again to turn the map
    to the direction of travel and tilt it to show more of the road ahead. The compass shows when the map is turned;
@@ -38,6 +41,11 @@ A manual correction stays in effect after Pause, Resume, and process recovery.
 After process loss, open the interrupted trip and select Resume or Finish. Resume starts a new segment.
 The app does not start or restart recording automatically. GPS display stops when the tracker is inactive,
 unless a trip is recording. Trip Pause stops the recording request.
+
+Settings > **Trip recording** selects **Standard** (one fix each second) or **High accuracy** (up to 10 fixes each second,
+with the GPS receiver fully on and much more battery use), and turns network positions on or off. The choices apply to the
+next trip that starts or resumes. Each trip also records the phone's accelerometer, orientation, and air pressure sensors
+for later analysis. See [ADR 0003](docs/adr/0003-collect-all-trip-measurements.md).
 
 Trips use local Room storage. One GPS request supplies both the recorder and live display. Historical samples are saved before display
 updates can discard intermediate readings. Manual pauses and interruptions form separate segments. Missing GPS and poor positions do not
@@ -92,6 +100,22 @@ The app uses the owner's design language (My Design Language, touch dialect):
 - Empty trip states show a small slice composition from the brand layer. On the empty trip list, the slice drifts
   slowly away from the disc and back (2.4 s each way). It stops off screen and when animations are off in the system.
 - The accuracy bar fill uses the functional blue-to-apricot gradient.
+
+## Trip data collection on 28 October 2026
+
+Trips now collect the data for a later playback and analysis. The app does not show the new data yet.
+
+- **Sensor record.** While a trip records, the app stores the accelerometer and the game rotation vector at 50 readings
+  each second, and the barometer at up to 10 readings each second. A worker thread collects them and stores a chunk of
+  about 2 seconds for each sensor. Pause, Stop, and an interruption stop the sensors.
+- **Network positions.** After 10 seconds without a GPS fix, a recording trip asks Android's network provider for a
+  position every 5 seconds, until the next GPS fix. Network positions have no speed, direction, or height. They form
+  their own route lines, dashed on the map, and the change between sources adds no distance. On by default.
+- **High accuracy.** The GPS request asks for a fix every 100 ms with no minimum interval and no grouped delivery, and
+  a GNSS measurement request with full tracking turns off the receiver's duty cycling (Android 12 and later).
+- **More fix data.** Each stored fix has its source and the number of satellites in the fix.
+- **Activity estimate.** Its evidence window is 30 seconds of time, not 60 fixes, so 10 fixes each second do not shorten it.
+- **Storage.** Database version 4 deletes older trips. The app is not published, so it has no migration.
 
 ## Native maps on 27 October 2026
 
@@ -398,7 +422,7 @@ app/src/main/java/com/example/cvkegps/
     AndroidGnssSource.kt         Satellite status registration and cleanup
     AndroidHeadingSource.kt      Compass registration and display axes
   settings/
-    AppSettings.kt               Local settings: units, altitude reference, screen, maps, and the trip notice that the user read
+    AppSettings.kt               Local settings: units, altitude reference, screen, maps, trip recording, and the trip notice that the user read
     Units.kt                     Unit, altitude reference, and screen choices, and the units for each region
   ui/
     AdaptiveLayout.kt            Window size checks, the side pane for maps, and the compact header
@@ -419,8 +443,11 @@ app/src/main/java/com/example/cvkegps/
     DisplayFormat.kt             Locale-aware speed, distance, and time text from SI values
   tracking/
     TripModels.kt                Route summary and distance rules
-    TripDatabase.kt              Room entities, queries, and migrations
-    TripRecorder.kt              One command queue for trip changes and location demand
+    TripDatabase.kt              Room entities and queries
+    TripRecorder.kt              One command queue for trip changes, location demand, and sensor recording
+    SharedLocationSource.kt      The shared GPS request, network positions, and full GNSS tracking
+    SensorRecord.kt              Sensor kinds, the stored chunk format, and the motion source contract
+    AndroidMotionSource.kt       Accelerometer, orientation, and barometer recording on a worker thread
     RecordingService.kt          Location foreground service and notification
     TrackingViewModel.kt         Trip list, route details, and GPX export
     TrackingController.kt        Recording commands, access checks, and settings actions

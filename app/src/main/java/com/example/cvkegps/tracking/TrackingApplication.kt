@@ -6,6 +6,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.room.Room
 import com.example.cvkegps.settings.AppSettings
+import com.example.cvkegps.settings.RecordingAccuracy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -13,12 +14,15 @@ import kotlinx.coroutines.SupervisorJob
 class TrackingApplication : Application() {
     private val processScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     val database by lazy {
-        Room.databaseBuilder(this, TripDatabase::class.java, "trips.db")
-            .addMigrations(TripDatabase.MIGRATION_1_2, TripDatabase.MIGRATION_2_3).build()
+        Room.databaseBuilder(this, TripDatabase::class.java, "trips.db").fallbackToDestructiveMigration(dropAllTables = true).build()
     }
-    val location by lazy { SharedLocationSource(this, processScope) }
-    val recorder by lazy { TripRecorder(database.trips(), location, processScope) }
     val settings by lazy { AppSettings(this, processScope) }
+    val location by lazy { SharedLocationSource(this, processScope) }
+    val recorder by lazy {
+        TripRecorder(database.trips(), location, processScope, AndroidMotionSource(this)) {
+            settings.values.value.let { RecordingOptions(it.recordingAccuracy == RecordingAccuracy.High, it.networkFallback) }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()

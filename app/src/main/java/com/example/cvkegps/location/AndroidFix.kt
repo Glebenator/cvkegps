@@ -12,7 +12,7 @@ import androidx.core.location.LocationCompat
 import java.io.IOException
 
 /** Copies an Android fix without the usability rules. [FixInterpreter] applies them. */
-fun Location.toRawFix(receivedElapsedNanos: Long) = RawFix(
+fun Location.toRawFix(receivedElapsedNanos: Long, source: FixSource = FixSource.Gps) = RawFix(
     Math.toRadians(latitude), Math.toRadians(longitude), time, elapsedRealtimeNanos, receivedElapsedNanos,
     accuracyMeters = accuracy.takeIf { hasAccuracy() },
     speedMetersPerSecond = speed.takeIf { hasSpeed() },
@@ -22,6 +22,9 @@ fun Location.toRawFix(receivedElapsedNanos: Long) = RawFix(
     bearingRadians = if (hasBearing()) Math.toRadians(bearing.toDouble()) else null,
     bearingAccuracyRadians = if (hasBearingAccuracy()) Math.toRadians(bearingAccuracyDegrees.toDouble()) else null,
     isMock = LocationCompat.isMock(this),
+    source = source,
+    // The GNSS provider reports the number of satellites in the fix as an extra.
+    satellitesUsed = extras?.getInt("satellites", -1)?.takeIf { it >= 0 },
 )
 
 /** Magnetic declination from Android's world magnetic model, in radians. */

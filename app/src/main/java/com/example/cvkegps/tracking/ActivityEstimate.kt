@@ -33,7 +33,8 @@ class ActivityEstimator {
             else -> TripMode.BikeOrSki
         }
         window.addLast(Evidence(lastTime, mode))
-        while (window.size > 60 || lastTime - window.first().time > 30_000_000_000L) window.removeFirst()
+        // The window holds time, not a number of fixes, so a faster fix rate does not shorten it.
+        while (lastTime - window.first().time > 30_000_000_000L) window.removeFirst()
         val supported = window.count { it.mode == mode }
         val sustained = window.size >= 6 && lastTime - window.first().time >= 15_000_000_000L
         return ActivityEstimate(if (sustained && supported * 5 >= window.size * 4) mode else TripMode.Unknown, lastTime)

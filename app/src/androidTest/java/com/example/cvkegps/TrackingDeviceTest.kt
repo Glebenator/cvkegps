@@ -3,6 +3,8 @@ package com.example.cvkegps
 import android.Manifest
 import android.app.Notification
 import android.app.NotificationManager
+import android.hardware.Sensor
+import android.hardware.SensorManager
 import android.location.Location
 import android.location.LocationManager
 import android.os.Build
@@ -32,7 +34,10 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
+import com.example.cvkegps.location.FixSource
+import com.example.cvkegps.settings.RecordingAccuracy
 import com.example.cvkegps.tracking.RouteMath
+import com.example.cvkegps.tracking.SensorKind
 import com.example.cvkegps.tracking.TripMode
 import com.example.cvkegps.tracking.TripStatus
 import com.example.cvkegps.tracking.TrackingApplication
@@ -61,6 +66,7 @@ class TrackingDeviceTest {
     private var scenario: ActivityScenario<MainActivity>? = null
     private var originalLocation = "true"
     private var sampleIndex = 0
+    private var networkProvider = false
 
     @Before @Suppress("DEPRECATION") fun prepare() {
         originalLocation = shell("cmd location is-location-enabled").trim()
@@ -74,6 +80,8 @@ class TrackingDeviceTest {
         grant(Manifest.permission.ACCESS_COARSE_LOCATION)
         grant(Manifest.permission.ACCESS_FINE_LOCATION)
         if (Build.VERSION.SDK_INT >= 33) grant(Manifest.permission.POST_NOTIFICATIONS)
+        // Network positions add a request after 10 seconds without a GPS fix. Only the test of that behaviour uses them.
+        instrumentation.runOnMainSync { app.settings.setNetworkFallback(false) }
     }
 
     @After fun restore() {
@@ -82,6 +90,7 @@ class TrackingDeviceTest {
         scenario?.close()
         device.wakeUp()
         manager.removeTestProvider(LocationManager.GPS_PROVIDER)
+        if (networkProvider) manager.removeTestProvider(LocationManager.NETWORK_PROVIDER)
         shell("appops set ${context.packageName} android:mock_location default")
         shell("cmd location set-location-enabled $originalLocation")
     }
@@ -862,6 +871,121 @@ class TrackingDeviceTest {
         compose.waitUntil(5_000) { compose.onAllNodesWithText("No GPS signal").fetchSemanticsNodes().isEmpty() }
     }
 
+    @Test fun networkPositionsReplaceAMissingGpsSignalUntilTheNextGpsFix() {
+        instrumentation.runOnMainSync { app.settings.setNetworkFallback(true) }
+        @Suppress("DEPRECATION")
+        manager.addTestProvider(LocationManager.NETWORK_PROVIDER, true, false, true, false, false, false, false,
+            android.location.Criteria.POWER_LOW, android.location.Criteria.ACCURACY_COARSE)
+        networkProvider = true
+        manager.setTestProviderEnabled(LocationManager.NETWORK_PROVIDER, true)
+        launch()
+        startTrip()
+        val id = app.recorder.state.value.trip!!.id
+        deliver(id, 2)
+        assertEquals(1, requestCount())
+        // Ten seconds without a GPS fix: the trip also asks for network positions.
+        waitFor(20_000) { requestCount() == 2 }
+        injectNetwork(0.002)
+        waitFor(10_000) { networkCount(id) >= 1 }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("No GPS: approximate position").fetchSemanticsNodes().isNotEmpty() }
+        // The network request delivers at most every 5 seconds. A second position draws a dashed line.
+        Thread.sleep(5_200)
+        injectNetwork(0.004)
+        waitFor(10_000) { networkCount(id) >= 2 }
+        assertEquals(2, app.recorder.route.value!!.summary.lines.last().size)
+        // A live route redraws at most every 5 seconds. That wait uses the test clock, so the test moves the clock.
+        compose.mainClock.advanceTimeBy(5_500)
+        compose.onAllNodesWithTag("recording_status", useUnmergedTree = true)[0].assertTextEquals("No GPS: approximate position")
+        capture("network-position")
+        // A GPS fix ends the network positions.
+        deliver(id, savedCount(id) + 1)
+        waitFor(10_000) { requestCount() == 1 }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("No GPS: approximate position").fetchSemanticsNodes().isEmpty() }
+        val route = runBlocking { app.database.trips().route(id) }
+        val network = route.flatten().filter { it.source == FixSource.Network }
+        assertEquals(2, network.size)
+        // The test positions report a speed. A network position never stores one.
+        assertTrue(network.all { it.speedMetersPerSecond == null && it.altitudeMeters == null })
+        assertEquals(listOf(FixSource.Gps, FixSource.Network, FixSource.Gps), RouteMath.summarize(route).lines.map { it.first().source })
+        clickVisible("trip_stop")
+        waitUntil { !app.recorder.state.value.needsService }
+        // Stop and save opens the saved trip. Its technical details explain the dashed line.
+        Thread.sleep(1_500)
+        capture("network-saved")
+        compose.onNodeWithTag("trip_details").performClick()
+        compose.onNodeWithTag("technical_details").performScrollTo().performClick()
+        compose.onNodeWithTag("network_legend").performScrollTo().assertIsDisplayed()
+        assertTrue(runBlocking { app.database.trips().segments(id) }.all { it.networkFallback })
+    }
+
+    @Test fun aTripRecordsThePhoneSensorsOnlyWhileItRecords() {
+        val sensors = context.getSystemService(SensorManager::class.java)
+        val expected = listOfNotNull(
+            SensorKind.Acceleration.takeIf { sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null },
+            SensorKind.Rotation.takeIf { sensors.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR) != null },
+            SensorKind.Pressure.takeIf { sensors.getDefaultSensor(Sensor.TYPE_PRESSURE) != null },
+        )
+        assertTrue("The test device has no accelerometer", SensorKind.Acceleration in expected)
+        launch()
+        startTrip()
+        val id = app.recorder.state.value.trip!!.id
+        deliver(id, 2)
+        waitUntil { runBlocking { app.database.trips().sensorChunks(id) }.map { it.kind }.toSet().containsAll(expected) }
+        clickVisible("trip_pause")
+        waitUntil { app.recorder.state.value.trip?.status == TripStatus.Paused }
+        // The last readings arrive shortly after Pause. Then nothing more is recorded.
+        Thread.sleep(1_000)
+        val paused = sensorReadings(id)
+        Thread.sleep(3_000)
+        assertEquals(paused, sensorReadings(id))
+        val segment = runBlocking { app.database.trips().segments(id) }.single()
+        val rows = runBlocking { app.database.trips().sensorChunks(id) }
+        for (row in rows) {
+            val chunk = row.chunk()!!
+            assertEquals(row.count, chunk.count)
+            assertEquals(segment.id, row.segmentId)
+            assertTrue(chunk.elapsedNanos.first() >= segment.startedElapsedNanos && chunk.elapsedNanos.last() <= segment.endedElapsedNanos!!)
+            assertTrue(chunk.elapsedNanos.asList().zipWithNext().all { (a, b) -> a <= b })
+        }
+        // The phone lies still, so the acceleration is about the size of gravity. This checks the axes and the unit.
+        val acceleration = rows.filter { it.kind == SensorKind.Acceleration }.mapNotNull { it.chunk() }
+        val sizes = acceleration.flatMap { chunk ->
+            (0 until chunk.count).map { i -> Math.sqrt((0 until 3).sumOf { axis -> chunk.values[i * 3 + axis].toDouble().let { it * it } }) }
+        }
+        assertEquals(9.81, sizes.average(), 1.0)
+        // About 50 readings each second while the trip recorded. A device can supply fewer.
+        assertTrue("Too few readings: ${sizes.size}", sizes.size >= 50)
+    }
+
+    @Test fun highAccuracyRecordsEachFastFixAndStandardKeepsOnePerSecond() {
+        launch()
+        compose.onNodeWithTag("open_settings").performClick()
+        compose.onNodeWithTag("recording_high").performScrollTo().performClick()
+        compose.onNodeWithTag("settings_back").performClick()
+        waitUntil { app.settings.values.value.recordingAccuracy == RecordingAccuracy.High }
+        startTrip()
+        val high = app.recorder.state.value.trip!!.id
+        deliver(high, 1)
+        assertEquals(1, requestCount())
+        val before = savedCount(high)
+        repeat(10) { inject(); Thread.sleep(150) }
+        waitUntil { savedCount(high) >= before + 10 }
+        assertTrue(runBlocking { app.database.trips().segments(high) }.single().highAccuracy)
+        clickVisible("trip_stop")
+        waitUntil { !app.recorder.state.value.needsService }
+        instrumentation.runOnMainSync { app.settings.setRecordingAccuracy(RecordingAccuracy.Standard) }
+        instrumentation.runOnMainSync { app.recorder.send(com.example.cvkegps.tracking.RecordingCommand.Start(TripMode.Car)) }
+        waitUntil { app.recorder.state.value.trip?.status == TripStatus.Recording }
+        val standard = app.recorder.state.value.trip!!.id
+        deliver(standard, 1)
+        val first = savedCount(standard)
+        repeat(10) { inject(); Thread.sleep(150) }
+        Thread.sleep(1_500)
+        // 1.5 seconds of fixes: Android delivers at most one each second.
+        assertTrue("Standard accuracy saved ${savedCount(standard) - first} fixes", savedCount(standard) - first <= 2)
+        assertFalse(runBlocking { app.database.trips().segments(standard) }.single().highAccuracy)
+    }
+
     @Test fun activityChosenBeforeTheTripApplies() {
         launch()
         compose.onNodeWithTag("activity_estimate", useUnmergedTree = true).assertTextEquals("Activity: automatic")
@@ -1028,7 +1152,25 @@ class TrackingDeviceTest {
         })
     }
 
+    private fun injectNetwork(longitudeOffset: Double) {
+        manager.setTestProviderLocation(LocationManager.NETWORK_PROVIDER, Location(LocationManager.NETWORK_PROVIDER).apply {
+            latitude = 49.2827
+            longitude = -123.1207 + longitudeOffset
+            time = System.currentTimeMillis()
+            elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
+            accuracy = 20f
+            speed = 10f
+        })
+    }
+
     private fun savedCount(id: String) = runBlocking { app.database.trips().savedPoints(id).size }
+    private fun networkCount(id: String) = runBlocking { app.database.trips().savedPoints(id).count { it.sample.source == FixSource.Network } }
+    private fun sensorReadings(id: String) = runBlocking { app.database.trips().sensorChunks(id).sumOf { it.count } }
+    private fun waitFor(millis: Long, condition: () -> Boolean) {
+        val deadline = SystemClock.elapsedRealtime() + millis
+        while (!condition() && SystemClock.elapsedRealtime() < deadline) Thread.sleep(100)
+        assertTrue("Timed out waiting for the condition", condition())
+    }
     private fun requestCount() = shell("dumpsys location").substringBefore("Historical Aggregate Location Provider Data")
         .lineSequence().count { it.contains(context.packageName) && it.contains("Request[") && !it.contains("service:") }
     private fun grant(permission: String) = instrumentation.uiAutomation.grantRuntimePermission(context.packageName, permission)

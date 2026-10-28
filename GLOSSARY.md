@@ -6,8 +6,14 @@ The Android and iOS apps use the same rules.
 ## Measurements
 
 **Fix**:
-One position report from the GPS receiver, with the time at which the receiver measured it.
+One position report, with the time at which it was measured. Without a qualifier, a fix is a GPS fix.
 _Avoid_: Location, update, point
+
+**Fix source**:
+The receiver that measured a fix. A **GPS fix** comes from the GNSS receiver. A **network position** comes from Android's
+network location service, which uses nearby Wi-Fi access points and mobile network cells. A network position has a position
+and an accuracy only. The app stores no speed, direction, or height for it.
+_Avoid_: Provider, Wi-Fi fix, cell fix
 
 **Raw fix**:
 A fix with its values as the receiver reported them, before the usability rules. A raw fix keeps a value that is not reported apart from a value that is reported but not valid.
@@ -26,8 +32,14 @@ The altitude above mean sea level. Android 14 and later calculate it from the GP
 _Avoid_: MSL, elevation, real altitude
 
 **Track sample**:
-One fix as a trip stores it, with its coordinates.
+One fix as a trip stores it, with its coordinates, its fix source, and the number of satellites in the fix when the receiver reports it.
 _Avoid_: Point, location, reading
+
+**Sensor record**:
+The readings of the phone's motion and air pressure sensors that a recording trip stores: acceleration along the phone's axes
+(with gravity, in m/s²), the phone's orientation without magnetic north, and the air pressure in hPa. Each reading has the same
+clock as a fix. The app does not use the sensor record yet. It is stored for later analysis and playback.
+_Avoid_: Telemetry, motion data, accelerometer log
 
 ## Usability rules
 
@@ -36,7 +48,7 @@ A fix with a known horizontal accuracy of 50 m or better.
 _Avoid_: Good fix, valid position
 
 **Usable speed**:
-A finite, non-negative speed from a fix with a usable position. The speed accuracy is not reported, or it is 3 m/s or better.
+A finite, non-negative speed from a GPS fix with a usable position. The speed accuracy is not reported, or it is 3 m/s or better.
 A reported speed accuracy that is not a valid number makes the speed unusable.
 _Avoid_: Valid speed, current speed
 
@@ -47,8 +59,20 @@ _Avoid_: Speed error
 ## Trip recording
 
 **No GPS signal**:
-The state of a recording trip that has had no fix for 10 seconds. The start of the recording segment counts as a fix, so a new segment waits 10 seconds before it reports this state. The next fix ends it.
+The state of a recording trip that has had no GPS fix for 10 seconds. The start of the recording segment counts as a fix, so a new segment waits 10 seconds before it reports this state. The next GPS fix ends it. A network position does not end it.
 _Avoid_: Signal lost, GPS lost, no location
+
+**Approximate position**:
+A network position that a recording trip stores while it has no GPS signal. The trip asks for network positions only in that state,
+and only when the user allows it in Settings. The map draws a line of approximate positions dashed and in another colour.
+A change between GPS fixes and network positions starts a new line and adds no distance.
+_Avoid_: Fallback fix, estimated position
+
+**Recording accuracy**:
+The user's choice of how a trip uses the GPS receiver. **Standard** asks for one fix each second and lets Android deliver them
+in groups while no screen shows. **High accuracy** asks for up to 10 fixes each second, delivered at once, and turns off the
+receiver's duty cycling. It uses much more battery. A segment stores the choice that applied to it.
+_Avoid_: Precision mode, performance mode
 
 **Resume after Stop**:
 A trip that the user saved less than 2 minutes ago can continue as a new segment of the same trip. This undoes an accidental Stop and save.

@@ -76,6 +76,7 @@ import com.example.cvkegps.ui.theme.mapButtonColors
 import com.example.cvkegps.ui.theme.mapButtonModifier
 import com.example.cvkegps.ui.theme.mapToggleColors
 import com.example.cvkegps.ui.theme.Space
+import com.example.cvkegps.location.FixSource
 import com.example.cvkegps.location.TrackSample
 import com.example.cvkegps.settings.MapLayer
 import com.example.cvkegps.ui.FloatingBackButton
@@ -85,6 +86,8 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.Dash
+import com.google.android.gms.maps.model.Gap
 import com.google.android.gms.maps.model.JointType
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.RoundCap
@@ -205,11 +208,13 @@ private fun MapCanvas(
         val fitArea by rememberUpdatedState(fitWidth to fitHeight)
 
         // The route line. A live route redraws at most every ROUTE_REDRAW_MILLIS, so a long trip does not rebuild the line for each fix.
-        var route by remember { mutableStateOf<List<List<LatLng>>>(emptyList()) }
+        var route by remember { mutableStateOf<List<RouteLine>>(emptyList()) }
         val latestLines by rememberUpdatedState(lines)
         LaunchedEffect(fitRequest) {
             snapshotFlow { latestLines }.conflate().collect { lines ->
-                route = withContext(Dispatchers.Default) { lines.filter { it.size > 1 }.map { line -> line.map { it.latLng() } } }
+                route = withContext(Dispatchers.Default) {
+                    lines.filter { it.size > 1 }.map { line -> RouteLine(line.map { it.latLng() }, line.first().source == FixSource.Network) }
+                }
                 // Review fits once. Route updates must not reset a user pan. A live map that follows the position places the camera itself.
                 if (!placed && !(live && follow != FollowMode.Off)) {
                     val (width, height) = fitArea
@@ -333,12 +338,16 @@ private fun MapCanvas(
 
 /** The route line, the start and end markers, and the live position. Only the map content can make marker images. */
 @Composable
-private fun RouteOverlay(route: List<List<LatLng>>, lines: List<List<TrackSample>>, live: Boolean, position: LivePosition?, routeColor: Color) {
+private fun RouteOverlay(route: List<RouteLine>, lines: List<List<TrackSample>>, live: Boolean, position: LivePosition?, routeColor: Color) {
     val context = LocalContext.current
     val density = LocalDensity.current
     val icons = remember(density, routeColor) { MapIcons(density, routeColor.toArgb()) }
     val lineWidth = with(density) { 4.dp.toPx() }
-    for (line in route) Polyline(line, color = routeColor, width = lineWidth, jointType = JointType.ROUND,
+    // A network position is approximate. Its line is dashed and has the warning colour, so the colour is not the only sign.
+    val approximateColor = CvkeTheme.colors.warning
+    val dashes = remember(density) { with(density) { listOf(Dash(8.dp.toPx()), Gap(6.dp.toPx())) } }
+    for (line in route) Polyline(line.points, color = if (line.approximate) approximateColor else routeColor, width = lineWidth,
+        jointType = JointType.ROUND, pattern = dashes.takeIf { line.approximate },
         startCap = RoundCap(), endCap = RoundCap(), zIndex = 1f)
     val first = lines.firstOrNull { it.isNotEmpty() }?.first()
     // While recording, the position marker shows the newest point instead of an end marker.
@@ -424,6 +433,9 @@ private fun rememberPlayServices(): Int? {
         }
     }.value
 }
+
+/** One drawn part of the route. [approximate] is a part from network positions. */
+private class RouteLine(val points: List<LatLng>, val approximate: Boolean)
 
 private fun TrackSample.latLng() = LatLng(Math.toDegrees(latitudeRadians), Math.toDegrees(longitudeRadians))
 

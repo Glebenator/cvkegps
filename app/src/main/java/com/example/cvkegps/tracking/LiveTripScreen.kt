@@ -75,6 +75,7 @@ fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> 
     var details by rememberSaveable { mutableStateOf(false) }
     val elapsed = rememberElapsed(state)
     val noSignal = rememberSignalLost(state)
+    val approximate = rememberApproximate(state)
     // Close this screen when the trip ends elsewhere, for example from the notification.
     val seen = remember { booleanArrayOf(false) }
     LaunchedEffect(trip == null) { if (trip != null) seen[0] = true else if (seen[0]) onEnded() }
@@ -93,7 +94,7 @@ fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> 
     val pane: @Composable ColumnScope.() -> Unit = {
         if (trip != null) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                TripStatusChip(trip.status, noSignal)
+                TripStatusChip(trip.status, noSignal, approximate = approximate)
                 Spacer(Modifier.weight(1f))
                 IconToggleButton(checked = details, onCheckedChange = { details = it }, modifier = Modifier.testTag("trip_details")) {
                     Icon(painterResource(R.drawable.ic_info), contentDescription = stringResource(R.string.trip_details))
@@ -148,7 +149,7 @@ fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> 
                         // then only the status shows here, and the speed is in the details sheet.
                         FlowRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(Space.s3), maxLines = 1,
                             itemVerticalAlignment = Alignment.CenterVertically) {
-                            TripStatusChip(trip.status, noSignal)
+                            TripStatusChip(trip.status, noSignal, approximate = approximate)
                             Text(reading?.speedMetersPerSecond?.let(format::speed) ?: stringResource(R.string.no_value),
                                 Modifier.testTag("tracking_speed"), style = MaterialTheme.typography.titleLarge, maxLines = 1)
                         }
@@ -184,7 +185,7 @@ fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> 
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom,
                         horizontalArrangement = Arrangement.spacedBy(Space.s4)) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
-                            TripStatusChip(trip.status, noSignal)
+                            TripStatusChip(trip.status, noSignal, approximate = approximate)
                             // One line: a long value gets smaller instead of breaking between the number and the unit.
                             BasicText(reading?.speedMetersPerSecond?.let(format::speed) ?: stringResource(R.string.no_value),
                                 Modifier.testTag("tracking_speed"), maxLines = 1,

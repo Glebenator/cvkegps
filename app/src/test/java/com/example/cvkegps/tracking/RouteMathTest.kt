@@ -1,5 +1,6 @@
 package com.example.cvkegps.tracking
 
+import com.example.cvkegps.location.FixSource
 import com.example.cvkegps.location.TrackSample
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -14,6 +15,22 @@ class RouteMathTest {
         0.0, Math.toRadians(longitude), 1_000L + seconds * 1_000, seconds * 1_000_000_000,
         seconds * 1_000_000_000, accuracy, speed, 0.1f, null, null, null, null, false,
     )
+
+    @Test fun networkPositionsFormTheirOwnLineWithoutSpeedAndWithoutDistanceAcrossTheChange() {
+        val network = { seconds: Long, longitude: Double -> sample(seconds, longitude).copy(source = FixSource.Network) }
+        // GPS, then a gap until the first network position, then GPS again 5 seconds after the last network position.
+        val result = RouteMath.summarize(listOf(listOf(sample(1), sample(2, 0.001), network(15, 0.002), network(20, 0.003),
+            sample(25, 0.004), sample(26, 0.005))))
+        assertEquals(listOf(FixSource.Gps, FixSource.Network, FixSource.Gps), result.lines.map { it.first().source })
+        assertEquals(listOf(2, 2, 2), result.lines.map { it.size })
+        // Three steps of 0.001 degrees: within each GPS line and within the network line. The changes of source add nothing.
+        assertEquals(3 * 111.195, result.distanceMeters, 0.1)
+        assertEquals(1, result.gapCount)
+        assertEquals(13_000_000_000L, result.gapNanos)
+        assertEquals(10f, result.maximumSpeedMetersPerSecond)
+        val fast = RouteMath.summarize(listOf(listOf(sample(1).copy(speedMetersPerSecond = 90f, source = FixSource.Network))))
+        assertNull(fast.maximumSpeedMetersPerSecond)
+    }
 
     @Test fun distanceHandlesTheDateLineAndStationaryNoise() {
         val a = sample(1, 179.999)
