@@ -13,18 +13,33 @@ import kotlinx.coroutines.withContext
 
 /** User choices that stay after the app closes. Defaults apply until the stored values are read. */
 data class Settings(
-    /** Keep the screen on while the Speed tab is open. Off by default, because it uses more battery. */
-    val keepScreenOn: Boolean = false,
+    /** When the app keeps the screen on. Off by default, because it uses more battery. */
+    val screenOn: ScreenOn = ScreenOn.Off,
+    /** Where the screen stays on: the Speed tab and the current trip map. */
+    val screenOnSpeed: Boolean = true,
+    val screenOnTripMap: Boolean = true,
+    /** Dim a screen that the app keeps on after a time without touch. */
+    val dimScreen: Boolean = false,
+    /** Null units follow the region of the device. */
+    val speedUnit: SpeedUnit? = null,
+    val distanceUnit: DistanceUnit? = null,
+    val altitudeUnit: AltitudeUnit? = null,
+    val altitudeReference: AltitudeReference = AltitudeReference.SeaLevel,
     /** The user has read the trip recording explanation once. */
     val tripAccessExplained: Boolean = false,
     /** The map type on the trip maps. */
     val mapLayer: MapLayer = MapLayer.Default,
     /** Live traffic on the current trip map. Off by default, because it loads more map data. */
     val mapTraffic: Boolean = false,
-)
+) {
+    /** The chosen units, with the region's units where the user made no choice. */
+    fun units(country: String): Units = Units.forCountry(country).let {
+        Units(speedUnit ?: it.speed, distanceUnit ?: it.distance, altitudeUnit ?: it.altitude)
+    }
+}
 
-/** The map types that the trip maps offer. [key] is the stored value, so a rename does not change it. */
-enum class MapLayer(val key: String) {
+/** The map types that the trip maps offer. */
+enum class MapLayer(override val key: String) : StoredChoice {
     Default("default"),
     Satellite("satellite"),
     Terrain("terrain"),
@@ -50,49 +65,47 @@ class AppSettings(
 
     init {
         scope.launch {
-            val stored = withContext(storage) {
-                val read = preferences()
-                val layer = read.getString(MAP_LAYER, null)
-                Settings(read.getBoolean(KEEP_SCREEN_ON, false), read.getBoolean(TRIP_ACCESS_EXPLAINED, false),
-                    // An unknown stored value, for example from a later app version, shows the default map.
-                    MapLayer.entries.firstOrNull { it.key == layer } ?: MapLayer.Default, read.getBoolean(MAP_TRAFFIC, false))
-            }
+            val stored = withContext(storage) { read(preferences()) }
             val current = mutable.value
+            fun <T> pick(key: String, choice: Settings.() -> T): T = (if (key in chosen) current else stored).choice()
             mutable.value = Settings(
-                keepScreenOn = if (KEEP_SCREEN_ON in chosen) current.keepScreenOn else stored.keepScreenOn,
-                tripAccessExplained = if (TRIP_ACCESS_EXPLAINED in chosen) current.tripAccessExplained else stored.tripAccessExplained,
-                mapLayer = if (MAP_LAYER in chosen) current.mapLayer else stored.mapLayer,
-                mapTraffic = if (MAP_TRAFFIC in chosen) current.mapTraffic else stored.mapTraffic,
+                screenOn = pick(SCREEN_ON) { screenOn },
+                screenOnSpeed = pick(SCREEN_ON_SPEED) { screenOnSpeed },
+                screenOnTripMap = pick(SCREEN_ON_TRIP_MAP) { screenOnTripMap },
+                dimScreen = pick(DIM_SCREEN) { dimScreen },
+                speedUnit = pick(SPEED_UNIT) { speedUnit },
+                distanceUnit = pick(DISTANCE_UNIT) { distanceUnit },
+                altitudeUnit = pick(ALTITUDE_UNIT) { altitudeUnit },
+                altitudeReference = pick(ALTITUDE_REFERENCE) { altitudeReference },
+                tripAccessExplained = pick(TRIP_ACCESS_EXPLAINED) { tripAccessExplained },
+                mapLayer = pick(MAP_LAYER) { mapLayer },
+                mapTraffic = pick(MAP_TRAFFIC) { mapTraffic },
             )
         }
     }
 
-    fun setKeepScreenOn(value: Boolean) {
-        mutable.value = mutable.value.copy(keepScreenOn = value)
-        write(KEEP_SCREEN_ON) { putBoolean(KEEP_SCREEN_ON, value) }
-    }
+    fun setScreenOn(value: ScreenOn) = change(SCREEN_ON, { copy(screenOn = value) }) { putString(SCREEN_ON, value.key) }
+    fun setScreenOnSpeed(value: Boolean) = change(SCREEN_ON_SPEED, { copy(screenOnSpeed = value) }) { putBoolean(SCREEN_ON_SPEED, value) }
+    fun setScreenOnTripMap(value: Boolean) =
+        change(SCREEN_ON_TRIP_MAP, { copy(screenOnTripMap = value) }) { putBoolean(SCREEN_ON_TRIP_MAP, value) }
+    fun setDimScreen(value: Boolean) = change(DIM_SCREEN, { copy(dimScreen = value) }) { putBoolean(DIM_SCREEN, value) }
+    fun setSpeedUnit(value: SpeedUnit) = change(SPEED_UNIT, { copy(speedUnit = value) }) { putString(SPEED_UNIT, value.key) }
+    fun setDistanceUnit(value: DistanceUnit) = change(DISTANCE_UNIT, { copy(distanceUnit = value) }) { putString(DISTANCE_UNIT, value.key) }
+    fun setAltitudeUnit(value: AltitudeUnit) = change(ALTITUDE_UNIT, { copy(altitudeUnit = value) }) { putString(ALTITUDE_UNIT, value.key) }
+    fun setAltitudeReference(value: AltitudeReference) =
+        change(ALTITUDE_REFERENCE, { copy(altitudeReference = value) }) { putString(ALTITUDE_REFERENCE, value.key) }
+    fun setTripAccessExplained() =
+        change(TRIP_ACCESS_EXPLAINED, { copy(tripAccessExplained = true) }) { putBoolean(TRIP_ACCESS_EXPLAINED, true) }
+    fun setMapLayer(value: MapLayer) = change(MAP_LAYER, { copy(mapLayer = value) }) { putString(MAP_LAYER, value.key) }
+    fun setMapTraffic(value: Boolean) = change(MAP_TRAFFIC, { copy(mapTraffic = value) }) { putBoolean(MAP_TRAFFIC, value) }
 
-    fun setTripAccessExplained() {
-        mutable.value = mutable.value.copy(tripAccessExplained = true)
-        write(TRIP_ACCESS_EXPLAINED) { putBoolean(TRIP_ACCESS_EXPLAINED, true) }
-    }
-
-    fun setMapLayer(value: MapLayer) {
-        mutable.value = mutable.value.copy(mapLayer = value)
-        write(MAP_LAYER) { putString(MAP_LAYER, value.key) }
-    }
-
-    fun setMapTraffic(value: Boolean) {
-        mutable.value = mutable.value.copy(mapTraffic = value)
-        write(MAP_TRAFFIC) { putBoolean(MAP_TRAFFIC, value) }
-    }
-
-    /** Writes only the changed value, so a change before the first read does not replace the other stored values. */
-    private fun write(key: String, change: SharedPreferences.Editor.() -> Unit) {
+    /** Shows the change at once and writes only the changed value, so a change before the first read keeps the other stored values. */
+    private fun change(key: String, update: Settings.() -> Settings, write: SharedPreferences.Editor.() -> Unit) {
+        mutable.value = mutable.value.update()
         chosen += key
         scope.launch {
             // edit applies the change and writes it to disk in the background.
-            withContext(storage) { preferences().edit(action = change) }
+            withContext(storage) { preferences().edit(action = write) }
         }
     }
 
@@ -101,9 +114,34 @@ class AppSettings(
 
     private companion object {
         const val FILE = "settings"
+        // Earlier builds stored one switch that kept the screen on for Speed and the current trip. It reads as Always.
         const val KEEP_SCREEN_ON = "keep_screen_on"
+        const val SCREEN_ON = "screen_on"
+        const val SCREEN_ON_SPEED = "screen_on_speed"
+        const val SCREEN_ON_TRIP_MAP = "screen_on_trip_map"
+        const val DIM_SCREEN = "dim_screen"
+        const val SPEED_UNIT = "speed_unit"
+        const val DISTANCE_UNIT = "distance_unit"
+        const val ALTITUDE_UNIT = "altitude_unit"
+        const val ALTITUDE_REFERENCE = "altitude_reference"
         const val TRIP_ACCESS_EXPLAINED = "trip_access_explained"
         const val MAP_LAYER = "map_layer"
         const val MAP_TRAFFIC = "map_traffic"
+
+        /** An unknown stored value, for example from a later app version, reads as the default. */
+        fun read(read: SharedPreferences) = Settings(
+            screenOn = read.getString(SCREEN_ON, null).toChoice<ScreenOn>()
+                ?: if (read.getBoolean(KEEP_SCREEN_ON, false)) ScreenOn.Always else ScreenOn.Off,
+            screenOnSpeed = read.getBoolean(SCREEN_ON_SPEED, true),
+            screenOnTripMap = read.getBoolean(SCREEN_ON_TRIP_MAP, true),
+            dimScreen = read.getBoolean(DIM_SCREEN, false),
+            speedUnit = read.getString(SPEED_UNIT, null).toChoice<SpeedUnit>(),
+            distanceUnit = read.getString(DISTANCE_UNIT, null).toChoice<DistanceUnit>(),
+            altitudeUnit = read.getString(ALTITUDE_UNIT, null).toChoice<AltitudeUnit>(),
+            altitudeReference = read.getString(ALTITUDE_REFERENCE, null).toChoice<AltitudeReference>() ?: AltitudeReference.SeaLevel,
+            tripAccessExplained = read.getBoolean(TRIP_ACCESS_EXPLAINED, false),
+            mapLayer = read.getString(MAP_LAYER, null).toChoice<MapLayer>() ?: MapLayer.Default,
+            mapTraffic = read.getBoolean(MAP_TRAFFIC, false),
+        )
     }
 }

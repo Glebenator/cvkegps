@@ -58,6 +58,9 @@ import com.example.cvkegps.location.GpsReading
 import com.example.cvkegps.ui.MapWithPane
 import com.example.cvkegps.ui.isCompactHeight
 import com.example.cvkegps.ui.isWideWindow
+import com.example.cvkegps.settings.AltitudeReference
+import com.example.cvkegps.ui.LocalDisplayChoices
+import com.example.cvkegps.ui.altitude
 import com.example.cvkegps.ui.rememberDisplayFormat
 import kotlinx.coroutines.delay
 
@@ -209,8 +212,7 @@ fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> 
 private fun LargeSpeed(reading: GpsReading?) {
     val format = rememberDisplayFormat()
     val speed = reading?.speedMetersPerSecond
-    val description = if (speed != null) stringResource(R.string.speed_accessibility, format.speedNumber(speed))
-    else stringResource(R.string.speed_unavailable_accessibility)
+    val description = speed?.let(format::spokenSpeed) ?: stringResource(R.string.speed_unavailable_accessibility)
     Column(Modifier.clearAndSetSemantics { contentDescription = description }) {
         Text(stringResource(R.string.current_speed), style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -222,7 +224,7 @@ private fun LargeSpeed(reading: GpsReading?) {
                 // The speed is already the largest text. Large text does not make it larger, so the other values keep their room.
                 autoSize = TextAutoSize.StepBased(minFontSize = 28.sp, maxFontSize = (72f / LocalDensity.current.fontScale).coerceAtLeast(28f).sp))
             // A dash with a unit reads like a value. Show the unit only with a speed.
-            if (speed != null) Text(stringResource(R.string.speed_unit), Modifier.alignByBaseline(), style = MaterialTheme.typography.titleMedium,
+            if (speed != null) Text(format.speedUnit, Modifier.alignByBaseline(), style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         }
     }
@@ -235,9 +237,9 @@ private fun LiveDetails(trip: TripRecord, summary: RouteSummary?, reading: GpsRe
     if (includeTotals) TripTotals(trip.distanceMeters, distancePending = false, durationNanos = elapsed,
         maximumSpeed = summary?.maximumSpeedMetersPerSecond, maximumPending = summary == null)
     TechnicalDetails {
-        Metric(R.string.trip_altitude, reading?.altitudeMeters?.let {
-            stringResource(R.string.trip_altitude_value, format.decimal(it))
-        })
+        val reference = LocalDisplayChoices.current.altitude
+        Metric(if (reference == AltitudeReference.SeaLevel) R.string.trip_altitude else R.string.trip_gps_height,
+            reading?.altitude(reference)?.let(format::altitude))
         Metric(R.string.trip_quality, reading?.accuracyMeters?.let {
             stringResource(R.string.trip_uncertainty_value, format.decimal(it.toDouble()))
         })

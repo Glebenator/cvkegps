@@ -270,7 +270,7 @@ class SkyMapDeviceTest {
                             }
                         }
                         CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale)) {
-                            CvkeGpsTheme(darkTheme = dark) { AppShell(activity.application as TrackingApplication, speed, compass, 0) }
+                            CvkeGpsTheme(darkTheme = dark) { AppShell(activity.application as TrackingApplication, speed, compass, 0, MutableStateFlow(SystemClock.uptimeMillis())) }
                         }
                     }
                 }

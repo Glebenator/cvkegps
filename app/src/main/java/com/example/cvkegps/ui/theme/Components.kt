@@ -8,7 +8,27 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
@@ -155,5 +175,63 @@ fun SliceArt(modifier: Modifier = Modifier, animated: Boolean = false) {
         drawArc(colors.brandApricotSubtle, 180f, 180f, useCenter = true, topLeft = base - Offset(half, half), size = GeometrySize(half * 2, half * 2))
         drawCircle(colors.brandApricot, 4 * unit, Offset(78 * unit, 52 * unit))
         drawCircle(colors.ink, 4 * unit, Offset(84 * unit, 12 * unit))
+    }
+}
+
+/**
+ * A single choice of a few short options, such as units: a `surface-sunken` pill track with segments at least 48 dp high.
+ * The selected segment is `accent-subtle` with `accent` text. Screen readers hear each segment as a radio button.
+ * [spoken] gives a full name where the visible label is an abbreviation, for example "kilometres per hour" for km/h.
+ */
+@Composable
+fun <T> SegmentedChoice(
+    options: List<T>,
+    selected: T,
+    label: @Composable (T) -> String,
+    onSelect: (T) -> Unit,
+    modifier: Modifier = Modifier,
+    spoken: @Composable (T) -> String? = { null },
+    tag: (T) -> String = { "" },
+) {
+    val colors = CvkeTheme.colors
+    Row(modifier.fillMaxWidth().clip(CircleShape).background(colors.surfaceSunken).padding(Space.s1).selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(Space.s1)) {
+        options.forEach { option ->
+            val chosen = option == selected
+            val name = spoken(option)
+            Box(Modifier.weight(1f).heightIn(min = Size.touch).clip(CircleShape)
+                .background(if (chosen) colors.accentSubtle else Color.Transparent)
+                .selectable(chosen, role = Role.RadioButton) { onSelect(option) }
+                .then(if (name != null) Modifier.semantics { contentDescription = name } else Modifier)
+                .testTag(tag(option)),
+                contentAlignment = Alignment.Center) {
+                Text(label(option), Modifier.padding(horizontal = Space.s2, vertical = Space.s1),
+                    style = MaterialTheme.typography.labelLarge, color = if (chosen) colors.accent else colors.ink,
+                    textAlign = TextAlign.Center)
+            }
+        }
+    }
+}
+
+/**
+ * The inline "Saved" confirmation: a `success` check and the word, for 2 s after each change. [changes] counts the changes.
+ * It fades in and out without movement, and screen readers announce it.
+ */
+@Composable
+fun SavedNote(changes: Int, modifier: Modifier = Modifier) {
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(changes) {
+        if (changes == 0) return@LaunchedEffect
+        shown = true
+        delay(2_000)
+        shown = false
+    }
+    AnimatedVisibility(shown, modifier, enter = fadeIn(tween(Motion.ENTER_MILLIS, easing = Motion.standard)),
+        exit = fadeOut(tween(Motion.EXIT_MILLIS, easing = Motion.standard))) {
+        Row(Modifier.semantics { liveRegion = LiveRegionMode.Polite }, verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Space.s1)) {
+            Icon(painterResource(R.drawable.ic_check), contentDescription = null, Modifier.size(Size.iconSm), tint = CvkeTheme.colors.success)
+            Text(stringResource(R.string.settings_saved), style = MaterialTheme.typography.labelMedium, color = CvkeTheme.colors.inkMuted)
+        }
     }
 }

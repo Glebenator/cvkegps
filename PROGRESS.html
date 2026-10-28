@@ -167,18 +167,19 @@
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-10-28">28 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>5b6e782</code> plus the keep-screen-on fix (branch <code>native-maps</code>)</dd></div>
+          <div><dt>App code baseline</dt><dd><code>ac1fcd8</code> plus the Settings screen (branch <code>native-maps</code>, not committed)</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
       </aside>
     </div>
     <div class="metrics" aria-label="Last verified results">
-      <div class="metric"><strong>41 / 42</strong><span>Device tests passed on the final design-language code</span><span class="small">Pixel 10 Pro, API 37, with a Maps API key · the GPX share test timed out at the share sheet, then passed twice alone</span></div>
-      <div class="metric"><strong>33 / 33</strong><span>Calculation tests passed</span><span class="small">New: route framing and map settings</span></div>
+      <div class="metric"><strong>45 / 45</strong><span>Device tests passed with the Settings screen</span><span class="small">Pixel 10 Pro, API 37, with a Maps API key · the 4 settings tests passed again on the final code</span></div>
+      <div class="metric"><strong>37 / 37</strong><span>Calculation tests passed</span><span class="small">New: unit conversion, region units, and settings migration</span></div>
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, debug lint, and unsigned release build</span><span class="small">Release APK not installed or run</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#settings-screen">Settings screen · 28 Oct</a>
       <a href="#keep-screen-on-trip">Screen on during a trip · 28 Oct</a>
       <a href="#design-language">Design language · 27 Oct</a>
       <a href="#native-maps">Native maps · 27 Oct</a>
@@ -203,6 +204,65 @@
       <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
     </nav>
+
+    <section id="settings-screen" aria-labelledby="settings-screen-heading">
+      <div class="section-head"><h2 id="settings-screen-heading">Settings screen · 28 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
+      <p class="section-intro">Settings is now one long page in the owner's design language: a heading and a card for each section, switches for on and off, radio rows for choices that need an explanation, and a pill segmented control for short choices such as units.
+      Each change saves at once and shows <strong>Saved</strong> with a check next to its section heading for 2 seconds. The settings are in <a href="app/src/main/java/com/example/cvkegps/settings/AppSettings.kt"><code>AppSettings.kt</code></a> and <a href="app/src/main/java/com/example/cvkegps/settings/Units.kt"><code>Units.kt</code></a>.
+      The screen is in <a href="app/src/main/java/com/example/cvkegps/ui/SettingsScreen.kt"><code>SettingsScreen.kt</code></a>.</p>
+      <div class="table-wrap"><table class="wrap-cells">
+        <thead><tr><th scope="col">Section</th><th scope="col">Options and behaviour</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Units</th><td>Speed: km/h, mph, or kn. Distance: km, mi, or nmi. Altitude: m or ft. Without a choice, the units follow the device region: miles and feet in the United States, Liberia, and Myanmar, miles and metres in the United Kingdom, and metric units in other regions.
+          The units apply to the Speed tab, the current trip, saved trips, the trip list, and the notification (text and the Android 17 metric card). Measurements stay in SI units until <a href="app/src/main/java/com/example/cvkegps/ui/DisplayFormat.kt"><code>DisplayFormat</code></a> formats them. Accuracy values, GPS details, and GPX files stay in SI units. Screen readers hear unit names in full, for example "knots".</td></tr>
+          <tr><th scope="row">Altitude reference</th><td><strong>Above sea level</strong> is the default. On Android 14 and later, <code>AltitudeConverter</code> calculates it from the GPS height and the geoid model on the device. The conversion reads model data from disk, so it runs on a background thread. The reading shows when the sea-level value is known, so the value does not change between the two heights.
+          <strong>GPS height</strong> is the height above the WGS 84 ellipsoid. Before Android 14 the app shows the GPS height, and the sea-level choice is disabled with the text "Needs Android 14 or later". The altitude card names the reference, for example "Above sea level". Trips do not store the sea-level altitude.</td></tr>
+          <tr><th scope="row">Screen</th><td><strong>Keep the screen on</strong>: Never (the default), During a trip (only while a trip records, so a paused trip lets the screen turn off), or Always. Two switches select the screens: the Speed tab and the current trip map. They are disabled while the choice is Never.
+          <strong>Dim after 1 minute without touch</strong> sets the app window brightness to 10% while the app keeps the screen on. A touch or key press makes it bright again. The wait restarts at each touch and does no work between touches. The earlier single switch reads as Always.</td></tr>
+          <tr><th scope="row">Maps</th><td>Map type (Default, Satellite, Terrain) and traffic on the current trip map. The map buttons change the same stored values.</td></tr>
+          <tr><th scope="row">About</th><td>App version and "Location stays on this device."</td></tr>
+        </tbody>
+      </table></div>
+      <pre><code><a href="app/src/main/java/com/example/cvkegps/ui/AppShell.kt">AppShell.kt</a> · KeepScreenOnWhenChosen
+val screen = (top == Destination.Speed &amp;&amp; settings.screenOnSpeed) || (top == Destination.LiveTrip &amp;&amp; settings.screenOnTripMap)
+val keepOn = screen &amp;&amp; when (settings.screenOn) {
+    ScreenOn.Off -&gt; false
+    ScreenOn.DuringTrip -&gt; recording
+    ScreenOn.Always -&gt; true
+}</code></pre>
+      <h3 style="margin-top:24px">Pixel 10 Pro emulator, Android 17 (API 37)</h3>
+      <div class="screens">
+      <figure class="shot"><a href="docs/progress/images/2026-10-28-settings-units-light.webp"><img src="docs/progress/images/2026-10-28-settings-units-light.webp" loading="lazy" alt="Settings in the light theme: a Units card with three segmented controls. mph, mi, and ft are selected with a light blue fill. Below it, the Altitude reference card with Above sea level selected."></a>
+      <figcaption><strong>Units, region default</strong>28 October 2026. Baseline <code>ac1fcd8</code> plus the Settings screen. Pixel 10 Pro emulator, Android 17 (API 37), region United States, so mph, mi, and ft are selected without a choice.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-28-settings-screen-light.webp"><img src="docs/progress/images/2026-10-28-settings-screen-light.webp" loading="lazy" alt="Settings scrolled down: the Altitude reference card with two radio rows and their explanations, then the Screen card with Never, During a trip, and Always."></a>
+      <figcaption><strong>Altitude and screen</strong>28 October 2026. Baseline <code>ac1fcd8</code> plus the Settings screen. Pixel 10 Pro emulator, Android 17 (API 37). Default values.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-28-settings-maps-dark.webp"><img src="docs/progress/images/2026-10-28-settings-maps-dark.webp" loading="lazy" alt="Settings in the dark theme: the Screen card with disabled switches for the Speed tab and the current trip map, the Dim switch, then the Maps card with Default selected and the Traffic switch."></a>
+      <figcaption><strong>Screen and maps, dark</strong>28 October 2026. Baseline <code>ac1fcd8</code> plus the Settings screen. Pixel 10 Pro emulator, Android 17 (API 37). The screen switches are disabled because Never is selected.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-28-speed-knots-sea-level.webp"><img src="docs/progress/images/2026-10-28-speed-knots-sea-level.webp" loading="lazy" alt="Speed tab showing 19.4 kn, an Altitude card with 119 m and Above sea level, and Maximum speed 19.4 kn."></a>
+      <figcaption><strong>Speed in knots, sea level</strong>28 October 2026. Baseline <code>ac1fcd8</code> plus the Settings screen. Pixel 10 Pro emulator, Android 17 (API 37). Simulated Android test location near Vancouver: 10 m/s and a GPS height of 100 m. Android's geoid model gives 119 m above sea level.</figcaption></figure>
+      <figure class="shot landscape"><a href="docs/progress/images/2026-10-28-settings-large-text-landscape.webp"><img src="docs/progress/images/2026-10-28-settings-large-text-landscape.webp" loading="lazy" alt="Settings in landscape at 200% text: the compact header with Back and Settings, and the unit controls at full width with labels that do not break."></a>
+      <figcaption><strong>Landscape, 200% text</strong>28 October 2026. Baseline <code>ac1fcd8</code> plus the Settings screen. Pixel 10 Pro emulator, Android 17 (API 37).</figcaption></figure>
+      </div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li>Pixel 10 Pro emulator, Android 17 (API 37), with the development Maps API key: all 45 device tests passed before the last change (the section heading "Altitude reference" and two screenshots in the test). After that change, the 4 tests in <a href="app/src/androidTest/java/com/example/cvkegps/SettingsDeviceTest.kt"><code>SettingsDeviceTest</code></a> passed again.</li>
+          <li><code>SettingsDeviceTest</code> checks: the region units and then knots on the Speed tab; sea level between 110 m and 125 m for a GPS height of 100 m near Vancouver; GPS height; the choices after recreation; where and when the screen stays on, also with a paused trip; the dim after 1 minute and the bright screen after a touch; and the layout in light, dark, 200% text, portrait, and landscape.</li>
+          <li><code>SpeedometerDeviceTest</code> now sets km/h, metres, and GPS height before each test, because it checks fixed values. The trip tests use the region units through <code>DisplayFormat</code>.</li>
+          <li>37 of 37 calculation tests passed, with new tests for imperial and nautical conversion, region units, the old screen switch, and unknown stored values. Debug build, test build, debug lint, and the unsigned release build passed.</li>
+          <li>The emulator stopped once during the first final run of the settings tests, in the layout test. After a restart, all 4 settings tests passed.</li>
+          <li>Raw captures and logs: <code>artifacts/settings-2026-10-28/</code> (not in Git).</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>Checked on an emulator with simulated locations only. Sea-level accuracy, the battery saved by dimming, and the dim brightness in sunlight need a physical phone.</li>
+          <li>Android 13 and earlier were not tested. There, the sea-level choice is disabled and the app shows the GPS height.</li>
+          <li>A unit that the user chose stays chosen. There is no choice to follow the region again.</li>
+          <li>The touch that makes a dimmed screen bright also acts on the control under the finger.</li>
+          <li>GPX files do not include altitude. Sea-level altitude in GPX needs the trips to store it.</li>
+          <li>TalkBack was not used on the new screen. The semantics give radio and switch roles and full unit names.</li>
+        </ul>
+      </article>
+    </section>
 
     <section id="keep-screen-on-trip" aria-labelledby="keep-screen-on-trip-heading">
       <div class="section-head"><h2 id="keep-screen-on-trip-heading">Keep the screen on during a trip · 28 October 2026</h2><span class="tag done">Fixed and checked on an emulator</span></div>
@@ -1797,6 +1857,9 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-28">28 October 2026</time><div><h3>Settings screen</h3>
+<p>Built out Settings in the owner's design language: units for speed, distance, and altitude (region default); altitude above sea level from Android's geoid model, or the GPS height; when and where the screen stays on, with dimming after 1 minute without touch; map type and traffic; and the app version.
+The units apply to every screen and to the notification. On a Pixel 10 Pro API 37 emulator, 45 of 45 device tests and 37 of 37 calculation tests passed, with lint and the release build. See <a href="#settings-screen">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-28">28 October 2026</time><div><h3>Keep the screen on during a trip</h3>
 <p>The keep-screen-on setting now applies to the current trip map as well as the Speed tab. The app shell sets the flag from the top screen, so a screen that leaves during a transition cannot clear it.
 The changed device test passed; 24 of 25 tracking device tests passed, and the one location timing failure passed three times alone. See <a href="#keep-screen-on-trip">evidence</a>.</p></div></li>

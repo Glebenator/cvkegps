@@ -67,5 +67,9 @@ class FixInterpreter(private val declination: (TrackSample) -> Double) {
         ))
     }
 
+    /** Adds the sea-level altitude of the same fix. The reading shows it only when it also shows the GPS height. */
+    fun withSeaLevel(reading: GpsReading, meters: Double?): GpsReading =
+        reading.copy(seaLevelAltitudeMeters = meters?.takeIf { it.isFinite() && reading.altitudeMeters != null })
+
     private fun Float?.nonNegative() = this?.takeIf { it.isFinite() && it >= 0 }
 }

@@ -27,15 +27,15 @@ class AppSettingsTest {
     }
 
     @Test fun anOffChoiceBeforeTheLoadWinsAndKeepsTheOtherStoredValue() {
-        val stored = FakePreferences(mapOf(KEEP_SCREEN_ON to true, TRIP_ACCESS_EXPLAINED to true))
+        val stored = FakePreferences(mapOf(SCREEN_ON_SPEED to true, TRIP_ACCESS_EXPLAINED to true))
         val load = CountDownLatch(1)
         val opened = mutableListOf<String>()
         val settings = onUi { AppSettings({ opened += Thread.currentThread().name; load.await(); stored }, scope) }
-        onUi { settings.setKeepScreenOn(false) }
+        onUi { settings.setScreenOnSpeed(false) }
         load.countDown()
         waitFor { settings.values.value.tripAccessExplained }
-        assertEquals(Settings(keepScreenOn = false, tripAccessExplained = true), settings.values.value)
-        waitFor { stored.values[KEEP_SCREEN_ON] == false }
+        assertEquals(Settings(screenOnSpeed = false, tripAccessExplained = true), settings.values.value)
+        waitFor { stored.values[SCREEN_ON_SPEED] == false }
         assertEquals(true, stored.values[TRIP_ACCESS_EXPLAINED])
         // The preference file is opened and read away from the screen thread.
         assertTrue(opened.isNotEmpty() && "ui" !in opened)
@@ -43,14 +43,33 @@ class AppSettingsTest {
     }
 
     @Test fun anOnChoiceBeforeTheLoadWins() {
-        val stored = FakePreferences(mapOf(KEEP_SCREEN_ON to false))
+        val stored = FakePreferences(mapOf(SCREEN_ON to "off", SPEED_UNIT to "kn"))
         val load = CountDownLatch(1)
         val settings = onUi { AppSettings({ load.await(); stored }, scope) }
         onUi { settings.setTripAccessExplained() }
-        onUi { settings.setKeepScreenOn(true) }
+        onUi { settings.setScreenOn(ScreenOn.Always) }
         load.countDown()
-        waitFor { stored.values[KEEP_SCREEN_ON] == true && stored.values[TRIP_ACCESS_EXPLAINED] == true }
-        assertEquals(Settings(keepScreenOn = true, tripAccessExplained = true), settings.values.value)
+        waitFor { stored.values[SCREEN_ON] == "always" && stored.values[TRIP_ACCESS_EXPLAINED] == true }
+        waitFor { settings.values.value.speedUnit != null }
+        assertEquals(Settings(screenOn = ScreenOn.Always, speedUnit = SpeedUnit.Knots, tripAccessExplained = true), settings.values.value)
+    }
+
+    @Test fun theOldKeepScreenOnSwitchReadsAsAlwaysUntilTheUserChoosesAgain() {
+        val settings = onUi { AppSettings({ FakePreferences(mapOf(KEEP_SCREEN_ON to true)) }, scope) }
+        waitFor { settings.values.value.screenOn == ScreenOn.Always }
+        val chosen = FakePreferences(mapOf(KEEP_SCREEN_ON to true, SCREEN_ON to "trip"))
+        val later = onUi { AppSettings({ chosen }, scope) }
+        waitFor { later.values.value.screenOn == ScreenOn.DuringTrip }
+    }
+
+    @Test fun unitsWithoutAChoiceFollowTheRegionAndUnknownValuesReadAsDefaults() {
+        val stored = FakePreferences(mapOf(DISTANCE_UNIT to "furlong", ALTITUDE_UNIT to "m", ALTITUDE_REFERENCE to "geoid-2030"))
+        val settings = onUi { AppSettings({ stored }, scope) }
+        waitFor { settings.values.value.altitudeUnit != null }
+        val values = settings.values.value
+        assertEquals(AltitudeReference.SeaLevel, values.altitudeReference)
+        assertEquals(Units(SpeedUnit.MilesPerHour, DistanceUnit.Miles, AltitudeUnit.Metres), values.units("US"))
+        assertEquals(Units.Metric, values.units("FR"))
     }
 
     @Test fun anUnknownStoredMapTypeShowsTheDefaultMapAndAMapChoiceIsStored() {
@@ -108,6 +127,12 @@ class AppSettingsTest {
 
     private companion object {
         const val KEEP_SCREEN_ON = "keep_screen_on"
+        const val SCREEN_ON = "screen_on"
+        const val SCREEN_ON_SPEED = "screen_on_speed"
+        const val SPEED_UNIT = "speed_unit"
+        const val DISTANCE_UNIT = "distance_unit"
+        const val ALTITUDE_UNIT = "altitude_unit"
+        const val ALTITUDE_REFERENCE = "altitude_reference"
         const val TRIP_ACCESS_EXPLAINED = "trip_access_explained"
         const val MAP_LAYER = "map_layer"
         const val MAP_TRAFFIC = "map_traffic"

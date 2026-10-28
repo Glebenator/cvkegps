@@ -1,6 +1,7 @@
 package com.example.cvkegps
 
 import android.os.Bundle
+import android.os.SystemClock
 import android.content.Intent
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.activity.ComponentActivity
@@ -17,12 +18,17 @@ import com.example.cvkegps.ui.CompassViewModel
 import com.example.cvkegps.ui.AppShell
 import com.example.cvkegps.ui.SpeedometerViewModel
 import com.example.cvkegps.ui.theme.CvkeGpsTheme
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 class MainActivity : ComponentActivity() {
     private val compassViewModel: CompassViewModel by viewModels {
         viewModelFactory { initializer { CompassViewModel(AndroidHeadingSource(applicationContext)) } }
     }
     private val tripsRequest = mutableIntStateOf(0)
+    // The uptime of the last touch or key press. A screen that the app keeps on dims after a time without one.
+    private val lastTouch = MutableStateFlow(SystemClock.uptimeMillis())
+    private val touches = lastTouch.asStateFlow()
     private val tracking get() = application as TrackingApplication
     private val viewModel: SpeedometerViewModel by viewModels {
         viewModelFactory {
@@ -37,9 +43,14 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             CvkeGpsTheme {
-                AppShell(tracking, viewModel, compassViewModel, tripsRequest.intValue)
+                AppShell(tracking, viewModel, compassViewModel, tripsRequest.intValue, touches)
             }
         }
+    }
+
+    override fun onUserInteraction() {
+        super.onUserInteraction()
+        lastTouch.value = SystemClock.uptimeMillis()
     }
 
     override fun onNewIntent(intent: Intent) {

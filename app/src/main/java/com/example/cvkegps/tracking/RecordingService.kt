@@ -99,7 +99,7 @@ class RecordingService : Service() {
     private fun values(state: RecordingState): String? {
         val trip = state.trip ?: return null
         val distance = trip.distanceMeters ?: return null
-        val format = DisplayFormat(resources)
+        val format = displayFormat()
         val average = averageSpeed(distance, trip.durationNanos)
         return if (average == null) format.distance(distance)
         else getString(R.string.recording_notification_values, format.distance(distance), format.speed(average))
@@ -122,7 +122,7 @@ class RecordingService : Service() {
             .setRequestPromotedOngoing(true)
         // Android shows the app name. While recording, the system chronometer counts the time without notification updates.
         val segmentStart = state.segmentStartNanos
-        val format = DisplayFormat(resources)
+        val format = displayFormat()
         val values = values(state)
         val paused = state.trip?.status == TripStatus.Paused
         var elapsedMillis: Long? = null
@@ -162,20 +162,24 @@ class RecordingService : Service() {
                 Notification.Metric.TimeDifference.FORMAT_CHRONOMETER)
         } else Notification.Metric.TimeDifference.forPausedStopwatch(Duration.ofNanos(trip.durationNanos),
             Notification.Metric.TimeDifference.FORMAT_CHRONOMETER)
+        val format = displayFormat()
         val meters = trip.distanceMeters
-        val distance = when {
-            meters == null -> Notification.Metric.FixedText(getString(R.string.no_value))
-            meters < 1_000 -> Notification.Metric.FixedInt(meters.toInt(), getString(R.string.unit_metres))
-            else -> Notification.Metric.FixedFloat((meters / 1_000).toFloat(), getString(R.string.unit_kilometres), 2, 2)
-        }
-        val average = averageSpeed(meters, trip.durationNanos)?.let {
-            Notification.Metric.FixedFloat((it * DisplayFormat.KMH_PER_MPS).toFloat(), getString(R.string.speed_unit), 1, 1)
-        } ?: Notification.Metric.FixedText(getString(R.string.no_value))
+        val distance = meters?.let(format::distanceAmount)?.metric() ?: Notification.Metric.FixedText(getString(R.string.no_value))
+        val average = averageSpeed(meters, trip.durationNanos)?.let(format::speedAmount)?.metric()
+            ?: Notification.Metric.FixedText(getString(R.string.no_value))
         return Notification.Builder.recoverBuilder(this, base).setStyle(Notification.MetricStyle()
             .addMetric(Notification.Metric(time, getString(R.string.recording_metric_time)))
             .addMetric(Notification.Metric(distance, getString(R.string.trip_distance)))
             .addMetric(Notification.Metric(average, getString(R.string.recording_metric_average)))).build()
     }
+
+    @RequiresApi(Build.VERSION_CODES.CINNAMON_BUN)
+    private fun DisplayFormat.Amount.metric(): Notification.Metric.MetricValue =
+        if (decimals == 0) Notification.Metric.FixedInt(value.toInt(), unit) else Notification.Metric.FixedFloat(value.toFloat(), unit, decimals, decimals)
+
+    /** The units that the user chose. The next notification update shows a change. */
+    private fun displayFormat(): DisplayFormat =
+        DisplayFormat(resources, (application as TrackingApplication).settings.values.value.units(resources.configuration.locales[0].country))
 
     override fun onDestroy() {
         recorder.serviceLost()

@@ -17,6 +17,14 @@ _Avoid_: Location, unfiltered fix
 The values of the newest fix that the app shows as current: speed, altitude, accuracies, and direction of travel. A reading has no coordinates.
 _Avoid_: Measurement, fix (for the displayed values)
 
+**GPS height**:
+The altitude that the GPS receiver reports, above the WGS 84 ellipsoid. It can differ from sea level by up to about 100 m.
+_Avoid_: GPS altitude, ellipsoid altitude
+
+**Sea-level altitude**:
+The altitude above mean sea level. Android 14 and later calculate it from the GPS height and a geoid model. Trips do not store it.
+_Avoid_: MSL, elevation, real altitude
+
 **Track sample**:
 One fix as a trip stores it, with its coordinates.
 _Avoid_: Point, location, reading

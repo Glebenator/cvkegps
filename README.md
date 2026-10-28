@@ -41,7 +41,7 @@ unless a trip is recording. Trip Pause stops the recording request.
 
 Trips use local Room storage. One GPS request supplies both the recorder and live display. Historical samples are saved before display
 updates can discard intermediate readings. Manual pauses and interruptions form separate segments. Missing GPS and poor positions do not
-form connected route lines. Distance is an estimate. Plane mode reports ground speed and GPS altitude relative to WGS84.
+form connected route lines. Distance is an estimate. Plane mode reports ground speed and the chosen altitude: above sea level or the GPS height.
 
 Trip maps use the native Android map, the Google Maps SDK, through `maps-compose`. See [ADR 0002](docs/adr/0002-use-google-maps-for-trip-maps.md).
 Google receives the map area that you look at, the IP address, and technical data about the app. The app does not upload trip records.
@@ -134,8 +134,18 @@ show a saved trip beside the trip list, use the Android 17 metric card with simp
 - **Review issues.** A failed delete no longer leaves its error on screen. Start trip returns when location is turned on
   from Quick Settings. The sky heading follows a 180 degree turn between landscape directions. The activity can be chosen
   before a trip. The recording notice shows only before the first trip, also after a cold start.
-- **Settings.** **Keep the screen on for speed and the current trip** is off by default. It applies only while the Speed tab
-  or the current trip map shows.
+- **Settings.** One page with sections for units, altitude reference, screen, maps, and the app version. Each change
+  saves at once and shows **Saved** next to its section heading.
+  - **Units.** Speed in km/h, mph, or kn; distance in km, mi, or nmi; altitude in m or ft. Without a choice, the units
+    follow the device region: miles and feet in the United States, Liberia, and Myanmar; miles and metres in the United
+    Kingdom; metric units in all other regions. Accuracy values and GPS details stay in metres. GPX files stay in SI units.
+  - **Altitude reference.** **Above sea level** is the default. Android 14 and later calculate it from the GPS height and
+    the geoid model on the device, off the main thread. **GPS height** is the height above the WGS 84 ellipsoid. Before
+    Android 14, the app shows the GPS height and the sea-level choice says why it is not available.
+  - **Screen.** **Keep the screen on**: Never (the default), During a trip (only while a trip records), or Always. The
+    Speed tab and the current trip map can each be turned off. **Dim after 1 minute without touch** lowers the app's
+    screen brightness to 10% while the app keeps the screen on. A touch or key press makes it bright again.
+  - **Maps.** The map type and traffic on the current trip map. The map buttons change the same values.
 
 Espresso 3.7.0 is a test dependency: Compose testing brings Espresso 3.5.0, which fails on Android 17.
 
@@ -216,8 +226,8 @@ accuracy, battery use, TalkBack, and long trips remain unverified. See [the repo
 
 ## Current scope
 
-- Show current GPS speed in km/h.
-- Show GPS altitude, horizontal accuracy, and maximum speed since app launch.
+- Show current GPS speed in the chosen unit.
+- Show altitude above sea level or the GPS height, horizontal accuracy, and maximum speed since app launch.
 - Request precise location through the Android permission dialog.
 - Start a trip from home. Pause and resume the trip.
 - Handle denied permission, disabled GPS, missing hardware, and loss of signal.
@@ -231,7 +241,7 @@ The app saves trips locally and estimates the activity from GPS speed. It does n
 GPS stays on while the app is visible, on every screen, so a change of screen or a rotation does not restart it.
 GPS stops when the app is no longer visible, unless a trip is recording. A paused trip also stops GPS.
 A trip that records while the app is not visible receives fixes in groups of up to 5 seconds, so Android can keep the processor asleep between groups.
-The app keeps the screen on only when the user turns on that setting, and only on the Speed tab and the current trip map.
+The app keeps the screen on only when the user chooses it in Settings, and only on the Speed tab and the current trip map.
 
 ## GPS details
 
@@ -388,7 +398,8 @@ app/src/main/java/com/example/cvkegps/
     AndroidGnssSource.kt         Satellite status registration and cleanup
     AndroidHeadingSource.kt      Compass registration and display axes
   settings/
-    AppSettings.kt               Local settings: keep screen on, and the trip notice that the user read
+    AppSettings.kt               Local settings: units, altitude reference, screen, maps, and the trip notice that the user read
+    Units.kt                     Unit, altitude reference, and screen choices, and the units for each region
   ui/
     AdaptiveLayout.kt            Window size checks, the side pane for maps, and the compact header
     AppNavigation.kt             Destinations and a back stack for each tab
@@ -464,8 +475,8 @@ speed from the distance between noisy position fixes.
 These are initial quality thresholds. Validate them on real hardware before release.
 The maximum uses accepted readings only. It survives activity recreation and time in the
 background. It resets when the activity session ends, such as after Back or process termination.
-Altitude is the GPS altitude, not a calibrated elevation above sea level. The first version
-uses metric units.
+Sea-level altitude comes from Android's geoid model. It is not a barometric or surveyed elevation, and its
+error is at least the GPS vertical error. Units follow the region until the user chooses them in Settings.
 
 The request lifetime follows
 [Android location battery guidance](https://developer.android.com/develop/sensors-and-location/location/battery).

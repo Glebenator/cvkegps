@@ -32,6 +32,10 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
+import com.example.cvkegps.settings.AltitudeReference
+import com.example.cvkegps.settings.AltitudeUnit
+import com.example.cvkegps.settings.SpeedUnit
+import com.example.cvkegps.tracking.TrackingApplication
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -74,6 +78,14 @@ class SpeedometerDeviceTest {
         manager.setTestProviderEnabled(LocationManager.GPS_PROVIDER, true)
         device.wakeUp()
         device.pressHome()
+        // These tests check GPS behaviour with fixed values. SettingsDeviceTest checks the unit and altitude choices.
+        instrumentation.runOnMainSync {
+            (context.applicationContext as TrackingApplication).settings.run {
+                setSpeedUnit(SpeedUnit.KilometresPerHour)
+                setAltitudeUnit(AltitudeUnit.Metres)
+                setAltitudeReference(AltitudeReference.Ellipsoid)
+            }
+        }
     }
 
     @After

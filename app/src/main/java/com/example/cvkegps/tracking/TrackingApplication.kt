@@ -16,7 +16,7 @@ class TrackingApplication : Application() {
         Room.databaseBuilder(this, TripDatabase::class.java, "trips.db")
             .addMigrations(TripDatabase.MIGRATION_1_2, TripDatabase.MIGRATION_2_3).build()
     }
-    val location by lazy { SharedLocationSource(this) }
+    val location by lazy { SharedLocationSource(this, processScope) }
     val recorder by lazy { TripRecorder(database.trips(), location, processScope) }
     val settings by lazy { AppSettings(this, processScope) }
 

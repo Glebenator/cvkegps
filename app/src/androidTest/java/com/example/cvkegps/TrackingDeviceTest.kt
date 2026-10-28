@@ -901,40 +901,6 @@ class TrackingDeviceTest {
         compose.onNodeWithTag("trip_start").assertIsDisplayed()
     }
 
-    @Test fun keepScreenOnIsOffByDefaultAndAppliesOnlyToSpeedAndTheCurrentTrip() {
-        launch()
-        assertFalse(screenKeptOn())
-        compose.onNodeWithTag("open_settings").performClick()
-        compose.onNodeWithTag("settings_content").assertIsDisplayed()
-        capture("settings")
-        compose.onNodeWithTag("setting_keep_screen_on").performClick()
-        compose.onNodeWithTag("settings_back").performClick()
-        compose.waitUntil(5_000) { screenKeptOn() }
-        compose.onNodeWithTag("gps_details").performClick()
-        compose.waitUntil(5_000) { !screenKeptOn() }
-        compose.onNodeWithTag("details_back").performClick()
-        compose.waitUntil(5_000) { screenKeptOn() }
-        compose.onNodeWithTag("nav_tab_trips").performClick()
-        compose.waitUntil(5_000) { !screenKeptOn() }
-        // The current trip map keeps the screen on. Open it from Trips, where the screen is otherwise allowed to turn off.
-        compose.onNodeWithTag("nav_tab_speed").performClick()
-        startTrip()
-        compose.waitUntil(5_000) { screenKeptOn() }
-        device.pressBack()
-        compose.onNodeWithTag("nav_tab_trips").performClick()
-        compose.waitUntil(5_000) { !screenKeptOn() }
-        compose.onNodeWithTag("show_route").performClick()
-        compose.waitUntil(5_000) { screenKeptOn() }
-        device.pressBack()
-        compose.waitUntil(5_000) { !screenKeptOn() }
-        clickVisible("trip_stop")
-        waitUntil { !app.recorder.state.value.needsService }
-        // The choice stays after a new activity.
-        scenario!!.close()
-        launch()
-        compose.waitUntil(5_000) { screenKeptOn() }
-    }
-
     @Test fun savedTripShowsBesideTheListOnlyOnWideWindows() {
         launch()
         var wide = false
@@ -965,17 +931,6 @@ class TrackingDeviceTest {
 
     private fun recordingNotification(): Notification =
         context.getSystemService(NotificationManager::class.java).activeNotifications.single { it.id == 100 }.notification
-
-    private fun screenKeptOn(): Boolean {
-        compose.waitForIdle()
-        var on = false
-        scenario!!.onActivity { activity ->
-            fun any(view: android.view.View): Boolean = view.keepScreenOn ||
-                (view is android.view.ViewGroup && (0 until view.childCount).any { any(view.getChildAt(it)) })
-            on = any(activity.window.decorView)
-        }
-        return on
-    }
 
     /** Buttons can be in a scrolling panel or in a fixed pane bottom. Scroll only where a scroll parent exists. */
     private fun clickVisible(tag: String) {

@@ -14,12 +14,16 @@ import androidx.core.content.ContextCompat
 import androidx.core.location.LocationListenerCompat
 import androidx.core.location.LocationManagerCompat
 import androidx.core.location.LocationRequestCompat
+import com.example.cvkegps.location.AndroidSeaLevel
 import com.example.cvkegps.location.FixInterpreter
 import com.example.cvkegps.location.GpsEvent
 import com.example.cvkegps.location.GpsSource
+import com.example.cvkegps.location.InterpretedFix
 import com.example.cvkegps.location.TrackSample
 import com.example.cvkegps.location.androidDeclination
+import com.example.cvkegps.location.seaLevelAltitudeSupported
 import com.example.cvkegps.location.toRawFix
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,13 +31,22 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** Main-thread ownership. Route delivery precedes the conflated display state. */
-class SharedLocationSource(context: Context) : GpsSource {
+/**
+ * Main-thread ownership. Route delivery precedes the conflated display state.
+ * [scope] runs on the main thread. It adds the sea-level altitude to the displayed reading off the main thread.
+ */
+class SharedLocationSource(context: Context, private val scope: CoroutineScope) : GpsSource {
     private val context = context.applicationContext
     private val manager = context.getSystemService(LocationManager::class.java)
     private val interpreter = FixInterpreter(::androidDeclination)
+    private val seaLevel: ((Location) -> Double?)? = if (seaLevelAltitudeSupported) AndroidSeaLevel(context)::altitude else null
+    // The geoid model reads from disk. Conversions run one at a time, so their results arrive in order.
+    private val conversion = Dispatchers.IO.limitedParallelism(1)
+    // Changes when the request stops, so a conversion that ends later does not show a reading from the old request.
+    private var request = 0
     private val latest = MutableStateFlow<GpsEvent>(GpsEvent.Searching)
     private val estimator = ActivityEstimator()
     private val estimate = MutableStateFlow(ActivityEstimate())
@@ -114,6 +127,7 @@ class SharedLocationSource(context: Context) : GpsSource {
             if (registered) {
                 manager?.removeUpdates(listener)
                 context.unregisterReceiver(locationSetting)
+                request++
             }
             registered = false
             batched = null
@@ -163,12 +177,22 @@ class SharedLocationSource(context: Context) : GpsSource {
         samples.sortedBy { it.elapsedNanos }.forEach { estimator.accept(it)?.let { value -> estimate.value = value } }
         sink?.invoke(samples)
         received += locations.size
-        fixes.maxByOrNull { it.sample.elapsedNanos }?.let { fix ->
-            if (fix.sample.elapsedNanos >= latestNanos) {
-                latestNanos = fix.sample.elapsedNanos
-                latest.value = GpsEvent.Fix(fix.reading, received)
-            }
+        val count = received
+        val (fix, location) = fixes.zip(locations).maxByOrNull { it.first.sample.elapsedNanos } ?: return
+        if (seaLevel == null || fix.reading.altitudeMeters == null) return show(fix, count)
+        // The reading shows when its sea-level altitude is known, so the altitude does not change between two values.
+        val id = request
+        val copy = Location(location)
+        scope.launch {
+            val meters = withContext(conversion) { seaLevel(copy) }
+            if (registered && id == request) show(fix.copy(reading = interpreter.withSeaLevel(fix.reading, meters)), count)
         }
+    }
+
+    private fun show(fix: InterpretedFix, count: Long) {
+        if (fix.sample.elapsedNanos < latestNanos) return
+        latestNanos = fix.sample.elapsedNanos
+        latest.value = GpsEvent.Fix(fix.reading, count)
     }
 
     private fun clearEstimate() {

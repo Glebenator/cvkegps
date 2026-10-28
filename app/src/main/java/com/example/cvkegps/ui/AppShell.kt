@@ -44,10 +44,28 @@ import androidx.compose.material3.adaptive.navigation.BackNavigationBehavior
 import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirective
 import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
 import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
+import android.os.SystemClock
+import android.view.WindowManager
+import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalConfiguration
+import com.example.cvkegps.location.seaLevelAltitudeSupported
+import com.example.cvkegps.settings.AltitudeReference
+import com.example.cvkegps.settings.ScreenOn
+import com.example.cvkegps.settings.Settings
+import com.example.cvkegps.tracking.TripStatus
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -101,13 +119,27 @@ private fun tripPaneDirective(): PaneScaffoldDirective {
     return if (isCompactHeight()) directive.copy(maxHorizontalPartitions = 1) else directive
 }
 
-@OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Composable
 fun AppShell(
     app: TrackingApplication,
     speedometer: SpeedometerViewModel,
     compass: CompassViewModel?,
     openTripsRequest: Int,
+    lastTouch: StateFlow<Long>,
+) {
+    val settings by app.settings.values.collectAsStateWithLifecycle()
+    ProvideDisplayChoices(settings) { Shell(app, speedometer, compass, openTripsRequest, settings, lastTouch) }
+}
+
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
+@Composable
+private fun Shell(
+    app: TrackingApplication,
+    speedometer: SpeedometerViewModel,
+    compass: CompassViewModel?,
+    openTripsRequest: Int,
+    settings: Settings,
+    lastTouch: StateFlow<Long>,
 ) {
     val navigator = rememberAppNavigator()
     val access = rememberGpsAccess(speedometer) ?: return
@@ -119,7 +151,7 @@ fun AppShell(
     val sceneStrategy = rememberListDetailSceneStrategy<Destination>(
         backNavigationBehavior = BackNavigationBehavior.PopLatest, directive = directive)
     TrackingHost(app, navigator, openTripsRequest) { tracking ->
-        KeepScreenOnWhenChosen(app, navigator.backStack.last())
+        KeepScreenOnWhenChosen(app, settings, navigator.backStack.last(), lastTouch)
         // The window background is transparent. Screens fade and the bars change height, so paint the theme background behind them.
         BoxWithConstraints(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             // A navigation rail in landscape, and on wide windows such as an open foldable.
@@ -193,20 +225,58 @@ fun AppShell(
     }
 }
 
+/** Gives the screens the chosen units and altitude. Sea level needs Android 14, so earlier versions show the GPS height. */
+@Composable
+private fun ProvideDisplayChoices(settings: Settings, content: @Composable () -> Unit) {
+    val country = LocalConfiguration.current.locales[0].country
+    val units = settings.units(country)
+    val altitude = if (seaLevelAltitudeSupported) settings.altitudeReference else AltitudeReference.Ellipsoid
+    val choices = remember(units, altitude) { DisplayChoices(units, altitude) }
+    CompositionLocalProvider(LocalDisplayChoices provides choices, content = content)
+}
+
 /**
- * Keeps the screen on while Speed or the current trip shows, and only when the user chose it in Settings.
- * The shell sets it once from the top screen, so a screen that leaves during a transition cannot clear it.
+ * Keeps the screen on only where and when the user chose it in Settings: on Speed or the current trip map,
+ * during a recording trip or always. The shell sets it once from the top screen, so a screen that leaves during
+ * a transition cannot clear it. A dimmed screen becomes bright again at the next touch.
  */
 @Composable
-private fun KeepScreenOnWhenChosen(app: TrackingApplication, top: Destination) {
-    val settings by app.settings.values.collectAsStateWithLifecycle()
-    val keepOn = settings.keepScreenOn && (top == Destination.Speed || top == Destination.LiveTrip)
+private fun KeepScreenOnWhenChosen(app: TrackingApplication, settings: Settings, top: Destination, lastTouch: StateFlow<Long>) {
+    val recording by remember(app) { app.recorder.state.map { it.trip?.status == TripStatus.Recording }.distinctUntilChanged() }
+        .collectAsStateWithLifecycle(false)
+    val screen = (top == Destination.Speed && settings.screenOnSpeed) || (top == Destination.LiveTrip && settings.screenOnTripMap)
+    val keepOn = screen && when (settings.screenOn) {
+        ScreenOn.Off -> false
+        ScreenOn.DuringTrip -> recording
+        ScreenOn.Always -> true
+    }
     val view = LocalView.current
     DisposableEffect(view, keepOn) {
         view.keepScreenOn = keepOn
         onDispose { view.keepScreenOn = false }
     }
+    val dim = keepOn && settings.dimScreen
+    var dimmed by remember { mutableStateOf(false) }
+    LaunchedEffect(dim, lastTouch) {
+        dimmed = false
+        // Each touch restarts the wait. The effect does no work between touches.
+        if (dim) lastTouch.collectLatest { touched ->
+            dimmed = false
+            delay(DIM_AFTER_MILLIS - (SystemClock.uptimeMillis() - touched))
+            dimmed = true
+        }
+    }
+    val window = LocalActivity.current?.window
+    DisposableEffect(window, dimmed) {
+        fun brightness(value: Float) = window?.let { it.attributes = it.attributes.apply { screenBrightness = value } }
+        brightness(if (dimmed) DIM_BRIGHTNESS else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE)
+        onDispose { brightness(WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE) }
+    }
 }
+
+private const val DIM_AFTER_MILLIS = 60_000L
+// A tenth of the full screen brightness: dark enough to save power, bright enough to see that the app is on.
+private const val DIM_BRIGHTNESS = 0.1f
 
 @Composable
 private fun Screen(

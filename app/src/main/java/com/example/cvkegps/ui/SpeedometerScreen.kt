@@ -53,6 +53,7 @@ import com.example.cvkegps.location.GpsReading
 import com.example.cvkegps.location.GnssSnapshot
 import com.example.cvkegps.location.SatelliteSignal
 import com.example.cvkegps.location.distinctSatellites
+import com.example.cvkegps.settings.AltitudeReference
 import com.example.cvkegps.ui.theme.CvkeGpsTheme
 import com.example.cvkegps.ui.theme.CvkeTheme
 import com.example.cvkegps.ui.theme.Size
@@ -78,8 +79,10 @@ fun SpeedometerScreen(
     }
     val missing = stringResource(R.string.no_value)
     val speed = state.reading?.speedMetersPerSecond?.let(format::speedNumber) ?: missing
-    val altitude = state.reading?.altitudeMeters?.let(wholeFormat::format) ?: missing
+    val reference = LocalDisplayChoices.current.altitude
+    val altitude = state.reading?.altitude(reference)?.let(format::altitudeNumber) ?: missing
     val maximum = state.maximumSpeedMetersPerSecond?.let(format::speedNumber) ?: missing
+    val spoken = state.reading?.speedMetersPerSecond?.let(format::spokenSpeed)
     val satellites = remember(gnss.signals, state.status) {
         gnss.signals?.takeIf {
             state.status == GpsStatus.Live || state.status == GpsStatus.Searching || state.status == GpsStatus.Stale
@@ -105,15 +108,15 @@ fun SpeedometerScreen(
                     val beside = gpsReady(state) && LocalDensity.current.fontScale <= 1.3f
                     Column(Modifier.weight(1.1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(Space.s3)) {
-                        SpeedDial(speed, state.reading?.speedMetersPerSecond != null, satellites, heading, Modifier.weight(1f))
-                        if (!beside) Metrics(altitude, maximum)
+                        SpeedDial(speed, format.speedUnit, spoken, satellites, heading, Modifier.weight(1f))
+                        if (!beside) Metrics(altitude, maximum, format, reference)
                     }
                     Column(
                         Modifier.weight(1f).fillMaxHeight().testTag("speed_side_pane"),
                         verticalArrangement = Arrangement.spacedBy(Space.s3, Alignment.CenterVertically),
                     ) {
                         if (onSettings != null) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { SettingsButton(onSettings) }
-                        if (beside) Metrics(altitude, maximum)
+                        if (beside) Metrics(altitude, maximum, format, reference)
                         GpsControls(state, permissionNeedsSettings, wholeFormat, onAction, onDetails, satellites,
                             compact = wide, collapseWhenReady = true, labelled = true)
                         trackerControls(canStartTrip, true)
@@ -125,8 +128,8 @@ fun SpeedometerScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(Space.s3),
                 ) {
-                    SpeedDial(speed, state.reading?.speedMetersPerSecond != null, satellites, heading, Modifier.weight(1f))
-                    Metrics(altitude, maximum)
+                    SpeedDial(speed, format.speedUnit, spoken, satellites, heading, Modifier.weight(1f))
+                    Metrics(altitude, maximum, format, reference)
                     GpsControls(state, permissionNeedsSettings, wholeFormat, onAction, onDetails, satellites,
                         compact = wide, collapseWhenReady = true)
                     // A wide window, such as an open foldable, shows the rail instead of the recording bar. The trip card then shows the values.
@@ -142,14 +145,15 @@ fun SpeedometerScreen(
 @Composable
 private fun SpeedDial(
     speed: String,
-    available: Boolean,
+    unit: String,
+    spoken: String?,
     satellites: List<SatelliteSignal>?,
     heading: @Composable () -> PhoneHeading,
     modifier: Modifier = Modifier,
 ) {
     val ring = MaterialTheme.colorScheme.outlineVariant
-    val description = if (available) stringResource(R.string.speed_accessibility, speed)
-    else stringResource(R.string.speed_unavailable_accessibility)
+    val available = spoken != null
+    val description = spoken ?: stringResource(R.string.speed_unavailable_accessibility)
     BoxWithConstraints(
         modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center,
@@ -164,7 +168,7 @@ private fun SpeedDial(
             ) {
                 SpeedValue(speed, available, description, Modifier.weight(1f).alignByBaseline(), minFontSize = 16.sp)
                 Text(
-                    stringResource(R.string.speed_unit),
+                    unit,
                     Modifier.alignByBaseline(),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -198,7 +202,7 @@ private fun SpeedDial(
                     SpeedValue(speed, available, description, Modifier.fillMaxWidth())
                 }
                 Text(
-                    stringResource(R.string.speed_unit),
+                    unit,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -234,10 +238,12 @@ private fun SpeedValue(
 }
 
 @Composable
-private fun Metrics(altitude: String, maximum: String) {
+private fun Metrics(altitude: String, maximum: String, format: DisplayFormat, reference: AltitudeReference) {
     Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(Space.s3)) {
-        MetricCard(R.string.altitude, altitude, R.string.altitude_unit, "altitude", Modifier.weight(1f).fillMaxHeight())
-        MetricCard(R.string.maximum_speed, maximum, R.string.speed_unit, "maximum_speed", Modifier.weight(1f).fillMaxHeight(),
+        // The card names the zero height, because sea level and GPS height can differ by up to 100 m.
+        MetricCard(R.string.altitude, altitude, format.altitudeUnit, "altitude", Modifier.weight(1f).fillMaxHeight(),
+            if (reference == AltitudeReference.SeaLevel) R.string.altitude_sea_level else R.string.altitude_ellipsoid)
+        MetricCard(R.string.maximum_speed, maximum, format.speedUnit, "maximum_speed", Modifier.weight(1f).fillMaxHeight(),
             R.string.since_open)
     }
 }
@@ -246,7 +252,7 @@ private fun Metrics(altitude: String, maximum: String) {
 private fun MetricCard(
     @StringRes title: Int,
     value: String,
-    @StringRes unit: Int,
+    unit: String,
     tag: String,
     modifier: Modifier,
     @StringRes subtitle: Int? = null,
@@ -268,7 +274,7 @@ private fun MetricCard(
                     autoSize = TextAutoSize.StepBased(minFontSize = 18.sp, maxFontSize = 28.sp),
                 )
                 Text(
-                    stringResource(unit),
+                    unit,
                     modifier = Modifier.alignByBaseline(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

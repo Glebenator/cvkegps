@@ -15,6 +15,8 @@ data class GpsReading(
     val isMock: Boolean = false,
     val speedIssue: SpeedIssue? = null,
     val magneticDeclinationRadians: Double? = null,
+    /** Height above mean sea level. [altitudeMeters] is the GPS height above the WGS 84 ellipsoid. */
+    val seaLevelAltitudeMeters: Double? = null,
 )
 
 enum class SpeedIssue { Missing, PositionAccuracy, SpeedAccuracy, Invalid }

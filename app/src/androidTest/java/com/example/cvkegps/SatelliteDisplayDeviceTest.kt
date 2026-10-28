@@ -94,7 +94,7 @@ class SatelliteDisplayDeviceTest {
                         }
                     }
                     CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale)) {
-                        CvkeGpsTheme(darkTheme = dark) { AppShell(activity.application as TrackingApplication, model, null, 0) }
+                        CvkeGpsTheme(darkTheme = dark) { AppShell(activity.application as TrackingApplication, model, null, 0, MutableStateFlow(SystemClock.uptimeMillis())) }
                     }
                 }
             }
