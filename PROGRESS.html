@@ -167,18 +167,19 @@
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-10-27">27 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>2a4774e</code> (branch <code>native-maps</code>)</dd></div>
+          <div><dt>App code baseline</dt><dd><code>ef4039a</code> plus the uncommitted design-language change (branch <code>native-maps</code>)</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
       </aside>
     </div>
     <div class="metrics" aria-label="Last verified results">
-      <div class="metric"><strong>25 / 25</strong><span>Trip and map device tests passed</span><span class="small">Pixel 10 Pro, API 37, with a Maps API key · the 17 tests without a map passed earlier the same day</span></div>
+      <div class="metric"><strong>41 / 42</strong><span>Device tests passed on the final design-language code</span><span class="small">Pixel 10 Pro, API 37, with a Maps API key · the GPX share test timed out at the share sheet, then passed twice alone</span></div>
       <div class="metric"><strong>33 / 33</strong><span>Calculation tests passed</span><span class="small">New: route framing and map settings</span></div>
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, debug lint, and unsigned release build</span><span class="small">Release APK not installed or run</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#design-language">Design language · 27 Oct</a>
       <a href="#native-maps">Native maps · 27 Oct</a>
       <a href="#review-fixes">Review fixes · 27 Oct</a>
       <a href="#performance">GPS and performance</a>
@@ -201,6 +202,72 @@
       <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
     </nav>
+
+    <section id="design-language" aria-labelledby="design-language-heading">
+      <div class="section-head"><h2 id="design-language-heading">Owner's design language · 27 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
+      <p class="section-intro">The app now uses the owner's design language (My Design Language, touch dialect) in place of the earlier warm Material palette.
+      Colours, type, spacing, radii, sizes, and motion come from the design tokens in <a href="app/src/main/java/com/example/cvkegps/ui/theme/Tokens.kt"><code>Tokens.kt</code></a>.
+      <a href="app/src/main/java/com/example/cvkegps/ui/theme/Theme.kt"><code>Theme.kt</code></a> maps them to Material roles, and
+      <a href="app/src/main/java/com/example/cvkegps/ui/theme/Components.kt"><code>Components.kt</code></a> holds the shared parts. Behaviour and app text did not change, except where the table says so.</p>
+      <div class="table-wrap"><table class="wrap-cells">
+        <thead><tr><th scope="col">Area</th><th scope="col">Change</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Colour</th><td>Cool neutral page (<code>bg</code>), white or slate <code>surface</code> for cards, bars, and sheets, and electric blue as the one accent. Status colours only for real states, always with text or an icon. <strong>Dynamic colour applies only to the neutrals</strong>: on Android 12 and later, the wallpaper palette gives the page, card, sunken, and line colours. Text, the accent, status, data, and brand colours stay fixed. Light and dark follow the system.</td></tr>
+          <tr><th scope="row">Type and spacing</th><td>System font. Headings are weight 500: <code>title</code> 20 sp, <code>heading</code> 16 sp; body 14 sp; nothing below 12 sp. Dialog titles use <code>title</code>. Gaps and padding use the 4 dp <code>Space</code> steps.</td></tr>
+          <tr><th scope="row">Shape</th><td>Cards 16 dp with a soft shadow and no border. Buttons and chips are pills, 48 dp high. Secondary buttons (Pause, Finish, read again) are outlined with ink text. Map buttons float on <code>surface</code> with the overlay shadow.</td></tr>
+          <tr><th scope="row">Navigation</th><td>The bottom bar and the rail show icons only. The tab names are the accessible names. The baseline-profile journey finds the tabs by that name.</td></tr>
+          <tr><th scope="row">Lists and states</th><td>Trips are open rows with a 32 dp icon tile, a chevron, and a dot-and-text status. The selected trip has an <code>accent-subtle</code> fill. Problems show in a <code>danger-subtle</code> banner with an icon. The GPS card shows its state as a coloured dot with text. Delete in the trip menu is last, after a divider, in the danger colour. The delete confirmation uses a danger fill. Settings has a heading and a card for each section (new string: Display).</td></tr>
+          <tr><th scope="row">Icons</th><td>Lucide outlines, 1.5 stroke, 20 dp (16 dp in buttons). A new alert icon for problem banners. The recording dot stays filled.</td></tr>
+          <tr><th scope="row">Brand layer</th><td>The launcher icon is the cvke app icon: the sliced c on the blue-to-apricot gradient, with a monochrome layer. The report favicon uses the same icon. The empty trip list and the empty detail pane show a small flat slice composition. On the empty list, the slice drifts 5 to 11 units from the disc and back, 2.4 s each way. The loop runs only in the draw phase, stops off screen, and stays still when animations are off in the system. The detail pane art stays still, so only one slice moves on a screen.</td></tr>
+          <tr><th scope="row">Data display</th><td>The accuracy bar fill uses the functional accent-to-gradient-end gradient on a flat track. GPS satellites use the accent; the other systems use neutral steps and keep their shapes. The route line uses the accent.</td></tr>
+          <tr><th scope="row">Motion</th><td>Tab changes are instant. A drill-in screen fades in and moves 8 dp over 340 ms, and leaves in 240 ms, with the standard easing. The accuracy bar changes at once. Pending values, the technical details section, and list items use the same duration tokens.</td></tr>
+        </tbody>
+      </table></div>
+      <h3 style="margin-top:24px">Pixel 10 Pro emulator, Android 17 (API 37)</h3>
+      <div class="screens">
+      <figure class="shot"><a href="docs/progress/images/2026-10-27-design-speed-light.webp"><img src="docs/progress/images/2026-10-27-design-speed-light.webp" loading="lazy" alt="Speed tab in the light theme: a large 0 inside the satellite ring, two white cards for GPS altitude and maximum speed, a blue-to-apricot accuracy bar, a blue pill Start trip button, an outlined activity chip, and an icon-only bottom bar."></a>
+      <figcaption><strong>Speed, light</strong>27 October 2026. Baseline <code>ef4039a</code> plus the design-language change. Pixel 10 Pro emulator, Android 17 (API 37). An earlier build of the same change, before the motion tokens and the dialog title fix. Simulated position from <code>adb emu geo fix</code>, which gives no speed.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-27-design-speed-dark.webp"><img src="docs/progress/images/2026-10-27-design-speed-dark.webp" loading="lazy" alt="The same Speed tab in the dark slate theme with a light blue Start trip button."></a>
+      <figcaption><strong>Speed, dark</strong>27 October 2026. Baseline <code>ef4039a</code> plus the design-language change. Pixel 10 Pro emulator, Android 17 (API 37). An earlier build of the same change, before the motion tokens and the dialog title fix. Simulated position.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-27-design-trips-empty-light.webp"><img src="docs/progress/images/2026-10-27-design-trips-empty-light.webp" loading="lazy" alt="Trips tab with no trips: a small composition of a blue disc with a slice cut out, an apricot slice, a half disc, and two dots above the text No trips."></a>
+      <figcaption><strong>No trips</strong>27 October 2026. Baseline <code>ef4039a</code> plus the design-language change. Pixel 10 Pro emulator, Android 17 (API 37). An earlier build of the same change, before the motion tokens and the dialog title fix. The empty state uses the brand slice art.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-27-design-trips-list-light.webp"><img src="docs/progress/images/2026-10-27-design-trips-list-light.webp" loading="lazy" alt="Trips tab with one trip row: a blue route icon in a light blue tile, the date and time, the summary in grey, and a chevron."></a>
+      <figcaption><strong>Trip list</strong>27 October 2026. Baseline <code>ef4039a</code> plus the design-language change. Pixel 10 Pro emulator, Android 17 (API 37). Debug APK <code>c3183641</code>. A trip recorded from <code>adb emu geo fix</code> positions. These positions have no accuracy, so the recorder does not count their distance (0 m).</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-27-design-live-trip-light.webp"><img src="docs/progress/images/2026-10-27-design-live-trip-light.webp" loading="lazy" alt="Current trip on a Google map with a blue route, four white round map buttons with shadows, a Recording status pill, an outlined Pause trip button, and a blue Stop and save button."></a>
+      <figcaption><strong>Current trip</strong>27 October 2026. Baseline <code>ef4039a</code> plus the design-language change. Pixel 10 Pro emulator, Android 17 (API 37). Debug APK <code>c3183641</code>. Simulated positions. The follow button is on, so it has the light blue fill.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-27-design-saved-trip-dark.webp"><img src="docs/progress/images/2026-10-27-design-saved-trip-dark.webp" loading="lazy" alt="A saved trip in the dark theme: a dark Google map with a light blue route between green and red markers, dark round map buttons, and the trip values below."></a>
+      <figcaption><strong>Saved trip, dark</strong>27 October 2026. Baseline <code>ef4039a</code> plus the design-language change. Pixel 10 Pro emulator, Android 17 (API 37). Debug APK <code>c3183641</code>. Simulated route.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-27-design-wallpaper-speed-light.webp"><img src="docs/progress/images/2026-10-27-design-wallpaper-speed-light.webp" loading="lazy" alt="Speed tab with a warm wallpaper palette: a light peach page and white cards, while the Start trip button, the selected tab, and the accuracy bar stay electric blue."></a>
+      <figcaption><strong>Wallpaper neutrals, light</strong>27 October 2026. Baseline <code>ef4039a</code> plus the design-language change. Pixel 10 Pro emulator, Android 17 (API 37). Final debug build. The emulator system palette was set to the seed colour #D9661F (warm orange, tonal spot) to show the wallpaper tint, and then restored. Simulated position.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-27-design-wallpaper-trips-dark.webp"><img src="docs/progress/images/2026-10-27-design-wallpaper-trips-dark.webp" loading="lazy" alt="Empty Trips tab in the dark theme with the warm wallpaper palette: a brown-black page with the blue and apricot slice art and a blue selected tab."></a>
+      <figcaption><strong>Wallpaper neutrals, dark</strong>27 October 2026. Baseline <code>ef4039a</code> plus the design-language change. Pixel 10 Pro emulator, Android 17 (API 37). Final debug build. The emulator system palette was set to the seed colour #D9661F (warm orange, tonal spot) to show the wallpaper tint, and then restored. Two captures 1.2 s apart show that only the slice moves.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-27-design-details-light.webp"><img src="docs/progress/images/2026-10-27-design-details-light.webp" loading="lazy" alt="GPS details: a white card with a green dot and GPS connected, the accuracy bar, and the satellite sky map card."></a>
+      <figcaption><strong>GPS details</strong>27 October 2026. Baseline <code>ef4039a</code> plus the design-language change. Pixel 10 Pro emulator, Android 17 (API 37). An earlier build of the same change, before the motion tokens and the dialog title fix. The scale labels below the bar are now muted small text. Simulated position.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-27-design-settings-light.webp"><img src="docs/progress/images/2026-10-27-design-settings-light.webp" loading="lazy" alt="Settings: a Display heading above a white card with the Keep the screen on switch."></a>
+      <figcaption><strong>Settings</strong>27 October 2026. Baseline <code>ef4039a</code> plus the design-language change. Pixel 10 Pro emulator, Android 17 (API 37). An earlier build of the same change, before the motion tokens and the dialog title fix. One heading and one card for each section.</figcaption></figure>
+      </div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li>Pixel 10 Pro emulator, Android 17 (API 37), with the development Maps API key. Before the motion tokens and the dialog title fix: all 42 device tests and all 33 calculation tests passed.</li>
+          <li>On the final app code: 33 of 33 calculation tests and 41 of 42 device tests passed. <code>screenChangesFinishWithinTheMaterialDuration</code> failed: it allowed 350 ms, and a drill-in now takes 340 ms plus frame time.
+          The test is now <code>screenChangesFinishWithinTheDesignDuration</code>. It allows 400 ms, the design limit for UI motion, for a drill-in and 100 ms for a tab change, and it passed. The full suite was not run again after that test change.</li>
+          <li>After the wallpaper neutrals and the slice loop (final code, freshly booted emulator): 33 of 33 calculation tests and 41 of 42 device tests passed, with the new transition test.
+          <code>savedTripSharesAGpxFileAndDeleteRemovesIt</code> wrote the GPX file but timed out while it waited for Android's share sheet to open. Run alone, it passed twice. It passed in both earlier full runs.</li>
+          <li>Debug build and debug lint passed with no issues after each step.</li>
+          <li>Screens inspected on the emulator: Speed (light, dark, recording), Trips (empty, one trip), current trip, saved trip (light, dark), GPS details, Settings, and the trip access dialog. No test was run on the connected Pixel 7 Pro.</li>
+          <li>Raw captures and logs: <code>artifacts/design/</code> (not in Git).</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>Not inspected after this change: landscape, the open foldable layout, 200% text, and TalkBack. The device tests cover these layouts, but the card shadows, 48 dp buttons, and icon-only tabs need a visual check.</li>
+          <li>The slice loop is a continuous animation, which <code>AGENTS.md</code> asks to avoid. The owner asked for it. Its battery cost was not measured.</li>
+          <li>The design language also has writing rules. The app text did not change. Some of these rules conflict with ASD-STE100, which the project rules require.</li>
+          <li>Dynamic colour covers only the neutrals, as the owner chose. Wallpaper palettes with strong colour give the page a visible tint. Only one warm palette was checked.</li>
+          <li>The launcher icon has no grain, because vector drawables have no noise filter. It was not inspected on a launcher.</li>
+          <li>All checks used simulated locations on an emulator. The release build was not checked.</li>
+        </ul>
+      </article>
+    </section>
 
     <section id="native-maps" aria-labelledby="native-maps-heading">
       <div class="section-head"><h2 id="native-maps-heading">Native Google maps · 27 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
@@ -909,7 +976,7 @@ builder.setWhen(System.currentTimeMillis() - elapsedMillis.coerceAtLeast(0)).set
           <h3>A native Android main screen</h3>
           <ul>
             <li>Jetpack Compose and Material 3.</li>
-            <li>System light and dark themes, with dynamic colour on Android 12 and later.</li>
+            <li>System light and dark themes. On Android 12 and later, dynamic colour tints the neutral surfaces; the accent stays fixed.</li>
             <li>Current speed in km/h, GPS altitude, accuracy, and maximum speed.</li>
             <li>Portrait and landscape layouts, large text, and screen-reader labels.</li>
             <li>No home-screen scroll area. The speed display uses the space left by the readings and GPS controls.</li>
@@ -1703,6 +1770,9 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-27">27 October 2026</time><div><h3>Owner's design language</h3>
+<p>Restyled the app with the owner's design language: token-based colours, type, spacing, and motion; elevated cards, pill buttons, outlined secondary buttons, icon-only tabs, open trip rows with icon tiles, danger banners, Lucide icons, the cvke launcher icon, and slice art in empty states.
+Dynamic colour now tints only the neutral surfaces, and the empty trip list has the slow slice loop. Tab changes are now instant, and drill-in screens move 8 dp. On a Pixel 10 Pro API 37 emulator, 33 calculation tests and 41 of 42 device tests passed on the final code. The transition test now checks the design durations and passes; the GPX share test timed out once at the share sheet and passed twice alone. See <a href="#design-language">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-27">27 October 2026</time><div><h3>Native Google maps checked with a Maps API key</h3>
 <p>With a development key, all 25 trip and map device tests passed on a Pixel 10 Pro API 37 emulator, including the four that failed without a key. A still map now draws 12 frames in 5 seconds instead of about 43 each second.
 Checked the light and dark maps, Satellite, Terrain with traffic, the start marker time and toolbar, landscape with 200% text, and the map after recreation and rotation. Six new screenshots replace the four taken without a key.

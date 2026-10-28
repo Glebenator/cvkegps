@@ -72,8 +72,26 @@ The recording notification opens the current trip. Navigation uses Navigation 3 
 
 ## App icon
 
-The launcher icon uses the confirmed Signal dial mark: an open speed ring, a short needle, and one satellite point.
-It is an adaptive vector icon with a monochrome layer for themed icons. `PROGRESS.html` uses the same mark as its favicon.
+The launcher icon is the cvke app icon from the owner's design language: the sliced c in white, its slice in light
+apricot, on the blue-to-apricot brand gradient. It is an adaptive vector icon with a monochrome layer for themed icons.
+Vector drawables have no noise filter, so the icon has no grain. `PROGRESS.html` uses the same icon as its favicon.
+
+## Design language on 27 October 2026
+
+The app uses the owner's design language (My Design Language, touch dialect):
+
+- Colours come from the design tokens in `ui/theme/Tokens.kt`. Material roles map to them in `ui/theme/Theme.kt`.
+  The page is the cool neutral `bg`; cards, bars, and sheets are `surface`. Electric blue is the one accent.
+- Dynamic colour applies only to the neutrals. On Android 12 and later, the wallpaper tints the page, cards, bars, and lines.
+  Text, the electric blue accent, status, data, and brand colours stay fixed. Light and dark follow the system setting.
+- Type uses the system font with weight 500 headings. Spacing uses the 4 dp steps in `Space`.
+- Cards are 16 dp with a soft shadow and no border. Buttons and chips are pills. Secondary buttons are outlined.
+- Tabs show icons only. Their names are the accessible names.
+- Statuses use a coloured dot or icon with text. Problems show in a danger banner with an icon.
+- Icons are Lucide outlines with a 1.5 stroke at 20 dp.
+- Empty trip states show a small slice composition from the brand layer. On the empty trip list, the slice drifts
+  slowly away from the disc and back (2.4 s each way). It stops off screen and when animations are off in the system.
+- The accuracy bar fill uses the functional blue-to-apricot gradient.
 
 ## Native maps on 27 October 2026
 
@@ -202,7 +220,7 @@ accuracy, battery use, TalkBack, and long trips remain unverified. See [the repo
 - Request precise location through the Android permission dialog.
 - Start a trip from home. Pause and resume the trip.
 - Handle denied permission, disabled GPS, missing hardware, and loss of signal.
-- Use system light or dark mode and dynamic colour on Android 12 and later.
+- Use system light or dark mode with the design-language colours.
 - Open GPS details for reading quality, receiver events, and satellite signals.
 - Show an abstract satellite ring around the speed. Satellites are in their reported directions and turn with the phone.
   A small N marks north, and brighter markers have stronger signals.
@@ -294,7 +312,8 @@ that Android used the satellite in the latest position. An open marker means tha
 reported it but did not use it. GPS uses circles, GLONASS uses diamonds, Galileo uses
 triangles, and BeiDou uses squares. QZSS uses pentagons, NavIC uses hexagons, and SBAS uses
 crosses. Unknown systems use circles with a centre mark. The signal list gives the system,
-ID, angles, and use in text. Colours follow the Material theme.
+ID, angles, and use in text. GPS and QZSS use the accent colour. The other systems use neutral steps, so
+the shape identifies each system.
 
 The home ring keeps the style of the earlier decorative pattern, but positions now use the
 reported angles and the phone heading. Markers can overlap when satellites have the same
@@ -382,7 +401,9 @@ app/src/main/java/com/example/cvkegps/
     PhoneSkyPlot.kt              Compass collection and the details sky map
     SatelliteConstellation.kt    Sky ring and map drawing and system markers
     PositionAccuracy.kt          Accuracy scale, notch, and labels
-    theme/Theme.kt               Dynamic colour and fallback palettes
+    theme/Tokens.kt              Design-language colour, spacing, radius, and size tokens
+    theme/Theme.kt               Material colours, type, and shapes from the tokens
+    theme/Components.kt          Secondary button, status dot, icon tile, banner, map buttons, slice art
     DisplayFormat.kt             Locale-aware speed, distance, and time text from SI values
   tracking/
     TripModels.kt                Route summary and distance rules

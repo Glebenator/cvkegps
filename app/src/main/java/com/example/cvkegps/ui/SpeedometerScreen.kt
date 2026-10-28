@@ -2,7 +2,6 @@ package com.example.cvkegps.ui
 
 import android.content.res.Configuration
 import androidx.annotation.StringRes
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,15 +17,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,11 +48,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.TextUnit
 import com.example.cvkegps.R
+import com.example.cvkegps.ui.theme.Space
 import com.example.cvkegps.location.GpsReading
 import com.example.cvkegps.location.GnssSnapshot
 import com.example.cvkegps.location.SatelliteSignal
 import com.example.cvkegps.location.distinctSatellites
 import com.example.cvkegps.ui.theme.CvkeGpsTheme
+import com.example.cvkegps.ui.theme.CvkeTheme
+import com.example.cvkegps.ui.theme.Size
+import com.example.cvkegps.ui.theme.StatusDot
 import java.text.NumberFormat
 
 @Composable
@@ -90,7 +90,7 @@ fun SpeedometerScreen(
 
     Scaffold(modifier = modifier.fillMaxSize()) { insets ->
         BoxWithConstraints(
-            Modifier.padding(insets).fillMaxSize().padding(16.dp).testTag("home_content"),
+            Modifier.padding(insets).fillMaxSize().padding(Space.s4).testTag("home_content"),
         ) {
             val wide = maxWidth > maxHeight
             if (wide) {
@@ -98,19 +98,19 @@ fun SpeedometerScreen(
                 Row(
                     modifier = Modifier.widthIn(max = 1200.dp).fillMaxSize().align(Alignment.Center),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Space.s6),
                 ) {
                     // The values move under the dial when the side column is full: with large text, or while the GPS card is
                     // expanded. The ring then has less room, but without a good GPS signal it has few satellites to show.
                     val beside = gpsReady(state) && LocalDensity.current.fontScale <= 1.3f
                     Column(Modifier.weight(1.1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        verticalArrangement = Arrangement.spacedBy(Space.s3)) {
                         SpeedDial(speed, state.reading?.speedMetersPerSecond != null, satellites, heading, Modifier.weight(1f))
                         if (!beside) Metrics(altitude, maximum)
                     }
                     Column(
                         Modifier.weight(1f).fillMaxHeight().testTag("speed_side_pane"),
-                        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
+                        verticalArrangement = Arrangement.spacedBy(Space.s3, Alignment.CenterVertically),
                     ) {
                         if (onSettings != null) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { SettingsButton(onSettings) }
                         if (beside) Metrics(altitude, maximum)
@@ -123,7 +123,7 @@ fun SpeedometerScreen(
                 Column(
                     Modifier.widthIn(max = 480.dp).fillMaxSize().align(Alignment.Center),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(Space.s3),
                 ) {
                     SpeedDial(speed, state.reading?.speedMetersPerSecond != null, satellites, heading, Modifier.weight(1f))
                     Metrics(altitude, maximum)
@@ -158,8 +158,8 @@ private fun SpeedDial(
         if (maxHeight < 200.dp) {
             // A short window needs the full width for speed, without a circle or stacked unit.
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                Modifier.fillMaxWidth().padding(horizontal = Space.s2),
+                horizontalArrangement = Arrangement.spacedBy(Space.s2),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 SpeedValue(speed, available, description, Modifier.weight(1f).alignByBaseline(), minFontSize = 16.sp)
@@ -182,9 +182,9 @@ private fun SpeedDial(
             Column(
                 Modifier.size(diameter)
                     .drawBehind { drawCircle(ring.copy(alpha = 0.45f), style = Stroke(1.dp.toPx())) }
-                    .padding(if (showLabel) 24.dp else 12.dp),
+                    .padding(if (showLabel) Space.s6 else Space.s3),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(Space.s1),
             ) {
                 if (showLabel) {
                     Text(
@@ -235,7 +235,7 @@ private fun SpeedValue(
 
 @Composable
 private fun Metrics(altitude: String, maximum: String) {
-    Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(Space.s3)) {
         MetricCard(R.string.altitude, altitude, R.string.altitude_unit, "altitude", Modifier.weight(1f).fillMaxHeight())
         MetricCard(R.string.maximum_speed, maximum, R.string.speed_unit, "maximum_speed", Modifier.weight(1f).fillMaxHeight(),
             R.string.since_open)
@@ -251,13 +251,10 @@ private fun MetricCard(
     modifier: Modifier,
     @StringRes subtitle: Int? = null,
 ) {
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-    ) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(stringResource(title), style = MaterialTheme.typography.labelLarge)
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    ElevatedCard(modifier = modifier) {
+        Column(Modifier.padding(Space.s3), verticalArrangement = Arrangement.spacedBy(Space.s1)) {
+            Text(stringResource(title), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(Space.s2)) {
                 BasicText(
                     text = value,
                     modifier = Modifier.weight(1f, fill = false).testTag(tag).alignByBaseline(),
@@ -333,8 +330,8 @@ internal fun GpsControls(
         .clickable(onClickLabel = detailsLabel, role = Role.Button, onClick = onDetails).testTag("gps_details") else Modifier
     if (ready) {
         Box(Modifier.testTag("gps_compact")) {
-            Row(Modifier.fillMaxWidth().then(opens).heightIn(min = 48.dp).padding(start = 4.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth().then(opens).heightIn(min = 48.dp).padding(start = Space.s1),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.s2)) {
                 Box(Modifier.weight(1f).testTag("gps_status")) {
                     // In landscape the bar has a text label, so it is not a line without meaning.
                     PositionAccuracy(state.reading?.accuracyMeters, compact = true, label = labelled)
@@ -344,12 +341,12 @@ internal fun GpsControls(
         }
         return
     }
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Surface(opens, color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.large) {
-            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Space.s3)) {
+        ElevatedCard(opens) {
+            Column(Modifier.fillMaxWidth().padding(Space.s4), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
                 Row(Modifier.heightIn(min = 24.dp), verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(Modifier.size(8.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
+                    horizontalArrangement = Arrangement.spacedBy(Space.s2)) {
+                    StatusDot(statusColor(state.status))
                     Text(stringResource(title), Modifier.weight(1f).testTag("gps_status"), style = MaterialTheme.typography.titleSmall)
                     if (onDetails != null) DetailsChevron()
                 }
@@ -361,7 +358,8 @@ internal fun GpsControls(
                                 format.format(it.size))
                         } ?: stringResource(R.string.satellite_count_unavailable),
                         Modifier.testTag("satellite_count"),
-                        style = MaterialTheme.typography.labelLarge,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 if (onDetails == null || state.status != GpsStatus.Live) {
@@ -375,12 +373,21 @@ internal fun GpsControls(
         if (action != null) {
             Button(
                 onClick = onAction,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("gps_action"),
+                modifier = Modifier.fillMaxWidth().heightIn(min = Size.touch).testTag("gps_action"),
             ) {
-                Text(stringResource(action), Modifier.padding(vertical = 8.dp), textAlign = TextAlign.Center)
+                Text(stringResource(action), Modifier.padding(vertical = Space.s2), textAlign = TextAlign.Center)
             }
         }
     }
+}
+
+/** Live is success. A state that needs time or an action is a warning. A failure is danger. Paused is neutral. */
+@Composable
+private fun statusColor(status: GpsStatus) = when (status) {
+    GpsStatus.Live -> CvkeTheme.colors.success
+    GpsStatus.Searching, GpsStatus.Stale, GpsStatus.PermissionRequired, GpsStatus.Disabled -> CvkeTheme.colors.warning
+    GpsStatus.Unavailable, GpsStatus.Error -> CvkeTheme.colors.danger
+    GpsStatus.Paused -> CvkeTheme.colors.inkMuted
 }
 
 /** A fresh position with an accuracy estimate of 5 m or better. The GPS card then reduces to its bar. */
@@ -406,7 +413,7 @@ private fun DetailsChevron() {
 @Preview(name = "Large text", fontScale = 2f, showBackground = true)
 @Composable
 private fun SpeedometerPreview() {
-    CvkeGpsTheme(dynamicColor = false) {
+    CvkeGpsTheme {
         SpeedometerScreen(
             SpeedometerUiState(GpsStatus.Live, GpsReading(8.2f, 451.0, 4f, 0), 12.5f),
             permissionNeedsSettings = false,

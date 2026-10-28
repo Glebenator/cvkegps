@@ -258,11 +258,12 @@ internal fun SatelliteMarker(system: SatelliteSystem, used: Boolean) {
     }
 }
 
+// The design has one accent. GPS uses it; the other systems use neutral steps, and each system also has its own shape.
 private fun satelliteColor(system: SatelliteSystem, scheme: ColorScheme): Color = when (system) {
     SatelliteSystem.Gps, SatelliteSystem.Qzss -> scheme.primary
-    SatelliteSystem.Glonass, SatelliteSystem.Beidou -> scheme.tertiary
-    SatelliteSystem.Galileo, SatelliteSystem.Irnss -> scheme.secondary
-    SatelliteSystem.Sbas, SatelliteSystem.Unknown -> scheme.onSurfaceVariant
+    SatelliteSystem.Glonass, SatelliteSystem.Beidou -> scheme.onSurface
+    SatelliteSystem.Galileo, SatelliteSystem.Irnss -> scheme.onSurfaceVariant
+    SatelliteSystem.Sbas, SatelliteSystem.Unknown -> scheme.outline
 }
 
 private fun DrawScope.drawSatellite(system: SatelliteSystem, point: Offset, radius: Float, color: Color, used: Boolean) {

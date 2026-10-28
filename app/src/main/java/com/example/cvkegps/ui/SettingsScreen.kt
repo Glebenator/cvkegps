@@ -1,5 +1,6 @@
 package com.example.cvkegps.ui
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -18,6 +19,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -30,9 +34,13 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.cvkegps.R
+import com.example.cvkegps.ui.theme.Space
 import com.example.cvkegps.settings.AppSettings
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -40,20 +48,26 @@ import com.example.cvkegps.settings.AppSettings
 fun SettingsScreen(settings: AppSettings, onBack: () -> Unit) {
     val values by settings.values.collectAsStateWithLifecycle()
     val content: @Composable (Modifier) -> Unit = { modifier ->
-        Column(modifier.verticalScroll(rememberScrollState()).testTag("settings_content")) {
-            // The whole row is one switch, so the touch target is the full row.
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_keep_screen_on)) },
-                supportingContent = { Text(stringResource(R.string.settings_keep_screen_on_body)) },
-                trailingContent = { Switch(checked = values.keepScreenOn, onCheckedChange = null) },
-                modifier = Modifier.fillMaxWidth().toggleable(values.keepScreenOn, role = Role.Switch,
-                    onValueChange = settings::setKeepScreenOn).testTag("setting_keep_screen_on"),
-            )
+        // One long page: a heading and a card for each section.
+        Column(modifier.verticalScroll(rememberScrollState()).padding(Space.s4).testTag("settings_content"),
+            verticalArrangement = Arrangement.spacedBy(Space.s2)) {
+            Text(stringResource(R.string.settings_display), Modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium)
+            ElevatedCard(Modifier.fillMaxWidth()) {
+                // The whole row is one switch, so the touch target is the full row.
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_keep_screen_on), style = MaterialTheme.typography.titleSmall) },
+                    supportingContent = { Text(stringResource(R.string.settings_keep_screen_on_body)) },
+                    trailingContent = { Switch(checked = values.keepScreenOn, onCheckedChange = null) },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    modifier = Modifier.fillMaxWidth().toggleable(values.keepScreenOn, role = Role.Switch,
+                        onValueChange = settings::setKeepScreenOn).testTag("setting_keep_screen_on"),
+                )
+            }
         }
     }
     if (isCompactHeight()) {
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top))
-            .padding(horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            .padding(horizontal = Space.s2), horizontalAlignment = Alignment.CenterHorizontally) {
             Column(Modifier.widthIn(max = 640.dp)) {
                 PaneHeader(stringResource(R.string.settings), onBack, backTag = "settings_back")
                 content(Modifier.fillMaxWidth())

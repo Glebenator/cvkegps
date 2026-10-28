@@ -1,10 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The brand gradient of cvke-app-icon.svg. Its 64-unit tile is the 72 dp visible area of the 108 dp layer.
+     Vector drawables have no noise filter, so the icon has no grain. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#FFF8F4"
-        android:pathData="M0,0h108v108h-108z" />
+    <path android:pathData="M0,0h108v108h-108z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="18"
+                android:startY="18"
+                android:endX="90"
+                android:endY="90">
+                <item android:offset="0" android:color="#FF0A5CFF" />
+                <item android:offset="0.55" android:color="#FFC08D96" />
+                <item android:offset="1" android:color="#FF0A5CFF" />
+            </gradient>
+        </aapt:attr>
+    </path>
 </vector>

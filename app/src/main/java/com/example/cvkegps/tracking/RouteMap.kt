@@ -71,6 +71,11 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.example.cvkegps.R
+import com.example.cvkegps.ui.theme.CvkeTheme
+import com.example.cvkegps.ui.theme.mapButtonColors
+import com.example.cvkegps.ui.theme.mapButtonModifier
+import com.example.cvkegps.ui.theme.mapToggleColors
+import com.example.cvkegps.ui.theme.Space
 import com.example.cvkegps.location.TrackSample
 import com.example.cvkegps.settings.MapLayer
 import com.example.cvkegps.ui.FloatingBackButton
@@ -148,7 +153,8 @@ private fun MapCanvas(
     val choice by settings.values.collectAsStateWithLifecycle()
     val description = stringResource(R.string.map_accessibility)
     val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val routeColor = if (dark) Color(0xFF8AB4F8) else Color(0xFF1765C1)
+    // The route uses the one accent, so it matches the app in both themes.
+    val routeColor = CvkeTheme.colors.accent
     // A missing or old Google Play services result. Null while the check runs or when the services are ready.
     val servicesProblem = rememberPlayServices()?.takeIf { it != ConnectionResult.SUCCESS }
     val scope = rememberCoroutineScope()
@@ -264,7 +270,7 @@ private fun MapCanvas(
         }
         // The controls stay inside the safe area.
         Box(Modifier.matchParentSize().windowInsetsPadding(insets)) {
-            if (onBack != null) FloatingBackButton(onBack, Modifier.align(Alignment.TopStart).padding(8.dp))
+            if (onBack != null) FloatingBackButton(onBack, Modifier.align(Alignment.TopStart).padding(Space.s2))
             val controls: @Composable () -> Unit = {
                 val hasRoute = lines.any { it.isNotEmpty() }
                 MapTypeButton(choice.mapLayer, choice.mapTraffic.takeIf { live }, settings::setMapLayer, settings::setMapTraffic)
@@ -276,39 +282,39 @@ private fun MapCanvas(
                         FollowMode.Course -> R.string.map_follow_direction
                     })
                     // The first selection follows with north up. The next selection turns the map to the direction of travel.
-                    FilledTonalIconToggleButton(checked = follow != FollowMode.Off, enabled = hasRoute,
+                    FilledTonalIconToggleButton(checked = follow != FollowMode.Off, enabled = hasRoute, colors = mapToggleColors(),
                         onCheckedChange = {
                             follow = if (follow == FollowMode.North) FollowMode.Course else FollowMode.North
                             userZoomed = false
                         },
-                        modifier = Modifier.size(48.dp).testTag("map_follow").semantics { stateDescription = state }) {
+                        modifier = mapButtonModifier.testTag("map_follow").semantics { stateDescription = state }) {
                         Icon(painterResource(if (follow == FollowMode.Course) R.drawable.ic_navigation else R.drawable.ic_my_location),
                             contentDescription = label)
                     }
-                } else FilledTonalIconButton(onClick = { placed = false; fitRequest++ }, enabled = hasRoute,
-                    modifier = Modifier.size(48.dp).testTag("map_fit")) {
+                } else FilledTonalIconButton(onClick = { placed = false; fitRequest++ }, enabled = hasRoute, colors = mapButtonColors(),
+                    modifier = mapButtonModifier.testTag("map_fit")) {
                     Icon(painterResource(R.drawable.ic_fit_route), contentDescription = stringResource(R.string.map_fit))
                 }
                 FilledTonalIconButton(onClick = { userZoomed = true; scope.launch { camera.animate(CameraUpdateFactory.zoomIn()) } },
-                    modifier = Modifier.size(48.dp).testTag("map_zoom_in")) {
+                    colors = mapButtonColors(), modifier = mapButtonModifier.testTag("map_zoom_in")) {
                     Icon(painterResource(R.drawable.ic_add), contentDescription = stringResource(R.string.map_zoom_in))
                 }
                 FilledTonalIconButton(onClick = { userZoomed = true; scope.launch { camera.animate(CameraUpdateFactory.zoomOut()) } },
-                    modifier = Modifier.size(48.dp).testTag("map_zoom_out")) {
+                    colors = mapButtonColors(), modifier = mapButtonModifier.testTag("map_zoom_out")) {
                     Icon(painterResource(R.drawable.ic_remove), contentDescription = stringResource(R.string.map_zoom_out))
                 }
             }
             if (servicesProblem == null) {
-                if (!shortMap) Column(Modifier.align(Alignment.TopEnd).padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { controls() }
-                else Row(Modifier.align(Alignment.TopEnd).padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { controls() }
+                if (!shortMap) Column(Modifier.align(Alignment.TopEnd).padding(Space.s2), verticalArrangement = Arrangement.spacedBy(Space.s2)) { controls() }
+                else Row(Modifier.align(Alignment.TopEnd).padding(Space.s2), horizontalArrangement = Arrangement.spacedBy(Space.s2)) { controls() }
             }
             // A route that is still loading is not reported as empty. The map loads at the same time.
             val noPoints = routeReady && lines.all { it.isEmpty() }
             if (servicesProblem != null || noPoints || (!loaded && slow) || unavailable) Surface(
                 // The note stays above the Google logo, which must stay visible.
-                Modifier.align(Alignment.BottomCenter).padding(start = 8.dp, end = 8.dp, bottom = 56.dp),
-                shape = MaterialTheme.shapes.small) {
-                Column(Modifier.padding(8.dp)) {
+                Modifier.align(Alignment.BottomCenter).padding(start = Space.s2, end = Space.s2, bottom = 56.dp),
+                color = CvkeTheme.colors.surface, shape = MaterialTheme.shapes.small, shadowElevation = 6.dp) {
+                Column(Modifier.padding(Space.s2)) {
                     Text(stringResource(when {
                         servicesProblem != null -> R.string.map_services_missing
                         noPoints -> R.string.map_no_points
@@ -371,7 +377,7 @@ private fun RouteOverlay(route: List<List<LatLng>>, lines: List<List<TrackSample
 private fun MapTypeButton(layer: MapLayer, traffic: Boolean?, onLayer: (MapLayer) -> Unit, onTraffic: (Boolean) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        FilledTonalIconButton(onClick = { open = true }, modifier = Modifier.size(48.dp).testTag("map_layers")) {
+        FilledTonalIconButton(onClick = { open = true }, colors = mapButtonColors(), modifier = mapButtonModifier.testTag("map_layers")) {
             Icon(painterResource(R.drawable.ic_layers), contentDescription = stringResource(R.string.map_type))
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {

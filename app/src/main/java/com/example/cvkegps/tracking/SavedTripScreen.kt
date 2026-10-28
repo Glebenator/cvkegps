@@ -20,14 +20,12 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -54,6 +52,14 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.cvkegps.R
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MenuDefaults
+import com.example.cvkegps.ui.theme.CvkeTheme
+import com.example.cvkegps.ui.theme.ProblemBanner
+import com.example.cvkegps.ui.theme.SecondaryButton
+import com.example.cvkegps.ui.theme.Size
+import com.example.cvkegps.ui.theme.Space
 import com.example.cvkegps.ui.MapWithPane
 import com.example.cvkegps.ui.PaneHeader
 import com.example.cvkegps.ui.isCompactHeight
@@ -104,13 +110,13 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
                     // The detail pane beside the trip list: a header, the map, and the values below it.
                     val panelHeight = maxHeight * 0.45f
                     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical + WindowInsetsSides.End))) {
-                        PaneHeader(title, onBack, Modifier.padding(horizontal = 4.dp)) {
+                        PaneHeader(title, onBack, Modifier.padding(horizontal = Space.s1)) {
                             if (trip != null) TripMenu(actions, id, trip, shown, snackbar)
                         }
                         MapSurface(lines.orEmpty(), Modifier.fillMaxWidth().weight(1f), routeReady = lines != null)
                         Surface {
                             Column(Modifier.fillMaxWidth().heightIn(max = panelHeight).verticalScroll(rememberScrollState())
-                                .padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                .padding(Space.s4), verticalArrangement = Arrangement.spacedBy(Space.s3)) {
                                 SavedTripContent(actions, id, trip, shown, readFailed = readFailed)
                             }
                         }
@@ -135,8 +141,8 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
         )
     }) { insets ->
         Column(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets).testTag("trip_review")) {
-            actions.error?.let { Text(stringResource(it), Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.error) }
-            if (readFailed) ReadError(actions.vm::retryReads, Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+            actions.error?.let { ProblemBanner(stringResource(it), Modifier.padding(horizontal = Space.s4, vertical = Space.s2)) }
+            if (readFailed) ReadError(actions.vm::retryReads, Modifier.fillMaxWidth().padding(horizontal = Space.s4))
             BoxWithConstraints(Modifier.weight(1f)) {
                 // A wide area, such as an open foldable, uses the landscape side pane. A narrow detail pane keeps the portrait layout.
                 if (maxWidth >= 600.dp) MapWithPane(map = { modifier, _ ->
@@ -150,8 +156,8 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
         }
     }
     if (details && shown != null) TripDetailsSheet({ details = false }) {
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        ElevatedCard(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(Space.s4), verticalArrangement = Arrangement.spacedBy(Space.s3)) {
                 Column {
                     Text(activityText(shown.trip), style = MaterialTheme.typography.titleMedium)
                     Text(stringResource(shown.trip.status.title()), style = MaterialTheme.typography.bodyMedium,
@@ -170,7 +176,7 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
 private fun ColumnScope.SavedTripContent(
     actions: TrackingActions, id: String, trip: TripRecord?, shown: TripDetail?, showError: Boolean = true, readFailed: Boolean = false,
 ) {
-    if (showError) actions.error?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
+    if (showError) actions.error?.let { ProblemBanner(stringResource(it)) }
     if (readFailed) ReadError(actions.vm::retryReads)
     if (trip != null) ActivityChip(activityText(trip), onClick = { actions.chooseMode(id) })
     SavedTotals(trip, shown)
@@ -183,12 +189,12 @@ private fun ColumnScope.SavedTripContent(
 private fun InterruptedActions(actions: TrackingActions, id: String, trip: TripRecord?) {
     if (trip?.status != TripStatus.Interrupted) return
     Text(stringResource(R.string.trip_interrupted_note), style = MaterialTheme.typography.bodySmall)
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.s3)) {
         Button(onClick = { actions.resume(id) }, enabled = actions.recording.trip == null,
-            modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
+            modifier = Modifier.weight(1f).heightIn(min = Size.touch)) {
             ButtonContent(R.drawable.ic_play, R.string.trip_resume)
         }
-        OutlinedButton(onClick = { actions.finish(id) }, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
+        SecondaryButton(onClick = { actions.finish(id) }, modifier = Modifier.weight(1f).heightIn(min = Size.touch)) {
             Text(stringResource(R.string.trip_finish))
         }
     }
@@ -198,7 +204,7 @@ private fun InterruptedActions(actions: TrackingActions, id: String, trip: TripR
 private fun SavedTechnicalDetails(shown: TripDetail) {
     val format = rememberDisplayFormat()
     TechnicalDetails {
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.s6), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
             Metric(R.string.trip_points, format.whole(shown.positions))
             Metric(R.string.trip_segments, format.whole(shown.segments))
             Metric(R.string.trip_gaps, format.whole(shown.summary.gapCount))
@@ -237,9 +243,12 @@ private fun TripMenu(actions: TrackingActions, id: String, trip: TripRecord, sho
                         scope.launch { if (!actions.shareGpx(id)) snackbar.showSnackbar(exportError) }
                     }, modifier = Modifier.testTag("trip_share_gpx"))
             }
+            // Delete is destructive, so it is last, after a divider, in the danger colour.
             if (trip.status == TripStatus.Finished || trip.status == TripStatus.Interrupted) {
+                HorizontalDivider()
                 DropdownMenuItem(text = { Text(stringResource(R.string.trip_delete)) },
                     leadingIcon = { Icon(painterResource(R.drawable.ic_delete), contentDescription = null) },
+                    colors = MenuDefaults.itemColors(textColor = CvkeTheme.colors.danger, leadingIconColor = CvkeTheme.colors.danger),
                     onClick = { menu = false; actions.delete(id) }, modifier = Modifier.testTag("trip_delete"))
             }
         }

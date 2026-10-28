@@ -1,22 +1,19 @@
 package com.example.cvkegps.ui
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
@@ -26,6 +23,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.example.cvkegps.R
+import com.example.cvkegps.ui.theme.CvkeTheme
+import com.example.cvkegps.ui.theme.Space
 import com.example.cvkegps.location.POSITION_ACCURACY_EMPTY_METERS
 import com.example.cvkegps.location.POSITION_ACCURACY_FULL_METERS
 import com.example.cvkegps.location.POSITION_ACCURACY_REFERENCE_METERS
@@ -46,26 +45,30 @@ internal fun PositionAccuracy(accuracyMeters: Float?, compact: Boolean = false, 
             stringResource(R.string.position_accuracy_below, format.format(0.1f))
         else -> stringResource(R.string.position_accuracy, format.format(accuracyMeters))
     }
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        if (label) Text(description, Modifier.testTag("position_accuracy"), style = MaterialTheme.typography.labelMedium)
+    Column(verticalArrangement = Arrangement.spacedBy(Space.s1)) {
+        if (label) Text(description, Modifier.testTag("position_accuracy"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (progress != null) {
-            val animated by animateFloatAsState(progress, tween(650), label = "position accuracy")
             val reference = positionAccuracyProgress(POSITION_ACCURACY_REFERENCE_METERS)!!
-            val notchColor = MaterialTheme.colorScheme.onSecondaryContainer
-            Box(Modifier.fillMaxWidth().height(12.dp).testTag("accuracy_bar").clearAndSetSemantics { contentDescription = description }) {
-                LinearProgressIndicator(
-                    progress = { animated },
-                    modifier = Modifier.fillMaxWidth().height(4.dp).align(Alignment.Center),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = notchColor.copy(alpha = 0.1f),
-                    gapSize = 0.dp,
-                    drawStopIndicator = {},
-                )
-                Canvas(Modifier.matchParentSize()) {
-                    val x = size.width * if (layoutDirection == LayoutDirection.Rtl) 1f - reference else reference
-                    drawLine(notchColor, Offset(x, 1.dp.toPx()), Offset(x, size.height - 1.dp.toPx()),
-                        strokeWidth = 2.dp.toPx())
+            val colors = CvkeTheme.colors
+            val notchColor = colors.ink
+            // A functional gradient: the fill runs from the accent to the gradient end. The track stays flat.
+            Canvas(Modifier.fillMaxWidth().height(12.dp).testTag("accuracy_bar").clearAndSetSemantics { contentDescription = description }) {
+                val rtl = layoutDirection == LayoutDirection.Rtl
+                val bar = 4.dp.toPx()
+                val top = (size.height - bar) / 2
+                val corner = CornerRadius(bar / 2)
+                drawRoundRect(colors.surfaceSunken, Offset(0f, top), Size(size.width, bar), corner)
+                // Data changes at once, so the bar does not animate.
+                val fill = size.width * progress
+                if (fill > 0f) {
+                    val start = if (rtl) size.width - fill else 0f
+                    val brush = Brush.horizontalGradient(if (rtl) listOf(colors.gradientEnd, colors.accent) else listOf(colors.accent, colors.gradientEnd),
+                        startX = start, endX = start + fill)
+                    drawRoundRect(brush, Offset(start, top), Size(fill, bar), corner)
                 }
+                val x = size.width * if (rtl) 1f - reference else reference
+                drawLine(notchColor, Offset(x, 1.dp.toPx()), Offset(x, size.height - 1.dp.toPx()),
+                    strokeWidth = 2.dp.toPx())
             }
             val empty = format.format(POSITION_ACCURACY_EMPTY_METERS)
             val mark = format.format(POSITION_ACCURACY_REFERENCE_METERS)
@@ -76,7 +79,8 @@ internal fun PositionAccuracy(accuracyMeters: Float?, compact: Boolean = false, 
                     .clearAndSetSemantics { contentDescription = scaleDescription },
                 content = {
                     listOf(empty, mark, full).forEach {
-                        Text(stringResource(R.string.accuracy_scale_metres, it), style = MaterialTheme.typography.labelSmall)
+                        Text(stringResource(R.string.accuracy_scale_metres, it), style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 },
             ) { measurables, constraints ->

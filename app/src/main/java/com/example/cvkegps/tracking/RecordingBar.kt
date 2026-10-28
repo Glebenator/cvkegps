@@ -28,6 +28,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.cvkegps.R
+import com.example.cvkegps.ui.theme.Space
 import com.example.cvkegps.ui.rememberDisplayFormat
 
 /** Shows the active trip above the navigation bar. The text area opens the live map. */
@@ -39,12 +40,12 @@ fun RecordingBar(actions: TrackingActions, onOpen: () -> Unit, modifier: Modifie
     val noSignal = rememberSignalLost(actions.recording)
     Surface(modifier.fillMaxWidth().testTag("recording_bar"), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
         // The text has 16 dp from the start edge through its touch area. The buttons use the same edge margin.
-        Row(Modifier.padding(start = 8.dp, end = 16.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.padding(start = Space.s2, end = Space.s4, top = Space.s1, bottom = Space.s1), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Space.s2)) {
             Row(Modifier.weight(1f).clip(MaterialTheme.shapes.medium)
                 .clickable(onClickLabel = stringResource(R.string.trip_open_live), role = Role.Button, onClick = onOpen)
-                .heightIn(min = 48.dp).padding(horizontal = 8.dp).testTag("show_route"),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                .heightIn(min = 48.dp).padding(horizontal = Space.s2).testTag("show_route"),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.s3)) {
                 Icon(painterResource(R.drawable.ic_record), contentDescription = null, Modifier.size(16.dp),
                     tint = if (recording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                 Column {
@@ -76,13 +77,13 @@ fun RecordingRailControls(actions: TrackingActions, onOpen: () -> Unit) {
     val status = stringResource(if (recording && noSignal) R.string.trip_no_signal else trip.status.title())
     val elapsed = rememberElapsed(actions.recording)
     Column(Modifier.testTag("recording_bar"), horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        verticalArrangement = Arrangement.spacedBy(Space.s2)) {
         // The dot and the time open the current trip. The time shows that a trip records, as the bar does in portrait.
         Column(Modifier.clip(MaterialTheme.shapes.medium)
             .clickable(onClickLabel = stringResource(R.string.trip_open_live), role = Role.Button, onClick = onOpen)
-            .heightIn(min = 48.dp).widthIn(min = 56.dp).padding(4.dp).testTag("show_route")
+            .heightIn(min = 48.dp).widthIn(min = 56.dp).padding(Space.s1).testTag("show_route")
             .semantics(mergeDescendants = true) { stateDescription = status },
-            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)) {
+            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Space.s1, Alignment.CenterVertically)) {
             Icon(painterResource(R.drawable.ic_record), contentDescription = null, Modifier.size(16.dp),
                 tint = if (recording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
             Text(rememberDisplayFormat().clock(elapsed), style = MaterialTheme.typography.labelMedium, maxLines = 1)

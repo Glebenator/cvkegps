@@ -52,6 +52,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.example.cvkegps.R
+import com.example.cvkegps.ui.theme.ProblemBanner
+import com.example.cvkegps.ui.theme.Space
 import com.example.cvkegps.location.GpsReading
 import com.example.cvkegps.ui.MapWithPane
 import com.example.cvkegps.ui.isCompactHeight
@@ -94,14 +96,14 @@ fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> 
                     Icon(painterResource(R.drawable.ic_info), contentDescription = stringResource(R.string.trip_details))
                 }
             }
-            actions.error?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
+            actions.error?.let { ProblemBanner(stringResource(it)) }
             LargeSpeed(reading)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.s6), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
                 Metric(R.string.recording_metric_time, format.duration(elapsed))
                 Metric(R.string.trip_distance, trip.distanceMeters?.let(format::distance), tag = "live_distance")
             }
             ActivityChip(activityText(trip), onClick = { actions.chooseMode(trip.id) })
-            if (details) Column(Modifier.testTag("trip_details_content"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (details) Column(Modifier.testTag("trip_details_content"), verticalArrangement = Arrangement.spacedBy(Space.s3)) {
                 LiveDetails(trip, summary, reading, elapsed, includeTotals = true)
             }
         }
@@ -137,11 +139,11 @@ fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> 
                 // The other values are in the details sheet.
                 Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).testTag("live_short_narrow")) {
                     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        horizontalArrangement = Arrangement.spacedBy(Space.s1)) {
                         BackButton(onBack)
                         // One line keeps the height for the map. With large text the speed can be too wide for it:
                         // then only the status shows here, and the speed is in the details sheet.
-                        FlowRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp), maxLines = 1,
+                        FlowRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(Space.s3), maxLines = 1,
                             itemVerticalAlignment = Alignment.CenterVertically) {
                             TripStatusChip(trip.status, noSignal)
                             Text(reading?.speedMetersPerSecond?.let(format::speed) ?: stringResource(R.string.no_value),
@@ -149,10 +151,10 @@ fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> 
                         }
                         DetailsAction { details = true }
                     }
-                    actions.error?.let { Text(stringResource(it), Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.error) }
+                    actions.error?.let { ProblemBanner(stringResource(it), Modifier.padding(horizontal = Space.s4, vertical = Space.s2)) }
                     MapSurface(lines.orEmpty(), Modifier.fillMaxWidth().weight(1f), live = true, routeReady = lines != null, position = position)
                     Surface {
-                        Box(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        Box(Modifier.padding(horizontal = Space.s4, vertical = Space.s2)) {
                             TripActions(trip, actions.pause, { actions.resume(trip.id) }, { actions.stop(trip.id) })
                         }
                     }
@@ -168,8 +170,8 @@ fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> 
             actions = { if (trip != null && !wideTrip) DetailsAction { details = true } })
     }) { insets ->
         Column(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets)) {
-            actions.error?.let { Text(stringResource(it), Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.error) }
-            if (trip == null) Text(stringResource(R.string.trip_starting), Modifier.padding(16.dp))
+            actions.error?.let { ProblemBanner(stringResource(it), Modifier.padding(horizontal = Space.s4, vertical = Space.s2)) }
+            if (trip == null) Text(stringResource(R.string.trip_starting), Modifier.padding(Space.s4))
             else Box(Modifier.weight(1f)) {
                 // A wide window, such as an open foldable, uses the same side pane as landscape.
                 if (wideTrip) MapWithPane(
@@ -177,14 +179,14 @@ fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> 
                     edgeToEdge = false, bottom = buttons, pane = pane,
                 ) else MapWorkspace(lines, live = true, position = position) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        horizontalArrangement = Arrangement.spacedBy(Space.s4)) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
                             TripStatusChip(trip.status, noSignal)
                             // One line: a long value gets smaller instead of breaking between the number and the unit.
                             BasicText(reading?.speedMetersPerSecond?.let(format::speed) ?: stringResource(R.string.no_value),
                                 Modifier.testTag("tracking_speed"), maxLines = 1,
-                                style = MaterialTheme.typography.headlineSmall.copy(color = MaterialTheme.colorScheme.onSurface),
-                                autoSize = TextAutoSize.StepBased(minFontSize = 14.sp, maxFontSize = MaterialTheme.typography.headlineSmall.fontSize))
+                                style = MaterialTheme.typography.headlineMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+                                autoSize = TextAutoSize.StepBased(minFontSize = 14.sp, maxFontSize = MaterialTheme.typography.headlineMedium.fontSize))
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             Text(format.duration(elapsed), style = MaterialTheme.typography.titleMedium, maxLines = 1)
@@ -210,9 +212,9 @@ private fun LargeSpeed(reading: GpsReading?) {
     val description = if (speed != null) stringResource(R.string.speed_accessibility, format.speedNumber(speed))
     else stringResource(R.string.speed_unavailable_accessibility)
     Column(Modifier.clearAndSetSemantics { contentDescription = description }) {
-        Text(stringResource(R.string.current_speed), style = MaterialTheme.typography.labelLarge,
+        Text(stringResource(R.string.current_speed), style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(Space.s2)) {
             BasicText(speed?.let(format::speedNumber) ?: stringResource(R.string.no_value),
                 Modifier.weight(1f, fill = false).alignByBaseline().testTag("tracking_speed"), maxLines = 1,
                 style = MaterialTheme.typography.displayLarge.copy(color = MaterialTheme.colorScheme.onSurface,

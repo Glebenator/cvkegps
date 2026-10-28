@@ -1,1 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32"><style>:root{color:#8F4C28}@media(prefers-color-scheme:dark){:root{color:#FFB68F}}</style><path d="M16 5a11 11 0 1 0 11 11" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="m16 16 3.5-3.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><circle cx="16" cy="16" r="2" fill="currentColor"/><circle cx="24" cy="8" r="2.5" fill="currentColor"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="256" height="256" role="img" aria-label="cvke app icon">
+  <defs>
+    <linearGradient id="sweep" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a5cff"/>
+      <stop offset=".55" stop-color="#c08d96"/>
+      <stop offset="1" stop-color="#0a5cff"/>
+    </linearGradient>
+    <filter id="grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="2" stitchTiles="stitch"/>
+      <feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .07 0"/>
+    </filter>
+    <clipPath id="tile"><rect width="64" height="64" rx="14"/></clipPath>
+  </defs>
+  <g clip-path="url(#tile)">
+    <rect width="64" height="64" fill="url(#sweep)"/>
+    <rect width="64" height="64" filter="url(#grain)"/>
+  </g>
+  <path fill="#ffffff" d="M29 32 L43.7 42.3 A18 18 0 1 1 43.7 21.7 Z"/>
+  <path fill="#f5a578" d="M35 32 L49.7 21.7 A18 18 0 0 1 49.7 42.3 Z"/>
+</svg>

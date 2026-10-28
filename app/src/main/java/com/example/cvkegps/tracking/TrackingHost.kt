@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -41,6 +42,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.cvkegps.R
+import com.example.cvkegps.ui.theme.CvkeTheme
+import com.example.cvkegps.ui.theme.Space
 import com.example.cvkegps.ui.AppNavigator
 import com.example.cvkegps.ui.Destination
 import com.example.cvkegps.ui.Tab
@@ -186,7 +189,9 @@ fun TrackingHost(
         AlertDialog(onDismissRequest = { deleteTrip = null }, title = { Text(stringResource(R.string.trip_delete_title)) },
             text = { Text(stringResource(R.string.trip_delete_message)) },
             confirmButton = {
-                TextButton(onClick = { vm.delete(id); deleteTrip = null; navigator.remove(Destination.SavedTrip(id)) },
+                // The destructive action is a danger fill, and only in this confirmation step.
+                Button(onClick = { vm.delete(id); deleteTrip = null; navigator.remove(Destination.SavedTrip(id)) },
+                    colors = ButtonDefaults.buttonColors(containerColor = CvkeTheme.colors.danger, contentColor = CvkeTheme.colors.dangerInk),
                     modifier = Modifier.testTag("confirm_delete")) { Text(stringResource(R.string.trip_delete)) }
             },
             dismissButton = { TextButton(onClick = { deleteTrip = null }) { Text(stringResource(R.string.trip_cancel)) } })
@@ -199,7 +204,7 @@ private fun AccessDialog(controller: TrackingController, onRequestPermission: ()
     val access = controller.access
     AlertDialog(onDismissRequest = controller::dismissAccess, title = { Text(stringResource(R.string.tracker_access_title)) },
         text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(Space.s3)) {
                 Text(stringResource(R.string.trip_access_explanation))
                 Text(stringResource(R.string.map_privacy))
                 if (!access.precise || !access.notifications) {

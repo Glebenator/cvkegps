@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,7 +42,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -51,6 +49,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.example.cvkegps.R
+import androidx.compose.material3.ElevatedCard
+import com.example.cvkegps.ui.theme.Space
 import com.example.cvkegps.location.GnssObservation
 import com.example.cvkegps.location.GnssSnapshot
 import com.example.cvkegps.location.ReceiverEvent
@@ -184,17 +184,17 @@ private fun GpsDetailsScreen(
             }
         }
         item {
-            Text(stringResource(R.string.details_signals), Modifier.semantics { heading() }, style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.details_signals), Modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium)
             Text(stringResource(R.string.details_signal_note), style = MaterialTheme.typography.bodySmall)
             Text(stringResource(R.string.constellation_note), style = MaterialTheme.typography.bodySmall)
             if (signals.isNullOrEmpty()) {
-                Text(stringResource(if (signals?.isEmpty() == true) R.string.details_no_signals else reportState), Modifier.padding(top = 12.dp))
+                Text(stringResource(if (signals?.isEmpty() == true) R.string.details_no_signals else reportState), Modifier.padding(top = Space.s3))
             }
         }
         if (compact) {
             // Two signal cards in each row, so the pane does not hold one long column.
             items(signals.orEmpty().chunked(2), contentType = { "signal_pair" }) { pair ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.s4)) {
                     pair.forEach { signal -> Box(Modifier.weight(1f)) { SignalCard(signal, decimal, whole, missing) } }
                     if (pair.size == 1) Spacer(Modifier.weight(1f))
                 }
@@ -208,20 +208,20 @@ private fun GpsDetailsScreen(
         val safe = WindowInsets.safeDrawing
         Row(Modifier.fillMaxSize().windowInsetsPadding(safe.only(WindowInsetsSides.Horizontal))) {
             BoxWithConstraints(Modifier.weight(0.45f).fillMaxHeight().windowInsetsPadding(safe.only(WindowInsetsSides.Vertical))
-                .padding(horizontal = 16.dp, vertical = 8.dp)) {
+                .padding(horizontal = Space.s4, vertical = Space.s2)) {
                 // The map gets the height that the header and its two short texts leave. Large text can wrap each text to two lines.
                 val fontScale = LocalDensity.current.fontScale
                 val textHeight = (16 * fontScale * (if (fontScale > 1.3f) 2 else 1)).dp
                 val mapSize = (maxHeight - 48.dp - textHeight * 2 - 32.dp).coerceIn(120.dp, 360.dp)
-                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
                     PaneHeader(stringResource(R.string.gps_details), onBack, backTag = "details_back")
                     skyMap(mapSize)
                 }
             }
             LazyColumn(
                 modifier = Modifier.weight(0.55f).fillMaxHeight().windowInsetsPadding(safe.only(WindowInsetsSides.Vertical)).testTag("gps_details_list"),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(Space.s4),
+                verticalArrangement = Arrangement.spacedBy(Space.s4),
                 content = list,
             )
         }
@@ -242,8 +242,8 @@ private fun GpsDetailsScreen(
     ) { insets ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(insets).testTag("gps_details_list"),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(Space.s4),
+            verticalArrangement = Arrangement.spacedBy(Space.s4),
             content = list,
         )
     }
@@ -251,8 +251,8 @@ private fun GpsDetailsScreen(
 
 @Composable
 private fun DetailCard(@StringRes title: Int, content: @Composable () -> Unit) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    ElevatedCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(Space.s4), verticalArrangement = Arrangement.spacedBy(Space.s3)) {
             Text(stringResource(title), Modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium)
             content()
         }
@@ -279,14 +279,14 @@ private fun SignalCard(signal: SatelliteSignal, decimal: NumberFormat, whole: Nu
         SatelliteSystem.Irnss -> R.string.constellation_irnss
         SatelliteSystem.Unknown -> R.string.constellation_unknown
     })
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    ElevatedCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(Space.s4), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
             androidx.compose.foundation.layout.Row(
                 verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(Space.s2),
             ) {
                 SatelliteMarker(signal.system, signal.usedInFix)
-                Text(stringResource(R.string.details_satellite_id, system, whole.format(signal.id)), fontWeight = FontWeight.Medium)
+                Text(stringResource(R.string.details_satellite_id, system, whole.format(signal.id)), style = MaterialTheme.typography.titleSmall)
             }
             Text(stringResource(if (signal.usedInFix) R.string.details_used else R.string.details_not_used))
             DetailValue(R.string.details_cn0, signal.cn0DbHz.takeIf { it.isFinite() && it >= 0 }?.let { stringResource(R.string.details_dbhz, decimal.format(it)) } ?: missing)

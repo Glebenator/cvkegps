@@ -4,9 +4,6 @@ import android.text.format.DateUtils
 import android.os.SystemClock
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -18,6 +15,12 @@ import kotlinx.coroutines.delay
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import com.example.cvkegps.ui.theme.Motion
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -41,7 +44,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -71,6 +73,13 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import com.example.cvkegps.R
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.ElevatedCard
+import com.example.cvkegps.ui.theme.CvkeTheme
+import com.example.cvkegps.ui.theme.ProblemBanner
+import com.example.cvkegps.ui.theme.SecondaryButton
+import com.example.cvkegps.ui.theme.Size
+import com.example.cvkegps.ui.theme.Space
 import com.example.cvkegps.location.TrackSample
 import com.example.cvkegps.ui.rememberDisplayFormat
 
@@ -80,12 +89,12 @@ import com.example.cvkegps.ui.rememberDisplayFormat
  */
 @Composable
 fun TripStartControls(actions: TrackingActions, canStartTrip: Boolean, landscape: Boolean = false, onOpenTrip: () -> Unit = {}) {
-    actions.error?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
+    actions.error?.let { ProblemBanner(stringResource(it)) }
     val trip = actions.recording.trip
     if (trip == null && canStartTrip && actions.ready) {
         Button(onClick = actions.start, enabled = !actions.recording.starting,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("trip_start")) {
-            Icon(painterResource(R.drawable.ic_record), contentDescription = null, Modifier.size(ButtonDefaults.IconSize))
+            modifier = Modifier.fillMaxWidth().heightIn(min = Size.touch).testTag("trip_start")) {
+            Icon(painterResource(R.drawable.ic_record), contentDescription = null, Modifier.size(Size.iconSm))
             Spacer(Modifier.width(ButtonDefaults.IconSpacing))
             Text(stringResource(if (actions.recording.starting) R.string.trip_starting else R.string.trip_start))
         }
@@ -107,12 +116,12 @@ private fun TripSummaryCard(actions: TrackingActions, trip: TripRecord, onOpenTr
     val noSignal = rememberSignalLost(actions.recording)
     val openLabel = stringResource(R.string.trip_open_live)
     // The whole card opens the current trip, so it needs no separate button.
-    Card(onClick = onOpenTrip, modifier = Modifier.fillMaxWidth().testTag("trip_summary").semantics {
+    ElevatedCard(onClick = onOpenTrip, modifier = Modifier.fillMaxWidth().testTag("trip_summary").semantics {
         onClick(label = openLabel) { onOpenTrip(); true }
-    }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    }) {
+        Column(Modifier.padding(Space.s4), verticalArrangement = Arrangement.spacedBy(Space.s3)) {
             TripStatusChip(trip.status, noSignal)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.s6), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
                 Metric(R.string.recording_metric_time, format.duration(elapsed))
                 Metric(R.string.trip_distance, trip.distanceMeters?.let(format::distance))
                 Metric(R.string.recording_metric_average, averageSpeed(trip.distanceMeters, elapsed)?.let(format::speed))
@@ -121,28 +130,30 @@ private fun TripSummaryCard(actions: TrackingActions, trip: TripRecord, onOpenTr
     }
 }
 
-/** An assist chip that opens the activity choice. */
+/** A pill chip that opens the activity choice: `surface`, a `border-control` outline, and `ink` text. */
 @Composable
 internal fun ActivityChip(text: String, onClick: () -> Unit, tag: String = "change_activity") {
+    val colors = CvkeTheme.colors
     AssistChip(onClick = onClick, label = { Text(text, Modifier.testTag(tag)) },
-        trailingIcon = { Icon(painterResource(R.drawable.ic_edit), contentDescription = null, Modifier.size(AssistChipDefaults.IconSize)) },
-        modifier = Modifier.heightIn(min = 48.dp))
+        trailingIcon = { Icon(painterResource(R.drawable.ic_edit), contentDescription = null, Modifier.size(Size.iconSm)) },
+        shape = CircleShape,
+        colors = AssistChipDefaults.assistChipColors(containerColor = colors.surface, labelColor = colors.ink, trailingIconContentColor = colors.inkMuted),
+        border = AssistChipDefaults.assistChipBorder(enabled = true, borderColor = colors.borderControl),
+        modifier = Modifier.heightIn(min = Size.touch))
 }
 
 /** Recording, Paused, or No GPS signal. The colour and the text both show the state. */
 @Composable
 internal fun TripStatusChip(status: TripStatus, noSignal: Boolean, modifier: Modifier = Modifier) {
     val recording = status == TripStatus.Recording
-    val container = when {
-        recording && noSignal -> MaterialTheme.colorScheme.errorContainer
-        recording -> MaterialTheme.colorScheme.tertiaryContainer
-        else -> MaterialTheme.colorScheme.surfaceContainerHighest
-    }
-    Surface(modifier, shape = MaterialTheme.shapes.small, color = container) {
-        Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    val colors = CvkeTheme.colors
+    // A lost signal is a problem, so it uses the danger tint. Otherwise the pill is neutral and the icon carries the state.
+    Surface(modifier, shape = CircleShape, color = if (recording && noSignal) colors.dangerSubtle else colors.surfaceSunken,
+        contentColor = colors.ink) {
+        Row(Modifier.padding(horizontal = Space.s3, vertical = Space.s1), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Space.s2)) {
             Icon(painterResource(if (recording) R.drawable.ic_record else R.drawable.ic_pause), contentDescription = null,
-                Modifier.size(14.dp), tint = if (recording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                Modifier.size(Size.iconSm), tint = if (recording) colors.danger else colors.inkMuted)
             Text(stringResource(if (recording && noSignal) R.string.trip_no_signal else status.title()),
                 Modifier.testTag("recording_status"), style = MaterialTheme.typography.labelLarge)
         }
@@ -163,12 +174,12 @@ internal fun TripActions(trip: TripRecord, onPause: () -> Unit, onResume: () -> 
         val recording = trip.status == TripStatus.Recording
         val labels = listOf(stringResource(if (recording) R.string.trip_pause else R.string.trip_resume), stringResource(R.string.trip_stop))
         val textWidth = labels.sumOf { with(density) { measurer.measure(it, style).size.width.toDp() }.value.toDouble() }.dp
-        val padding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-        val sideBySide = maxWidth >= textWidth + (16.dp * 2 + ButtonDefaults.IconSize + ButtonDefaults.IconSpacing) * 2 + 12.dp
+        val padding = PaddingValues(horizontal = Space.s4, vertical = Space.s2)
+        val sideBySide = maxWidth >= textWidth + (16.dp * 2 + Size.iconSm + ButtonDefaults.IconSpacing) * 2 + 12.dp
         val pause: @Composable (Modifier) -> Unit = { modifier ->
-            if (recording) FilledTonalButton(onClick = onPause, modifier = modifier.testTag("trip_pause"), contentPadding = padding) {
+            if (recording) SecondaryButton(onClick = onPause, modifier = modifier.testTag("trip_pause"), contentPadding = padding) {
                 ButtonContent(R.drawable.ic_pause, R.string.trip_pause)
-            } else FilledTonalButton(onClick = onResume, modifier = modifier.testTag("trip_resume"), contentPadding = padding) {
+            } else SecondaryButton(onClick = onResume, modifier = modifier.testTag("trip_resume"), contentPadding = padding) {
                 ButtonContent(R.drawable.ic_play, R.string.trip_resume)
             }
         }
@@ -177,12 +188,12 @@ internal fun TripActions(trip: TripRecord, onPause: () -> Unit, onResume: () -> 
                 ButtonContent(R.drawable.ic_stop, R.string.trip_stop)
             }
         }
-        if (sideBySide) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            pause(Modifier.weight(1f).heightIn(min = 48.dp))
-            stop(Modifier.weight(1f).heightIn(min = 48.dp))
-        } else Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            pause(Modifier.fillMaxWidth().heightIn(min = 56.dp))
-            stop(Modifier.fillMaxWidth().heightIn(min = 56.dp))
+        if (sideBySide) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.s3)) {
+            pause(Modifier.weight(1f).heightIn(min = Size.touch))
+            stop(Modifier.weight(1f).heightIn(min = Size.touch))
+        } else Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
+            pause(Modifier.fillMaxWidth().heightIn(min = Size.touch))
+            stop(Modifier.fillMaxWidth().heightIn(min = Size.touch))
         }
     }
 }
@@ -252,7 +263,7 @@ internal fun BackButton(onBack: () -> Unit) {
 
 @Composable
 internal fun ButtonContent(icon: Int, @StringRes label: Int) {
-    Icon(painterResource(icon), contentDescription = null, Modifier.size(ButtonDefaults.IconSize))
+    Icon(painterResource(icon), contentDescription = null, Modifier.size(Size.iconSm))
     Spacer(Modifier.width(ButtonDefaults.IconSpacing))
     Text(stringResource(label))
 }
@@ -266,7 +277,7 @@ internal fun MapWorkspace(lines: List<List<TrackSample>>?, live: Boolean = false
         if (maxWidth > maxHeight) Row(Modifier.fillMaxSize()) {
             MapSurface(lines.orEmpty(), Modifier.weight(1f).fillMaxHeight(), live, routeReady = lines != null, position = position)
             Surface(Modifier.width(panelWidth).fillMaxHeight()) {
-                Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.verticalScroll(rememberScrollState()).padding(Space.s4), verticalArrangement = Arrangement.spacedBy(Space.s3)) {
                     panel()
                 }
             }
@@ -274,7 +285,7 @@ internal fun MapWorkspace(lines: List<List<TrackSample>>?, live: Boolean = false
             MapSurface(lines.orEmpty(), Modifier.fillMaxWidth().weight(1f), live, routeReady = lines != null, position = position)
             Surface {
                 Column(Modifier.fillMaxWidth().heightIn(max = panelHeight)
-                    .verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { panel() }
+                    .verticalScroll(rememberScrollState()).padding(Space.s4), verticalArrangement = Arrangement.spacedBy(Space.s3)) { panel() }
             }
         }
     }
@@ -284,8 +295,8 @@ internal fun MapWorkspace(lines: List<List<TrackSample>>?, live: Boolean = false
 @Composable
 internal fun TripDetailsSheet(onDismiss: () -> Unit, content: @Composable () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)
-            .padding(bottom = 24.dp).testTag("trip_details_content"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = Space.s4)
+            .padding(bottom = Space.s6).testTag("trip_details_content"), verticalArrangement = Arrangement.spacedBy(Space.s4)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.trip_details), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
                 TextButton(onClick = onDismiss, modifier = Modifier.testTag("close_trip_details")) {
@@ -307,9 +318,8 @@ internal fun DetailsAction(onClick: () -> Unit) {
 /** A failed read of saved trips, with an action that reads them again. */
 @Composable
 internal fun ReadError(onRetry: () -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.testTag("read_error"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(stringResource(R.string.trip_read_error), color = MaterialTheme.colorScheme.error)
-        OutlinedButton(onClick = onRetry, modifier = Modifier.heightIn(min = 48.dp).testTag("read_retry")) {
+    ProblemBanner(stringResource(R.string.trip_read_error), modifier.testTag("read_error")) {
+        SecondaryButton(onClick = onRetry, modifier = Modifier.padding(top = Space.s2).heightIn(min = Size.touch).testTag("read_retry")) {
             Text(stringResource(R.string.trip_read_retry))
         }
     }
@@ -319,7 +329,7 @@ internal fun ReadError(onRetry: () -> Unit, modifier: Modifier = Modifier) {
 @Composable
 internal fun Metric(@StringRes title: Int, value: String?, pending: Boolean = false, tag: String? = null) {
     Column {
-        Text(stringResource(title), style = MaterialTheme.typography.labelMedium)
+        Text(stringResource(title), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         PendingText(if (pending) null else value ?: stringResource(R.string.no_value),
             if (tag == null) Modifier else Modifier.testTag(tag), style = MaterialTheme.typography.titleMedium)
     }
@@ -338,7 +348,7 @@ internal fun TripTotals(
     maximumPending: Boolean,
 ) {
     val format = rememberDisplayFormat()
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.s6), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
         Metric(R.string.trip_distance, distanceMeters?.let(format::distance), distancePending, "trip_distance")
         Metric(R.string.trip_duration, durationNanos?.let(format::duration), durationNanos == null)
         Metric(R.string.trip_average_speed, durationNanos?.let { averageSpeed(distanceMeters, it) }?.let(format::speed),
@@ -361,8 +371,11 @@ internal fun TechnicalDetails(content: @Composable () -> Unit) {
             Text(stringResource(R.string.trip_technical_details), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
             Icon(painterResource(R.drawable.ic_expand_more), contentDescription = null, Modifier.rotate(if (open) 180f else 0f))
         }
-        AnimatedVisibility(open) {
-            Column(Modifier.padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { content() }
+        // The section opens so the values below do not jump. It closes faster than it opens.
+        AnimatedVisibility(open, enter = fadeIn(tween(Motion.ENTER_MILLIS, easing = Motion.standard)) +
+            expandVertically(tween(Motion.ENTER_MILLIS, easing = Motion.standard)),
+            exit = fadeOut(tween(Motion.EXIT_MILLIS, easing = Motion.standard)) + shrinkVertically(tween(Motion.EXIT_MILLIS, easing = Motion.standard))) {
+            Column(Modifier.padding(top = Space.s1), verticalArrangement = Arrangement.spacedBy(Space.s3)) { content() }
         }
     }
 }
@@ -370,7 +383,7 @@ internal fun TechnicalDetails(content: @Composable () -> Unit) {
 /** Null is pending: the text keeps one line of space, is hidden from screen readers, and fades in when ready. */
 @Composable
 internal fun PendingText(value: String?, modifier: Modifier = Modifier, style: TextStyle, color: Color = Color.Unspecified) {
-    val alpha by animateFloatAsState(if (value == null) 0f else 1f, label = "pending")
+    val alpha by animateFloatAsState(if (value == null) 0f else 1f, tween(Motion.ENTER_MILLIS, easing = Motion.standard), label = "pending")
     val hidden = if (value == null) Modifier.clearAndSetSemantics { } else Modifier
     Text(value ?: " ", modifier.graphicsLayer { this.alpha = alpha }.then(hidden), style = style, color = color)
 }

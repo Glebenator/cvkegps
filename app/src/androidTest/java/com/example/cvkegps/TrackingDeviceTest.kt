@@ -602,22 +602,24 @@ class TrackingDeviceTest {
         waitUntil { exports.listFiles().orEmpty().isEmpty() }
     }
 
-    @Test fun screenChangesFinishWithinTheMaterialDuration() {
+    @Test fun screenChangesFinishWithinTheDesignDuration() {
         launch()
         compose.onNodeWithTag("current_speed").assertIsDisplayed()
-        // The test clock moves only when told. Navigation 3's default 700 ms fade would keep the old screen at 350 ms.
+        // The test clock moves only when told. The design allows no UI motion over 400 ms, and a tab change is instant.
+        // Navigation 3's default 700 ms fade would keep the old screen at 400 ms.
         compose.mainClock.autoAdvance = false
         try {
             compose.onNodeWithTag("gps_details").performClick()
-            compose.mainClock.advanceTimeBy(350)
+            compose.mainClock.advanceTimeBy(400)
             compose.onNodeWithTag("gps_details_list").assertIsDisplayed()
             compose.onNodeWithTag("current_speed").assertDoesNotExist()
             compose.onNodeWithTag("details_back").performClick()
-            compose.mainClock.advanceTimeBy(350)
+            compose.mainClock.advanceTimeBy(400)
             compose.onNodeWithTag("gps_details_list").assertDoesNotExist()
             compose.onNodeWithTag("current_speed").assertIsDisplayed()
+            // A few frames only, so a tab change that fades fails.
             compose.onNodeWithTag("nav_tab_trips").performClick()
-            compose.mainClock.advanceTimeBy(350)
+            compose.mainClock.advanceTimeBy(100)
             compose.onNodeWithTag("current_speed").assertDoesNotExist()
             compose.onNodeWithTag("trips_content").assertIsDisplayed()
         } finally {

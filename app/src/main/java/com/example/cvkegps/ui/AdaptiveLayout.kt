@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
@@ -40,6 +39,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import com.example.cvkegps.R
+import com.example.cvkegps.ui.theme.mapButtonColors
+import com.example.cvkegps.ui.theme.mapButtonModifier
+import com.example.cvkegps.ui.theme.Space
 
 /**
  * True when the window is less than 480 dp high, which is a phone in landscape.
@@ -54,10 +56,10 @@ fun isCompactHeight(): Boolean =
 fun isWideWindow(): Boolean =
     currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
 
-/** A 48 dp back button on a filled surface, so it stays readable over a map. */
+/** A 48 dp back button on a floating surface, so it stays readable over a map. */
 @Composable
 fun FloatingBackButton(onBack: () -> Unit, modifier: Modifier = Modifier, tag: String = "top_back") {
-    FilledTonalIconButton(onClick = onBack, modifier = modifier.size(48.dp).testTag(tag)) {
+    FilledTonalIconButton(onClick = onBack, colors = mapButtonColors(), modifier = modifier.then(mapButtonModifier).testTag(tag)) {
         Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = stringResource(R.string.back))
     }
 }
@@ -72,7 +74,7 @@ fun PaneHeader(
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     Row(modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        horizontalArrangement = Arrangement.spacedBy(Space.s1)) {
         if (onBack != null) IconButton(onClick = onBack, modifier = Modifier.testTag(backTag)) {
             Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = stringResource(R.string.back))
         }
@@ -101,13 +103,13 @@ fun MapWithPane(
             map(Modifier.weight(1f).fillMaxHeight(), safe.only(WindowInsetsSides.Top + WindowInsetsSides.Start + WindowInsetsSides.Bottom))
             Surface(Modifier.width(paneWidth).fillMaxHeight()) {
                 Column(Modifier.fillMaxSize().windowInsetsPadding(safe.only(WindowInsetsSides.Vertical + WindowInsetsSides.End))
-                    .padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    .padding(horizontal = Space.s4, vertical = Space.s3)) {
                     Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).testTag("trip_pane"),
-                        verticalArrangement = Arrangement.spacedBy(12.dp), content = pane)
+                        verticalArrangement = Arrangement.spacedBy(Space.s3), content = pane)
                     // A divider marks the end of the scrolling values, so a value cut at that edge reads as scrollable.
                     if (bottom != null) {
-                        HorizontalDivider(Modifier.padding(top = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                        Column(Modifier.fillMaxWidth().padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = bottom)
+                        HorizontalDivider(Modifier.padding(top = Space.s1), color = MaterialTheme.colorScheme.outlineVariant)
+                        Column(Modifier.fillMaxWidth().padding(top = Space.s3), verticalArrangement = Arrangement.spacedBy(Space.s2), content = bottom)
                     }
                 }
             }
