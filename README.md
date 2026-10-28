@@ -134,7 +134,8 @@ show a saved trip beside the trip list, use the Android 17 metric card with simp
 - **Review issues.** A failed delete no longer leaves its error on screen. Start trip returns when location is turned on
   from Quick Settings. The sky heading follows a 180 degree turn between landscape directions. The activity can be chosen
   before a trip. The recording notice shows only before the first trip, also after a cold start.
-- **Settings.** **Keep the screen on while Speed is open** is off by default. It applies only while the Speed tab shows.
+- **Settings.** **Keep the screen on for speed and the current trip** is off by default. It applies only while the Speed tab
+  or the current trip map shows.
 
 Espresso 3.7.0 is a test dependency: Compose testing brings Espresso 3.5.0, which fails on Android 17.
 
@@ -230,7 +231,7 @@ The app saves trips locally and estimates the activity from GPS speed. It does n
 GPS stays on while the app is visible, on every screen, so a change of screen or a rotation does not restart it.
 GPS stops when the app is no longer visible, unless a trip is recording. A paused trip also stops GPS.
 A trip that records while the app is not visible receives fixes in groups of up to 5 seconds, so Android can keep the processor asleep between groups.
-The app keeps the screen on only when the user turns on that setting, and only on the Speed tab.
+The app keeps the screen on only when the user turns on that setting, and only on the Speed tab and the current trip map.
 
 ## GPS details
 

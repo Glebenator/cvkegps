@@ -166,8 +166,8 @@
       </div>
       <aside class="meta" aria-label="Report details">
         <dl>
-          <div><dt>Report updated</dt><dd><time datetime="2026-10-27">27 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>ef4039a</code> plus the uncommitted design-language change (branch <code>native-maps</code>)</dd></div>
+          <div><dt>Report updated</dt><dd><time datetime="2026-10-28">28 October 2026</time></dd></div>
+          <div><dt>App code baseline</dt><dd><code>5b6e782</code> plus the keep-screen-on fix (branch <code>native-maps</code>)</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
@@ -179,6 +179,7 @@
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, debug lint, and unsigned release build</span><span class="small">Release APK not installed or run</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#keep-screen-on-trip">Screen on during a trip · 28 Oct</a>
       <a href="#design-language">Design language · 27 Oct</a>
       <a href="#native-maps">Native maps · 27 Oct</a>
       <a href="#review-fixes">Review fixes · 27 Oct</a>
@@ -202,6 +203,32 @@
       <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
     </nav>
+
+    <section id="keep-screen-on-trip" aria-labelledby="keep-screen-on-trip-heading">
+      <div class="section-head"><h2 id="keep-screen-on-trip-heading">Keep the screen on during a trip · 28 October 2026</h2><span class="tag done">Fixed and checked on an emulator</span></div>
+      <p class="section-intro">The owner reported that the screen turned off on the current trip map, also with <strong>Keep the screen on</strong> selected.
+      The setting applied only to the Speed tab, by design. It now applies to the Speed tab and to the current trip map. It is still off by default, and it does not apply to GPS details, Trips, a saved trip, or Settings.</p>
+      <div class="table-wrap"><table class="wrap-cells">
+        <thead><tr><th scope="col">Item</th><th scope="col">Change</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Rule</th><td>The app shell sets the screen-on flag once, from the screen at the top of the back stack (<a href="app/src/main/java/com/example/cvkegps/ui/AppShell.kt"><code>KeepScreenOnWhenChosen</code></a>).
+          Before, the Speed screen set the flag itself. If two screens each set it, the screen that leaves during a transition could clear the flag after the new screen set it.</td></tr>
+          <tr><th scope="row">Setting text</th><td><strong>Keep the screen on for speed and the current trip</strong>. The screen stays on only while the Speed tab or the current trip map shows. This uses more battery.</td></tr>
+          <tr><th scope="row">Device test</th><td><code>keepScreenOnIsOffByDefaultAndAppliesOnlyToSpeedAndTheCurrentTrip</code> also opens the current trip from the Trips tab and checks that the screen stays on there and turns off again after Back.</td></tr>
+        </tbody>
+      </table></div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li>Pixel 10 Pro emulator, Android 17 (API 37), with the development Maps API key. The changed test passed twice.</li>
+          <li>All 25 tests in <code>TrackingDeviceTest</code>: 24 passed. <code>locationTurnedOnWhileTheAppShowsBringsBackStartTrip</code> timed out after location was turned on again. It does not use the setting. Run alone, it passed three times.</li>
+          <li>Debug build, test build, and debug lint passed with no issues. The other 17 device tests and the calculation tests were not run again for this change.</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>Checked on an emulator only. On a phone, a screen that stays on during a long trip uses much battery. The owner selects it in Settings.</li>
+        </ul>
+      </article>
+    </section>
 
     <section id="design-language" aria-labelledby="design-language-heading">
       <div class="section-head"><h2 id="design-language-heading">Owner's design language · 27 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
@@ -1770,6 +1797,9 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-28">28 October 2026</time><div><h3>Keep the screen on during a trip</h3>
+<p>The keep-screen-on setting now applies to the current trip map as well as the Speed tab. The app shell sets the flag from the top screen, so a screen that leaves during a transition cannot clear it.
+The changed device test passed; 24 of 25 tracking device tests passed, and the one location timing failure passed three times alone. See <a href="#keep-screen-on-trip">evidence</a>.</p></div></li>
 <li><time datetime="2026-10-27">27 October 2026</time><div><h3>Owner's design language</h3>
 <p>Restyled the app with the owner's design language: token-based colours, type, spacing, and motion; elevated cards, pill buttons, outlined secondary buttons, icon-only tabs, open trip rows with icon tiles, danger banners, Lucide icons, the cvke launcher icon, and slice art in empty states.
 Dynamic colour now tints only the neutral surfaces, and the empty trip list has the slow slice loop. Tab changes are now instant, and drill-in screens move 8 dp. On a Pixel 10 Pro API 37 emulator, 33 calculation tests and 41 of 42 device tests passed on the final code. The transition test now checks the design durations and passes; the GPX share test timed out once at the share sheet and passed twice alone. See <a href="#design-language">evidence and limits</a>.</p></div></li>

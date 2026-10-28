@@ -35,8 +35,8 @@
     <string name="back">Back</string>
     <string name="settings">Settings</string>
     <string name="settings_display">Display</string>
-    <string name="settings_keep_screen_on">Keep the screen on while Speed is open</string>
-    <string name="settings_keep_screen_on_body">The screen stays on only while the Speed tab shows. This uses more battery.</string>
+    <string name="settings_keep_screen_on">Keep the screen on for speed and the current trip</string>
+    <string name="settings_keep_screen_on_body">The screen stays on only while the Speed tab or the current trip map shows. This uses more battery.</string>
     <string name="details_not_available">Unavailable</string>
     <string name="details_request">Location request</string>
     <string name="details_provider">Source</string>

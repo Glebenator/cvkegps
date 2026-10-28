@@ -119,6 +119,7 @@ fun AppShell(
     val sceneStrategy = rememberListDetailSceneStrategy<Destination>(
         backNavigationBehavior = BackNavigationBehavior.PopLatest, directive = directive)
     TrackingHost(app, navigator, openTripsRequest) { tracking ->
+        KeepScreenOnWhenChosen(app, navigator.backStack.last())
         // The window background is transparent. Screens fade and the bars change height, so paint the theme background behind them.
         BoxWithConstraints(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             // A navigation rail in landscape, and on wide windows such as an open foldable.
@@ -192,6 +193,21 @@ fun AppShell(
     }
 }
 
+/**
+ * Keeps the screen on while Speed or the current trip shows, and only when the user chose it in Settings.
+ * The shell sets it once from the top screen, so a screen that leaves during a transition cannot clear it.
+ */
+@Composable
+private fun KeepScreenOnWhenChosen(app: TrackingApplication, top: Destination) {
+    val settings by app.settings.values.collectAsStateWithLifecycle()
+    val keepOn = settings.keepScreenOn && (top == Destination.Speed || top == Destination.LiveTrip)
+    val view = LocalView.current
+    DisposableEffect(view, keepOn) {
+        view.keepScreenOn = keepOn
+        onDispose { view.keepScreenOn = false }
+    }
+}
+
 @Composable
 private fun Screen(
     destination: Destination,
@@ -206,15 +222,6 @@ private fun Screen(
     val openSettings = { navigator.push(Destination.Settings) }.takeIf { !rail }
     when (destination) {
         Destination.Speed -> {
-            // Only while the Speed tab shows, and only when the user chose it in Settings.
-            val settings by app.settings.values.collectAsStateWithLifecycle()
-            if (settings.keepScreenOn) {
-                val view = LocalView.current
-                DisposableEffect(view) {
-                    view.keepScreenOn = true
-                    onDispose { view.keepScreenOn = false }
-                }
-            }
             SpeedometerRoute(speedometer, access, onDetails = { navigator.push(Destination.GpsDetails) },
                 trackerControls = { canStart, landscape ->
                     TripStartControls(tracking, canStart, landscape, onOpenTrip = { navigator.push(Destination.LiveTrip) })
