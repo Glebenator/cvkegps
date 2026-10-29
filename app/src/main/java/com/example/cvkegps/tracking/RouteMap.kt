@@ -126,6 +126,9 @@ private enum class FollowMode { Off, North, Course }
 /** The newest plotted position of a recording trip. [fresh] is false when that position is old. */
 data class LivePosition(val sample: TrackSample, val fresh: Boolean)
 
+/** A numbered moment on a replay map. [description] is the text for screen readers. */
+data class MapMoment(val number: Int, val latitudeRadians: Double, val longitudeRadians: Double, val description: String)
+
 @Composable
 internal fun MapSurface(
     lines: List<List<TrackSample>>,
@@ -135,9 +138,11 @@ internal fun MapSurface(
     insets: WindowInsets = WindowInsets(0),
     onBack: (() -> Unit)? = null,
     position: LivePosition? = null,
+    replay: Boolean = false,
+    moments: List<MapMoment> = emptyList(),
 ) {
     var retry by rememberSaveable { mutableIntStateOf(0) }
-    key(retry) { MapCanvas(lines, modifier, live, routeReady, insets, onBack, position, onRetry = { retry++ }) }
+    key(retry) { MapCanvas(lines, modifier, live, routeReady, insets, onBack, position, replay, moments, onRetry = { retry++ }) }
 }
 
 @Composable
@@ -149,8 +154,12 @@ private fun MapCanvas(
     insets: WindowInsets,
     onBack: (() -> Unit)?,
     position: LivePosition?,
+    replay: Boolean,
+    moments: List<MapMoment>,
     onRetry: () -> Unit,
 ) {
+    // A replay follows its playhead as a live map follows the newest fix.
+    val follows = live || replay
     val context = LocalContext.current
     val settings = (context.applicationContext as TrackingApplication).settings
     val choice by settings.values.collectAsStateWithLifecycle()
@@ -175,7 +184,7 @@ private fun MapCanvas(
     // True after the camera first shows the route or the position. It is saved, so a recreated screen keeps the user's view.
     var placed by rememberSaveable { mutableStateOf(false) }
     var fitRequest by remember { mutableIntStateOf(0) }
-    var follow by rememberSaveable { mutableStateOf(if (live) FollowMode.North else FollowMode.Off) }
+    var follow by rememberSaveable { mutableStateOf(if (follows) FollowMode.North else FollowMode.Off) }
     // Zoom follows speed until the zoom buttons change it.
     var userZoomed by rememberSaveable { mutableStateOf(false) }
     // A map gesture stops following. The compass turns the map to north, so following continues with north up.
@@ -231,7 +240,7 @@ private fun MapCanvas(
         // A live map that follows moves to each new position. The route line can update later.
         LaunchedEffect(position?.sample, follow) {
             val last = position?.sample ?: return@LaunchedEffect
-            if (!live || follow == FollowMode.Off) return@LaunchedEffect
+            if (!follows || follow == FollowMode.Off) return@LaunchedEffect
             val current = camera.position
             val zoom = when {
                 !placed -> speedZoom(last) ?: 15f
@@ -242,7 +251,8 @@ private fun MapCanvas(
             val bearing = if (course) courseRadians(last)?.let { Math.toDegrees(it).toFloat() } ?: current.bearing else 0f
             val update = CameraUpdateFactory.newCameraPosition(CameraPosition(last.latLng(), zoom, if (course) COURSE_TILT else 0f, bearing))
             // One short camera move for each new fix. There is no continuous animation.
-            if (placed) camera.animate(update, 800) else camera.move(update)
+            // A replay moves the position up to 10 times each second, so its camera jumps with it.
+            if (placed && !replay) camera.animate(update, 800) else camera.move(update)
             placed = true
         }
 
@@ -265,13 +275,13 @@ private fun MapCanvas(
                 zoomControlsEnabled = false,
                 myLocationButtonEnabled = false,
                 indoorLevelPickerEnabled = false,
-                mapToolbarEnabled = !live,
+                mapToolbarEnabled = !follows,
             ),
             onMapLoaded = { loaded = true; unavailable = false },
             contentPadding = padding,
             mapColorScheme = if (dark) ComposeMapColorScheme.DARK else ComposeMapColorScheme.LIGHT,
         ) {
-            RouteOverlay(route, lines, live, position, routeColor)
+            RouteOverlay(route, lines, live, position, routeColor, moments)
         }
         // The controls stay inside the safe area.
         Box(Modifier.matchParentSize().windowInsetsPadding(insets)) {
@@ -279,7 +289,7 @@ private fun MapCanvas(
             val controls: @Composable () -> Unit = {
                 val hasRoute = lines.any { it.isNotEmpty() }
                 MapTypeButton(choice.mapLayer, choice.mapTraffic.takeIf { live }, settings::setMapLayer, settings::setMapTraffic)
-                if (live) {
+                if (follows) {
                     val label = stringResource(if (follow == FollowMode.Course) R.string.map_follow_course else R.string.map_follow)
                     val state = stringResource(when (follow) {
                         FollowMode.Off -> R.string.map_follow_off
@@ -338,7 +348,9 @@ private fun MapCanvas(
 
 /** The route line, the start and end markers, and the live position. Only the map content can make marker images. */
 @Composable
-private fun RouteOverlay(route: List<RouteLine>, lines: List<List<TrackSample>>, live: Boolean, position: LivePosition?, routeColor: Color) {
+private fun RouteOverlay(
+    route: List<RouteLine>, lines: List<List<TrackSample>>, live: Boolean, position: LivePosition?, routeColor: Color, moments: List<MapMoment>,
+) {
     val context = LocalContext.current
     val density = LocalDensity.current
     val icons = remember(density, routeColor) { MapIcons(density, routeColor.toArgb()) }
@@ -375,9 +387,25 @@ private fun RouteOverlay(route: List<RouteLine>, lines: List<List<TrackSample>>,
         // A flat marker turns with the map, so the arrow keeps the true direction when the map is rotated.
         if (course != null) Marker(rememberUpdatedMarkerState(at), contentDescription = null, anchor = Offset(0.5f, 0.5f), flat = true,
             icon = icons.heading, rotation = Math.toDegrees(course).toFloat(), zIndex = 3f, onClick = { true })
+        // A network position is approximate, so its marker is a ring, not a filled dot.
+        val approximate = position.sample.source == FixSource.Network
         Marker(rememberUpdatedMarkerState(at),
-            contentDescription = stringResource(if (position.fresh) R.string.map_position_current else R.string.map_position_old),
-            anchor = Offset(0.5f, 0.5f), icon = if (position.fresh) icons.position else icons.oldPosition, zIndex = 4f, onClick = { true })
+            contentDescription = stringResource(when {
+                !position.fresh -> R.string.map_position_old
+                approximate -> R.string.map_position_approximate
+                else -> R.string.map_position_current
+            }),
+            anchor = Offset(0.5f, 0.5f), icon = when {
+                !position.fresh -> icons.oldPosition
+                approximate -> icons.ring
+                else -> icons.position
+            }, zIndex = 4f, onClick = { true })
+    }
+    // Numbered moments. The same number is on the replay chips and the speed profile.
+    for (moment in moments) key(moment.number) {
+        val icon = remember(icons, moment.number) { icons.numbered(moment.number) }
+        Marker(rememberUpdatedMarkerState(LatLng(Math.toDegrees(moment.latitudeRadians), Math.toDegrees(moment.longitudeRadians))),
+            contentDescription = moment.description, anchor = Offset(0.5f, 0.5f), icon = icon, zIndex = 3f, onClick = { true })
     }
 }
 
@@ -462,6 +490,40 @@ private class MapIcons(density: Density, route: Int) {
     val position = dot(8f, 3f, route)
     val oldPosition = dot(8f, 3f, 0xFF8A8F87.toInt())
     val heading = headingArrow(22f, route)
+    val ring = ring(8f, 3f, route)
+    private val accent = route
+
+    /** A hollow circle with a white edge, for an approximate position. Sizes are in dp. */
+    private fun ring(radius: Float, edge: Float, color: Int): BitmapDescriptor {
+        val outer = (radius + edge) * scale
+        val bitmap = createBitmap((outer * 2).toInt() + 2, (outer * 2).toInt() + 2)
+        val canvas = Canvas(bitmap)
+        val centre = bitmap.width / 2f
+        canvas.drawCircle(centre, centre, outer, Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = android.graphics.Color.WHITE })
+        canvas.drawCircle(centre, centre, radius * scale, Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color })
+        canvas.drawCircle(centre, centre, (radius - edge) * scale, Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = android.graphics.Color.WHITE })
+        return BitmapDescriptorFactory.fromBitmap(bitmap)
+    }
+
+    /** A white number on an accent circle with a white edge. The number uses the system font. */
+    fun numbered(number: Int): BitmapDescriptor {
+        val radius = 12f * scale
+        val edge = 2f * scale
+        val size = ((radius + edge) * 2).toInt() + 2
+        val bitmap = createBitmap(size, size)
+        val canvas = Canvas(bitmap)
+        val centre = size / 2f
+        canvas.drawCircle(centre, centre, radius + edge, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE })
+        canvas.drawCircle(centre, centre, radius, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = accent })
+        val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.WHITE
+            textSize = 13f * scale
+            textAlign = Paint.Align.CENTER
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+        canvas.drawText(number.toString(), centre, centre - (text.descent() + text.ascent()) / 2, text)
+        return BitmapDescriptorFactory.fromBitmap(bitmap)
+    }
 
     /** A filled circle with a white edge. Sizes are in dp. */
     private fun dot(radius: Float, edge: Float, color: Int): BitmapDescriptor {

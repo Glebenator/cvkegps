@@ -986,6 +986,64 @@ class TrackingDeviceTest {
         assertFalse(runBlocking { app.database.trips().segments(standard) }.single().highAccuracy)
     }
 
+    @Test fun replayFindsTheFastestMomentPlaysAndFitsThemesLargeTextAndRotation() {
+        val font = shell("settings get system font_scale").trim()
+        val rotation = shell("settings get system user_rotation").trim()
+        val auto = shell("settings get system accelerometer_rotation").trim()
+        val night = shell("cmd uimode night").substringAfter(":").trim()
+        try {
+            launch()
+            startTrip()
+            val id = app.recorder.state.value.trip!!.id
+            // The speed rises to 20 m/s and falls again. Each fix is saved before the next one.
+            for (speed in listOf(5f, 10f, 15f, 20f, 12f, 8f)) {
+                val before = savedCount(id)
+                waitFor(10_000) { inject(speed = speed); Thread.sleep(1_100); savedCount(id) > before }
+            }
+            clickVisible("trip_stop")
+            waitUntil { !app.recorder.state.value.needsService }
+            compose.onNodeWithTag("open_replay").performClick()
+            compose.waitUntil(10_000) { compose.onAllNodesWithTag("moment_FastestSpeed").fetchSemanticsNodes().isNotEmpty() }
+            val format = DisplayFormat(context.resources)
+            // A chip moves the playhead to its moment. The values there are the stored fix.
+            compose.onNodeWithTag("moment_FastestSpeed").performClick()
+            compose.onNodeWithTag("replay_speed", useUnmergedTree = true).assertTextEquals(format.speed(20f))
+            compose.onNodeWithTag("replay_profile").assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo))
+            compose.onNodeWithTag("replay_previous").assertIsNotEnabled()
+            // Play at 64 times: the playhead reaches the end and the replay stops.
+            repeat(3) { compose.onNodeWithTag("replay_rate").performClick() }
+            compose.onNodeWithTag("replay_play").performClick()
+            val end = compose.onNodeWithTag("replay_time", useUnmergedTree = true).fetchSemanticsNode()
+                .config[SemanticsProperties.Text].joinToString().substringAfter(" / ")
+            // The clock waits on the test clock. Real time sets the step.
+            var played = false
+            repeat(40) {
+                if (!played) {
+                    compose.mainClock.advanceTimeBy(100)
+                    Thread.sleep(100)
+                    played = compose.onAllNodesWithText("Play").fetchSemanticsNodes().isNotEmpty()
+                }
+            }
+            assertTrue("The replay did not reach the end", played)
+            compose.onNodeWithTag("replay_time", useUnmergedTree = true).assertTextEquals("$end / $end")
+            capture("replay-light")
+            for ((name, scale, dark) in listOf(Triple("dark", 1f, true), Triple("large-text", 2f, false))) {
+                for (landscape in listOf(false, true)) {
+                    setDisplay(scale, landscape, dark)
+                    capture("replay-$name-$landscape")
+                    // The chips are in a row that scrolls sideways, inside a pane that can scroll down.
+                    for (tag in listOf("route_map", "replay_play", "replay_profile", "replay_moments", "moment_FastestSpeed")) showVisible(tag)
+                    compose.onNodeWithTag("replay_height", useUnmergedTree = true).assertTextContains(format.altitudeUnit, substring = true)
+                }
+            }
+        } finally {
+            shell("settings put system font_scale $font")
+            shell("settings put system user_rotation $rotation")
+            shell("settings put system accelerometer_rotation $auto")
+            shell("cmd uimode night $night")
+        }
+    }
+
     @Test fun activityChosenBeforeTheTripApplies() {
         launch()
         compose.onNodeWithTag("activity_estimate", useUnmergedTree = true).assertTextEquals("Activity: automatic")
@@ -1135,7 +1193,7 @@ class TrackingDeviceTest {
         assertTrue("Saved route did not receive the requested positions", savedCount(id) >= count)
     }
 
-    private fun inject(accuracyMeters: Float = 3f) {
+    private fun inject(accuracyMeters: Float = 3f, speed: Float = 10f) {
         sampleIndex++
         manager.setTestProviderLocation(LocationManager.GPS_PROVIDER, Location(LocationManager.GPS_PROVIDER).apply {
             latitude = 49.2827
@@ -1143,7 +1201,7 @@ class TrackingDeviceTest {
             time = System.currentTimeMillis()
             elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
             accuracy = accuracyMeters
-            speed = 10f
+            this.speed = speed
             speedAccuracyMetersPerSecond = 0.2f
             altitude = 100.0
             verticalAccuracyMeters = 4f

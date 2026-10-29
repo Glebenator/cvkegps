@@ -167,18 +167,19 @@
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-10-28">28 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>6c51d0a</code> plus trip data collection (branch <code>native-maps</code>, not committed)</dd></div>
+          <div><dt>App code baseline</dt><dd><code>4113fa4</code> plus trip replay step 1 (branch <code>native-maps</code>, not committed)</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
       </aside>
     </div>
     <div class="metrics" aria-label="Last verified results">
-      <div class="metric"><strong>47 / 47</strong><span>Device tests passed with trip data collection</span><span class="small">Pixel 10 Pro emulator, API 37, with a Maps API key · the GPX and network tests passed again on the final code</span></div>
-      <div class="metric"><strong>44 / 44</strong><span>Calculation tests passed</span><span class="small">New: sensor storage, network fixes, source lines, 10 fixes each second, GPX source</span></div>
+      <div class="metric"><strong>48 / 48</strong><span>Device tests passed with trip replay step 1</span><span class="small">Pixel 10 Pro emulator, API 37, with a Maps API key, on the final code</span></div>
+      <div class="metric"><strong>51 / 51</strong><span>Calculation tests passed</span><span class="small">New: replay clock, barometric height, along-track acceleration, moments</span></div>
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, debug lint, and unsigned release build</span><span class="small">Release APK not installed or run</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#trip-replay">Trip replay, step 1 · 28 Oct</a>
       <a href="#trip-data">Trip data collection · 28 Oct</a>
       <a href="#settings-screen">Settings screen · 28 Oct</a>
       <a href="#keep-screen-on-trip">Screen on during a trip · 28 Oct</a>
@@ -205,6 +206,59 @@
       <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
     </nav>
+
+    <section id="trip-replay" aria-labelledby="trip-replay-heading">
+      <div class="section-head"><h2 id="trip-replay-heading">Trip replay, step 1 · 28 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
+      <p class="section-intro">The owner chose concept D, "Player with charts": a map player at a glance, with three linked charts in detail. See <a href="docs/adr/0004-replay-as-a-player-with-charts.md">ADR 0004</a>.
+      This is step 1: the calculations and the glance view. A saved trip opens it with <strong>Replay trip</strong> (the play icon in the top bar, and the trip menu).
+      The detail view with the three charts (step 2) and the wide-screen and largest-text layouts (step 3) are not built yet.</p>
+      <div class="table-wrap"><table class="wrap-cells">
+        <thead><tr><th scope="col">Part</th><th scope="col">Behaviour</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Calculations</th><td><a href="app/src/main/java/com/example/cvkegps/tracking/TripReplay.kt"><code>TripReplay.kt</code></a>, plain Kotlin, run once off the main thread and kept while the app shows the trip.
+          The replay clock joins the segments without their pauses. At the playhead, the values come from the newest fix for at most 10 seconds, so an old speed never shows as current. A position is interpolated only inside one route line.
+          Barometric height: the standard atmosphere for the shape, the median difference to GPS heights with a vertical accuracy of 10 m or better for the level, 1 second means smoothed over 3 seconds. Plane trips use the GPS height only.
+          Along-track acceleration: each accelerometer reading turned by the game rotation vector, gravity removed, 1 second means, turned to east and north by the angle that best fits the GPS change of velocity in 30 second windows, then projected on the GPS direction of travel. Without the sensor record, it comes from the change of GPS speed.</td></tr>
+          <tr><th scope="row">Moments</th><td>Strongest acceleration and braking (at least 0.5 m/s²), fastest speed (the usable maximum), and highest point (when the height changes by 1 m or more). Numbers in time order, the same on the map, the profile, and the chips.</td></tr>
+          <tr><th scope="row">Glance view</th><td>Map with the route, numbered moments, and the position at the playhead (a ring for a network position, nothing in a GPS gap). The follow button follows the playhead.
+          Values: replay time, speed or the reason that it is unavailable, height above the chosen reference, and acceleration. A speed profile that is also the scrubber: hatched GPS gaps, a dashed warning line for approximate positions, segment marks, and moment numbers.
+          Previous and Next moment, Play or Pause (the one primary button), and 1×, 4×, 16×, or 64×. Moment chips move the playhead and pause.</td></tr>
+          <tr><th scope="row">Rules</th><td>The playhead moves at most 10 times each second, only while the replay plays and the screen is in front. The playhead, play state, and speed stay after a rotation. TalkBack reads the profile as one slider with the time, the speed, and Next and Previous moment actions. Landscape and wide windows use the map with a side pane.</td></tr>
+        </tbody>
+      </table></div>
+      <pre><code><a href="app/src/main/java/com/example/cvkegps/tracking/TripReplay.kt">TripReplay.kt</a> · valuesAt
+val index = lastFixAt(time)
+val fix = fixes.getOrNull(index)?.takeIf { time - it.timeNanos &lt; RouteMath.SIGNAL_GAP_NANOS }
+val position = fix?.takeIf { it.sample.usablePosition }?.let { interpolate(index, time) }</code></pre>
+      <h3 style="margin-top:24px">Pixel 10 Pro emulator, Android 17 (API 37)</h3>
+      <div class="screens">
+      <figure class="shot"><a href="docs/progress/images/2026-10-28-replay-light.webp"><img src="docs/progress/images/2026-10-28-replay-light.webp" loading="lazy" alt="Trip replay in the light theme: the map with the green start, moment 1, and the position with a direction arrow. Below: replay time 0:16 of 0:16, speed 17.9 mph, altitude above sea level 390 ft, acceleration 0 m/s². The speed profile with moment 1 at its peak and the playhead at the end. Previous, Play, Next, 64×, and the chip Fastest speed 44.7 mph."></a>
+      <figcaption><strong>Replay at the end of the trip</strong>28 October 2026. Baseline <code>4113fa4</code> plus trip replay step 1. Pixel 10 Pro emulator, Android 17 (API 37), region United States. Simulated GPS test locations: speeds 5 to 20 m/s. The emulator lay still, so the acceleration is 0.</figcaption></figure>
+      <figure class="shot landscape"><a href="docs/progress/images/2026-10-28-replay-dark-landscape.webp"><img src="docs/progress/images/2026-10-28-replay-dark-landscape.webp" loading="lazy" alt="The replay in landscape, dark theme: the dark map on the left with the back button and map controls, and the pane on the right with the title, the values, the speed profile, the controls, and the moment chip."></a>
+      <figcaption><strong>Landscape, dark</strong>28 October 2026. Baseline <code>4113fa4</code> plus trip replay step 1. Pixel 10 Pro emulator, Android 17 (API 37). Same simulated trip.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-28-replay-large-text.webp"><img src="docs/progress/images/2026-10-28-replay-large-text.webp" loading="lazy" alt="The replay at 200% text: the values wrap to more lines, the moment number above the profile is in a larger circle, and the controls and the chip stay readable."></a>
+      <figcaption><strong>200% text</strong>28 October 2026. Baseline <code>4113fa4</code> plus trip replay step 1. Pixel 10 Pro emulator, Android 17 (API 37). Display settings were restored after the test.</figcaption></figure>
+      </div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li>Pixel 10 Pro emulator, Android 17 (API 37), with the development Maps API key: all 48 device tests passed on the final code (20 minutes), including the new replay test.</li>
+          <li><code>replayFindsTheFastestMomentPlaysAndFitsThemesLargeTextAndRotation</code> records a trip with simulated speeds of 5 to 20 m/s, opens the replay, and checks: the Fastest speed chip; the speed 20 m/s at that moment in the chosen units; the profile as a slider; Previous moment off at the first moment; play at 64× to the end, with the time at the end and Play again; and the map, profile, controls, chips, and height in dark mode, at 200% text, and in landscape. It restores the display settings.</li>
+          <li>51 of 51 calculation tests passed. New in <code>TripReplayTest</code>: the replay clock across a pause, old fixes, GPS gaps, interpolation only within a line, approximate ranges, the barometric height level and its value at the end of a trip, Plane trips, the quaternion turn, along-track acceleration and braking with a turned game frame, the GPS fallback, and a steady trip without moments.</li>
+          <li>Debug lint, the debug build, and the unsigned release build passed.</li>
+          <li>Found and fixed during the checks: the moment number was clipped at 200% text (the circles now grow with the text); the height showed "—" at the very end of a trip (a 1 second mean now applies for half a second past its centre); and a chip showed its number twice.</li>
+          <li>The tests ran only on the emulator. The connected physical phone was not used.</li>
+          <li>Raw captures: <code>artifacts/replay-2026-10-28/</code> (not in Git).</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>The along-track acceleration and the barometric height are checked with synthetic data only. They need a test on a real phone in a car, with a reference, before the screen is final. The emulator lay still, so its acceleration was about 0.</li>
+          <li>The sea-level height uses one geoid difference for the whole trip, from the first fix with a height. Over a long trip the geoid can change by a few metres.</li>
+          <li>The barometer level is one value for the trip. A change of weather during a long trip moves the barometric height by about 8 m for each hPa.</li>
+          <li>Not built yet: the detail view with three linked charts (step 2), the chart selector in landscape and on wide windows, one chart at the largest text sizes, and the played part of the route in another colour (step 3). In landscape with 200% text, the pane must scroll to show the controls.</li>
+          <li>TalkBack was not used on the new screen. The semantics give a slider with custom actions.</li>
+        </ul>
+      </article>
+    </section>
 
     <section id="trip-data" aria-labelledby="trip-data-heading">
       <div class="section-head"><h2 id="trip-data-heading">Trip data collection · 28 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
@@ -1913,6 +1967,9 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-28">28 October 2026</time><div><h3>Trip replay, step 1</h3>
+<p>The owner chose concept D, a map player with linked charts. Step 1 adds the replay calculations and the glance view: a map with numbered moments and the position at the playhead, the values at the playhead, a speed profile that is also the scrubber, Play and Pause at 1× to 64×, Previous and Next moment, and moment chips for the strongest acceleration and braking, the fastest speed, and the highest point.
+On a Pixel 10 Pro API 37 emulator, 48 of 48 device tests and 51 of 51 calculation tests passed, with lint and the release build. The acceleration and barometric height need a real car test. See <a href="#trip-replay">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-28">28 October 2026</time><div><h3>Trip data collection</h3>
 <p>Trips now store the data for a later playback and analysis: the accelerometer, orientation, and barometer at up to 50 readings each second; the fix source and satellite count of each fix; and the recording choices of each segment.
 Without a GPS signal for 10 seconds, a trip records approximate network positions, shown dashed in the warning colour and marked in GPX. A new High accuracy setting asks for up to 10 fixes each second with full GNSS tracking. The database deletes older trips.

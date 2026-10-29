@@ -83,6 +83,7 @@ import com.example.cvkegps.tracking.LiveTripScreen
 import com.example.cvkegps.tracking.RecordingBar
 import com.example.cvkegps.tracking.RecordingRailControls
 import com.example.cvkegps.tracking.SavedTripScreen
+import com.example.cvkegps.tracking.TripReplayScreen
 import com.example.cvkegps.tracking.TrackingActions
 import com.example.cvkegps.tracking.TrackingApplication
 import com.example.cvkegps.tracking.TrackingHost
@@ -305,7 +306,9 @@ private fun Screen(
             selectedId = (navigator.backStack.last() as? Destination.SavedTrip)?.id)
         Destination.Settings -> SettingsScreen(app.settings, onBack = navigator::pop)
         Destination.LiveTrip -> LiveTripScreen(tracking, onBack = navigator::pop, onEnded = { navigator.remove(Destination.LiveTrip) })
-        is Destination.SavedTrip -> SavedTripScreen(tracking, destination.id, onBack = navigator::pop)
+        is Destination.SavedTrip -> SavedTripScreen(tracking, destination.id, onBack = navigator::pop,
+            onReplay = { navigator.push(Destination.Replay(destination.id)) })
+        is Destination.Replay -> TripReplayScreen(tracking, destination.id, onBack = navigator::pop)
     }
 }
 

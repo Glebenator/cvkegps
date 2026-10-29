@@ -88,6 +88,9 @@ class DisplayFormat(locale: Locale, val units: Units, private val text: (Int, Ar
         return if (seconds >= 3_600) "${whole.format(seconds / 3_600)}:$rest" else rest
     }
 
+    /** An acceleration in m/s² with one decimal. The app has no other unit for it. */
+    fun acceleration(metersPerSecondSquared: Double): String = text(R.string.replay_acceleration_value, arrayOf(decimal.format(metersPerSecondSquared)))
+
     /** A plain number with one decimal, for metres and degrees. */
     fun decimal(value: Double): String = decimal.format(value)
 

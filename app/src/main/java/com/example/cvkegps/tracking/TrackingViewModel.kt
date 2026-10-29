@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
@@ -141,4 +142,31 @@ class TrackingViewModel(
     }
 
     private fun clearExports() { exports.listFiles()?.forEach { it.delete() } }
+
+    // The newest replay. A rotation or a return to the replay screen does not calculate it again.
+    private var replayCache: Pair<String, TripReplay?>? = null
+
+    /**
+     * Reads a saved trip with its sensor record and calculates its replay off the main thread.
+     * Null for a trip that does not exist. A storage error shows as [StoredRead.Failed].
+     */
+    fun replay(id: String): Flow<StoredRead<TripReplay?>> = flow {
+        replayCache?.takeIf { it.first == id }?.let { emit(it.second); return@flow }
+        val trip = dao.trip(id)
+        val result = if (trip == null) null else {
+            val segments = dao.segments(id)
+            val points = dao.savedPoints(id)
+            val chunks = dao.sensorChunks(id)
+            withContext(Dispatchers.Default) {
+                val samples = points.groupBy { it.segmentId }
+                val sensors = chunks.groupBy { it.segmentId }
+                ReplayAnalysis.analyze(segments.map { segment ->
+                    ReplaySegment(segment.startedElapsedNanos, segment.endedElapsedNanos, samples[segment.id].orEmpty().map(TripPoint::sample),
+                        sensors[segment.id].orEmpty().mapNotNull(TripSensorChunk::chunk))
+                }, gpsHeightOnly = trip.mode == TripMode.Plane)
+            }
+        }
+        replayCache = id to result
+        emit(result)
+    }.asStoredRead()
 }

@@ -16,6 +16,7 @@ sealed interface Destination {
     data object LiveTrip : Destination
     data object Settings : Destination
     data class SavedTrip(val id: String) : Destination
+    data class Replay(val id: String) : Destination
 }
 
 enum class Tab(val root: Destination) { Speed(Destination.Speed), Trips(Destination.Trips) }
@@ -71,6 +72,7 @@ class AppNavigator(tab: Tab = Tab.Speed, speed: List<Destination> = listOf(Desti
             Destination.LiveTrip -> "live"
             Destination.Settings -> "settings"
             is Destination.SavedTrip -> "trip:$id"
+            is Destination.Replay -> "replay:$id"
         }
 
         private fun decode(value: String) = when {
@@ -79,6 +81,7 @@ class AppNavigator(tab: Tab = Tab.Speed, speed: List<Destination> = listOf(Desti
             value == "gps" -> Destination.GpsDetails
             value == "live" -> Destination.LiveTrip
             value == "settings" -> Destination.Settings
+            value.startsWith("replay:") -> Destination.Replay(value.removePrefix("replay:"))
             else -> Destination.SavedTrip(value.removePrefix("trip:"))
         }
 

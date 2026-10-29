@@ -77,3 +77,26 @@ _Avoid_: Precision mode, performance mode
 **Resume after Stop**:
 A trip that the user saved less than 2 minutes ago can continue as a new segment of the same trip. This undoes an accidental Stop and save.
 _Avoid_: Undo stop, reopen
+
+## Trip replay
+
+**Replay clock**:
+The time in a trip replay. It joins the recording segments of the trip without the pauses between them. A mark shows where a segment starts.
+_Avoid_: Trip time, playback time
+
+**Playhead**:
+The current time on the replay clock. The replay shows the values of the newest fix at or before the playhead, for at most 10 seconds after that fix, as the live screen does.
+_Avoid_: Cursor (for the map and the profile), position
+
+**Moment**:
+A notable time in a trip that the replay finds: the strongest acceleration, the strongest braking, the fastest speed, and the highest point. Each moment has a number in time order. The map, the speed profile, and the chips show the same number.
+_Avoid_: Event, highlight, peak
+
+**Along-track acceleration**:
+The change of speed along the direction of travel, in m/s². A positive value is acceleration. A negative value is braking. The replay calculates it from the sensor record: the game rotation vector turns each accelerometer reading into a frame with a vertical axis, and the GPS change of velocity gives the direction of that frame in 30 second windows. Without the sensor record, it comes from the change of GPS speed.
+_Avoid_: G-force, longitudinal force
+
+**Barometric height**:
+A replay height from the air pressure. The pressure gives the changes of height. The median difference to the GPS height, over fixes with a vertical accuracy of 10 m or better, gives the level. Plane trips use the GPS height only, because the cabin pressure is not the outside pressure.
+_Avoid_: Pressure altitude, barometer altitude
+

@@ -69,7 +69,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
+fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit, onReplay: () -> Unit = {}) {
     // The trip list selects the trip before navigation. This covers a screen restored after process loss.
     LaunchedEffect(id) { if (actions.vm.selectedId.value != id) actions.vm.select(id) }
     val rows by actions.vm.trips.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
@@ -104,7 +104,7 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, maxLines = 2,
                             overflow = TextOverflow.Ellipsis)
-                        if (trip != null) TripMenu(actions, id, trip, shown, snackbar)
+                        if (trip != null) TripMenu(actions, id, trip, shown, snackbar, onReplay)
                     }
                     SavedTripContent(actions, id, trip, shown, readFailed = readFailed)
                 } else {
@@ -112,7 +112,7 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
                     val panelHeight = maxHeight * 0.45f
                     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical + WindowInsetsSides.End))) {
                         PaneHeader(title, onBack, Modifier.padding(horizontal = Space.s1)) {
-                            if (trip != null) TripMenu(actions, id, trip, shown, snackbar)
+                            if (trip != null) TripMenu(actions, id, trip, shown, snackbar, onReplay)
                         }
                         MapSurface(lines.orEmpty(), Modifier.fillMaxWidth().weight(1f), routeReady = lines != null)
                         Surface {
@@ -135,8 +135,11 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
             navigationIcon = { BackButton(onBack) },
             actions = {
                 if (trip != null) {
+                    if (replayable(trip, shown)) IconButton(onClick = onReplay, modifier = Modifier.testTag("open_replay")) {
+                        Icon(painterResource(R.drawable.ic_play), contentDescription = stringResource(R.string.replay_open))
+                    }
                     DetailsAction { details = true }
-                    TripMenu(actions, id, trip, shown, snackbar)
+                    TripMenu(actions, id, trip, shown, snackbar, onReplay)
                 }
             },
         )
@@ -226,7 +229,7 @@ private fun PrivacyNote() {
 
 /** Change activity, Share as GPX, and Delete trip. */
 @Composable
-private fun TripMenu(actions: TrackingActions, id: String, trip: TripRecord, shown: TripDetail?, snackbar: SnackbarHostState) {
+private fun TripMenu(actions: TrackingActions, id: String, trip: TripRecord, shown: TripDetail?, snackbar: SnackbarHostState, onReplay: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val exportError = stringResource(R.string.trip_export_error)
@@ -235,6 +238,12 @@ private fun TripMenu(actions: TrackingActions, id: String, trip: TripRecord, sho
             Icon(painterResource(R.drawable.ic_more_vert), contentDescription = stringResource(R.string.more_options))
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            // A recording trip still changes, so only a saved trip with positions can replay.
+            if (replayable(trip, shown)) {
+                DropdownMenuItem(text = { Text(stringResource(R.string.replay_open)) },
+                    leadingIcon = { Icon(painterResource(R.drawable.ic_play), contentDescription = null) },
+                    onClick = { menu = false; onReplay() }, modifier = Modifier.testTag("trip_replay"))
+            }
             DropdownMenuItem(text = { Text(stringResource(R.string.mode_change)) },
                 leadingIcon = { Icon(painterResource(R.drawable.ic_edit), contentDescription = null) },
                 onClick = { menu = false; actions.chooseMode(id) }, modifier = Modifier.testTag("change_activity"))
@@ -266,3 +275,6 @@ private fun SavedTotals(trip: TripRecord?, shown: TripDetail?) {
     TripTotals(distance, distancePending = trip == null || (distance == null && shown == null), durationNanos = trip?.durationNanos,
         maximumSpeed = shown?.summary?.maximumSpeedMetersPerSecond, maximumPending = shown == null)
 }
+
+private fun replayable(trip: TripRecord, shown: TripDetail?) =
+    (trip.status == TripStatus.Finished || trip.status == TripStatus.Interrupted) && shown?.summary?.lines?.isNotEmpty() == true

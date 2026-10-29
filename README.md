@@ -101,6 +101,26 @@ The app uses the owner's design language (My Design Language, touch dialect):
   slowly away from the disc and back (2.4 s each way). It stops off screen and when animations are off in the system.
 - The accuracy bar fill uses the functional blue-to-apricot gradient.
 
+## Trip replay, step 1, on 28 October 2026
+
+A saved trip has a **Replay trip** button (the play icon in the top bar, and the trip menu). The replay screen is step 1 of
+concept D in [ADR 0004](docs/adr/0004-replay-as-a-player-with-charts.md): the glance view.
+
+- **Map.** The route, the numbered moments, and the position at the playhead. A network position shows as a ring. In a GPS
+  gap there is no position. The follow button follows the playhead.
+- **Values at the playhead.** Replay time, speed (or **No GPS signal**, or **Approximate position**), height above the
+  chosen reference, and along-track acceleration.
+- **Speed profile.** It is also the scrubber: tap or drag to move the playhead. GPS gaps are hatched, approximate positions
+  have a dashed warning line, a thin line marks the start of each later segment, and the moment numbers are above it.
+  For TalkBack it is one slider with **Next moment** and **Previous moment** actions.
+- **Controls.** Previous moment, **Play** or **Pause**, Next moment, and the speed 1×, 4×, 16×, or 64×.
+- **Moment chips.** Strongest acceleration, strongest braking, fastest speed, and highest point. A chip moves the playhead there.
+- **Calculations.** `TripReplay.kt` joins the segments on the replay clock, finds the GPS gaps and approximate parts,
+  calculates the barometric height and the along-track acceleration, and finds the moments. See the glossary.
+
+Not yet built: the detail view with three linked charts (step 2), the chart selector in landscape and on wide windows,
+and the played part of the route in another colour (step 3).
+
 ## Trip data collection on 28 October 2026
 
 Trips now collect the data for a later playback and analysis. The app does not show the new data yet.
@@ -447,6 +467,8 @@ app/src/main/java/com/example/cvkegps/
     TripRecorder.kt              One command queue for trip changes, location demand, and sensor recording
     SharedLocationSource.kt      The shared GPS request, network positions, and full GNSS tracking
     SensorRecord.kt              Sensor kinds, the stored chunk format, and the motion source contract
+    TripReplay.kt                Replay clock, values at the playhead, barometric height, along-track acceleration, moments
+    TripReplayScreen.kt          Replay screen: map, values, speed profile scrubber, controls, and moment chips
     AndroidMotionSource.kt       Accelerometer, orientation, and barometer recording on a worker thread
     RecordingService.kt          Location foreground service and notification
     TrackingViewModel.kt         Trip list, route details, and GPX export
