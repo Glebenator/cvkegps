@@ -140,9 +140,17 @@ internal fun MapSurface(
     position: LivePosition? = null,
     replay: Boolean = false,
     moments: List<MapMoment> = emptyList(),
+    /** For each of [lines], how many points the replay has passed. The map draws them in the route colour and the rest muted. */
+    played: List<Int>? = null,
+    /** The first camera view, for example the view of the map that opened this one. Without it the map fits the route. */
+    startView: CameraPosition? = null,
+    /** Receives the camera view each time the camera stops, so the next map of this trip can start with it. */
+    onView: ((CameraPosition) -> Unit)? = null,
 ) {
     var retry by rememberSaveable { mutableIntStateOf(0) }
-    key(retry) { MapCanvas(lines, modifier, live, routeReady, insets, onBack, position, replay, moments, onRetry = { retry++ }) }
+    key(retry) {
+        MapCanvas(lines, modifier, live, routeReady, insets, onBack, position, replay, moments, played, startView, onView, onRetry = { retry++ })
+    }
 }
 
 @Composable
@@ -156,6 +164,9 @@ private fun MapCanvas(
     position: LivePosition?,
     replay: Boolean,
     moments: List<MapMoment>,
+    played: List<Int>?,
+    startView: CameraPosition?,
+    onView: ((CameraPosition) -> Unit)?,
     onRetry: () -> Unit,
 ) {
     // A replay follows its playhead as a live map follows the newest fix.
@@ -170,7 +181,8 @@ private fun MapCanvas(
     // A missing or old Google Play services result. Null while the check runs or when the services are ready.
     val servicesProblem = rememberPlayServices()?.takeIf { it != ConnectionResult.SUCCESS }
     val scope = rememberCoroutineScope()
-    val camera = rememberCameraPositionState()
+    // A start view replaces the default view of the whole world, which would show until the route or the position is ready.
+    val camera = rememberCameraPositionState { startView?.let { view -> this.position = view } }
     var loaded by remember { mutableStateOf(false) }
     var unavailable by remember { mutableStateOf(false) }
     // The map usually loads during the screen transition. Show the loading note only when it is slow.
@@ -182,7 +194,9 @@ private fun MapCanvas(
         if (!loaded) unavailable = true
     }
     // True after the camera first shows the route or the position. It is saved, so a recreated screen keeps the user's view.
-    var placed by rememberSaveable { mutableStateOf(false) }
+    var placed by rememberSaveable { mutableStateOf(startView != null) }
+    // The first move to the position after a start view is one short animation, so the change of view is easy to follow.
+    var smoothStart by rememberSaveable { mutableStateOf(startView != null) }
     var fitRequest by remember { mutableIntStateOf(0) }
     var follow by rememberSaveable { mutableStateOf(if (follows) FollowMode.North else FollowMode.Off) }
     // Zoom follows speed until the zoom buttons change it.
@@ -193,6 +207,11 @@ private fun MapCanvas(
             if (moving && reason == CameraMoveStartedReason.GESTURE) follow = FollowMode.Off
             else if (moving && reason == CameraMoveStartedReason.API_ANIMATION && follow == FollowMode.Course) follow = FollowMode.North
         }
+    }
+    val viewChanged by rememberUpdatedState(onView)
+    LaunchedEffect(camera, onView != null) {
+        if (onView == null) return@LaunchedEffect
+        snapshotFlow { camera.isMoving to camera.position }.collect { (moving, view) -> if (!moving && placed) viewChanged?.invoke(view) }
     }
 
     // The marker state is also read aloud, because its colour alone does not tell a screen reader user that it is old.
@@ -222,7 +241,9 @@ private fun MapCanvas(
         LaunchedEffect(fitRequest) {
             snapshotFlow { latestLines }.conflate().collect { lines ->
                 route = withContext(Dispatchers.Default) {
-                    lines.filter { it.size > 1 }.map { line -> RouteLine(line.map { it.latLng() }, line.first().source == FixSource.Network) }
+                    lines.withIndex().filter { it.value.size > 1 }.map { (index, line) ->
+                        RouteLine(index, line.map { it.latLng() }, line.first().source == FixSource.Network)
+                    }
                 }
                 // Review fits once. Route updates must not reset a user pan. A live map that follows the position places the camera itself.
                 if (!placed && !(live && follow != FollowMode.Off)) {
@@ -252,8 +273,9 @@ private fun MapCanvas(
             val update = CameraUpdateFactory.newCameraPosition(CameraPosition(last.latLng(), zoom, if (course) COURSE_TILT else 0f, bearing))
             // One short camera move for each new fix. There is no continuous animation.
             // A replay moves the position up to 10 times each second, so its camera jumps with it.
-            if (placed && !replay) camera.animate(update, 800) else camera.move(update)
+            if (placed && (!replay || smoothStart)) camera.animate(update, 800) else camera.move(update)
             placed = true
+            smoothStart = false
         }
 
         if (servicesProblem == null) GoogleMap(
@@ -281,7 +303,7 @@ private fun MapCanvas(
             contentPadding = padding,
             mapColorScheme = if (dark) ComposeMapColorScheme.DARK else ComposeMapColorScheme.LIGHT,
         ) {
-            RouteOverlay(route, lines, live, position, routeColor, moments)
+            RouteOverlay(route, lines, live, position, routeColor, moments, played)
         }
         // The controls stay inside the safe area.
         Box(Modifier.matchParentSize().windowInsetsPadding(insets)) {
@@ -350,6 +372,7 @@ private fun MapCanvas(
 @Composable
 private fun RouteOverlay(
     route: List<RouteLine>, lines: List<List<TrackSample>>, live: Boolean, position: LivePosition?, routeColor: Color, moments: List<MapMoment>,
+    played: List<Int>?,
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -358,9 +381,19 @@ private fun RouteOverlay(
     // A network position is approximate. Its line is dashed and has the warning colour, so the colour is not the only sign.
     val approximateColor = CvkeTheme.colors.warning
     val dashes = remember(density) { with(density) { listOf(Dash(8.dp.toPx()), Gap(6.dp.toPx())) } }
-    for (line in route) Polyline(line.points, color = if (line.approximate) approximateColor else routeColor, width = lineWidth,
-        jointType = JointType.ROUND, pattern = dashes.takeIf { line.approximate },
-        startCap = RoundCap(), endCap = RoundCap(), zIndex = 1f)
+    // A replay draws the part after the playhead muted. The position marker shows where the two parts meet.
+    val mutedAlpha = 0.4f
+    for (line in route) key(line.index) {
+        val color = if (line.approximate) approximateColor else routeColor
+        val count = played?.getOrNull(line.index)?.coerceIn(0, line.points.size) ?: line.points.size
+        val done = remember(line, count) { line.points.subList(0, count) }
+        // The remaining part starts at the last played point, so the two parts join.
+        val rest = remember(line, count) { line.points.subList((count - 1).coerceAtLeast(0), line.points.size).takeIf { count < line.points.size } }
+        Polyline(done, color = color, width = lineWidth, jointType = JointType.ROUND, pattern = dashes.takeIf { line.approximate },
+            startCap = RoundCap(), endCap = RoundCap(), zIndex = 1.5f)
+        Polyline(rest.orEmpty(), color = color.copy(alpha = mutedAlpha), width = lineWidth, jointType = JointType.ROUND,
+            pattern = dashes.takeIf { line.approximate }, startCap = RoundCap(), endCap = RoundCap(), zIndex = 1f)
+    }
     val first = lines.firstOrNull { it.isNotEmpty() }?.first()
     // While recording, the position marker shows the newest point instead of an end marker.
     val last = lines.lastOrNull { it.isNotEmpty() }?.last()?.takeIf { !live }
@@ -463,7 +496,7 @@ private fun rememberPlayServices(): Int? {
 }
 
 /** One drawn part of the route. [approximate] is a part from network positions. */
-private class RouteLine(val points: List<LatLng>, val approximate: Boolean)
+private class RouteLine(val index: Int, val points: List<LatLng>, val approximate: Boolean)
 
 private fun TrackSample.latLng() = LatLng(Math.toDegrees(latitudeRadians), Math.toDegrees(longitudeRadians))
 

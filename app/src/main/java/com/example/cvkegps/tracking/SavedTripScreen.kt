@@ -57,6 +57,7 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MenuDefaults
 import com.example.cvkegps.ui.theme.CvkeTheme
+import com.google.android.gms.maps.model.CameraPosition
 import com.example.cvkegps.ui.theme.ProblemBanner
 import com.example.cvkegps.ui.theme.SecondaryButton
 import com.example.cvkegps.ui.theme.Size
@@ -82,6 +83,8 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit, on
     var details by rememberSaveable { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val title = trip?.let { tripTime(it.startedMillis) } ?: ""
+    // The replay opens with this map's view.
+    val keepView: (CameraPosition) -> Unit = remember(id) { { view -> actions.vm.keepTripView(id, view) } }
 
     // Stop and save opens this screen. For a short time the trip can continue, which undoes an accidental stop.
     val savedMessage = stringResource(R.string.trip_saved_message)
@@ -99,7 +102,7 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit, on
         Box(Modifier.fillMaxSize().testTag("trip_review")) {
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 if (maxWidth >= 600.dp) MapWithPane(map = { modifier, insets ->
-                    MapSurface(lines.orEmpty(), modifier, routeReady = lines != null, insets = insets, onBack = onBack)
+                    MapSurface(lines.orEmpty(), modifier, routeReady = lines != null, insets = insets, onBack = onBack, onView = keepView)
                 }) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, maxLines = 2,
@@ -114,7 +117,7 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit, on
                         PaneHeader(title, onBack, Modifier.padding(horizontal = Space.s1)) {
                             if (trip != null) TripMenu(actions, id, trip, shown, snackbar, onReplay)
                         }
-                        MapSurface(lines.orEmpty(), Modifier.fillMaxWidth().weight(1f), routeReady = lines != null)
+                        MapSurface(lines.orEmpty(), Modifier.fillMaxWidth().weight(1f), routeReady = lines != null, onView = keepView)
                         Surface {
                             Column(Modifier.fillMaxWidth().heightIn(max = panelHeight).verticalScroll(rememberScrollState())
                                 .padding(Space.s4), verticalArrangement = Arrangement.spacedBy(Space.s3)) {
@@ -150,9 +153,9 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit, on
             BoxWithConstraints(Modifier.weight(1f)) {
                 // A wide area, such as an open foldable, uses the landscape side pane. A narrow detail pane keeps the portrait layout.
                 if (maxWidth >= 600.dp) MapWithPane(map = { modifier, _ ->
-                    MapSurface(shown?.summary?.lines.orEmpty(), modifier, routeReady = shown != null)
+                    MapSurface(shown?.summary?.lines.orEmpty(), modifier, routeReady = shown != null, onView = keepView)
                 }, edgeToEdge = false) { SavedTripContent(actions, id, trip, shown, showError = false) }
-                else MapWorkspace(shown?.summary?.lines) {
+                else MapWorkspace(shown?.summary?.lines, onView = keepView) {
                     SavedTotals(trip, shown)
                     InterruptedActions(actions, id, trip)
                 }

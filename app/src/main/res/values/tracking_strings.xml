@@ -133,6 +133,14 @@
     <string name="replay_timeline_state">%1$s of %2$s. %3$s</string>
     <string name="replay_acceleration_gps">This trip has no motion sensor record. Acceleration comes from the change of GPS speed.</string>
     <string name="replay_moments_none">The app found no notable moments in this trip.</string>
+    <string name="replay_charts">Charts</string>
+    <string name="replay_map">Map</string>
+    <string name="replay_show_charts">Show the charts</string>
+    <string name="replay_show_map">Show the map</string>
+    <string name="chart_none">No values</string>
+    <string name="chart_speed_summary">Speed from %1$s to %2$s. Fastest at %3$s.</string>
+    <string name="chart_height_summary">Height from %1$s to %2$s. Highest at %3$s.</string>
+    <string name="chart_acceleration_summary">Braking up to %1$s. Acceleration up to %2$s.</string>
     <string name="moment_acceleration">Strongest acceleration</string>
     <string name="moment_braking">Strongest braking</string>
     <string name="moment_fastest">Fastest speed</string>

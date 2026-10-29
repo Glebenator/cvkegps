@@ -118,8 +118,23 @@ concept D in [ADR 0004](docs/adr/0004-replay-as-a-player-with-charts.md): the gl
 - **Calculations.** `TripReplay.kt` joins the segments on the replay clock, finds the GPS gaps and approximate parts,
   calculates the barometric height and the along-track acceleration, and finds the moments. See the glossary.
 
-Not yet built: the detail view with three linked charts (step 2), the chart selector in landscape and on wide windows,
-and the played part of the route in another colour (step 3).
+**Step 2, the charts.** A drag up on the handle under the map, or the **Charts** button, opens the details. The map becomes
+a strip at the top that follows the playhead, and three linked charts show speed, height, and along-track acceleration.
+A tap or a horizontal drag on any chart moves the one playhead for all charts, the values, and the map. A vertical drag
+scrolls the page. GPS gaps and gaps in the sensor record are hatched, approximate positions have a dashed warning line,
+and each chart has its moment numbers and a text summary. **Map**, a drag down, or Back returns to the glance view.
+
+**Step 3, layouts and the played route.**
+
+- The moment chips stay in the details. A chip moves the playhead to its moment.
+- A phone in landscape shows one chart at a time in a wider side pane, with a selector for Speed, Height, and Acceleration.
+  The largest text sizes (150% and more) also show one chart with the selector. A moment chip then also selects the chart
+  of its moment. The shown chart is the slider for TalkBack.
+- A wide window, such as an open foldable or a tablet, shows the map beside a pane of about half the window with the
+  three charts.
+- The route after the playhead is muted on the map, so the played part shows in the route colour.
+- The replay map opens with the view of the saved trip map, and shows the saved route while the replay is calculated.
+  Before, it showed the whole world until the replay was ready.
 
 ## Trip data collection on 28 October 2026
 
@@ -468,7 +483,9 @@ app/src/main/java/com/example/cvkegps/
     SharedLocationSource.kt      The shared GPS request, network positions, and full GNSS tracking
     SensorRecord.kt              Sensor kinds, the stored chunk format, and the motion source contract
     TripReplay.kt                Replay clock, values at the playhead, barometric height, along-track acceleration, moments
-    TripReplayScreen.kt          Replay screen: map, values, speed profile scrubber, controls, and moment chips
+    TripReplayScreen.kt          Replay screen: glance and details stops, map, values, speed profile scrubber, controls, chips
+    ReplayCharts.kt              Linked speed, height, and acceleration charts with one playhead, and the chart selector
+    ReplayChartData.kt           Chart values reduced to pixel columns, and gaps in the record
     AndroidMotionSource.kt       Accelerometer, orientation, and barometer recording on a worker thread
     RecordingService.kt          Location foreground service and notification
     TrackingViewModel.kt         Trip list, route details, and GPX export

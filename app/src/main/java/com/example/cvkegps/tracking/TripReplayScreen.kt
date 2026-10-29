@@ -4,9 +4,12 @@ import android.content.res.Resources
 import android.location.Location
 import android.os.SystemClock
 import androidx.annotation.StringRes
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,6 +45,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -66,6 +70,7 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -74,6 +79,7 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
@@ -82,6 +88,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -91,6 +98,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.example.cvkegps.R
 import com.example.cvkegps.location.AndroidSeaLevel
 import com.example.cvkegps.location.FixSource
+import com.example.cvkegps.location.TrackSample
 import com.example.cvkegps.location.seaLevelAltitudeSupported
 import com.example.cvkegps.settings.AltitudeReference
 import com.example.cvkegps.ui.DisplayFormat
@@ -101,6 +109,7 @@ import com.example.cvkegps.ui.rememberDisplayFormat
 import com.example.cvkegps.ui.theme.CvkeTheme
 import com.example.cvkegps.ui.theme.Size
 import com.example.cvkegps.ui.theme.Space
+import com.google.android.gms.maps.model.CameraPosition
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -111,9 +120,18 @@ private val RATES = intArrayOf(1, 4, 16, 64)
 /** The playhead moves at most 10 times each second, so the map and the profile do not redraw for each frame. */
 private const val TICK_MILLIS = 100L
 
+/** From this text scale, details show one chart at a time. Android offers up to 2. */
+private const val LARGE_TEXT_SCALE = 1.5f
+
 /**
- * The replay of a saved trip, at a glance: the map with numbered moments, the values at the playhead, a speed profile
- * that is also the scrubber, play controls, and moment chips. The replay is calculated once, off the main thread.
+ * The replay of a saved trip in two stops. At a glance: the map with numbered moments, the values at the playhead, a speed
+ * profile that is also the scrubber, play controls, and moment chips. Details: the map becomes a strip that follows the
+ * cursor, the moment chips stay, and three linked charts show speed, height, and acceleration. A drag on the handle or the
+ * Charts and Map button changes the stop. Back in details returns to the glance stop.
+ *
+ * A landscape phone and the largest text sizes show one chart with a selector. A wide window shows the map beside a wide
+ * pane with the three charts. The map opens with the view of the saved trip map, and the route shows while the replay is
+ * calculated once, off the main thread.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -124,6 +142,14 @@ fun TripReplayScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
     var playhead by rememberSaveable(id) { mutableLongStateOf(0L) }
     var playing by rememberSaveable(id) { mutableStateOf(false) }
     var rate by rememberSaveable(id) { mutableIntStateOf(0) }
+    var details by rememberSaveable(id) { mutableStateOf(false) }
+    var chart by rememberSaveable(id) { mutableStateOf(ReplayChartKind.Speed) }
+    BackHandler(enabled = details) { details = false }
+    // The saved trip map's view and route, so the map does not start with the whole world while the replay is calculated.
+    val startView = remember(id) { actions.vm.tripView(id) }
+    val detail by actions.vm.detail.collectAsStateWithLifecycle()
+    val savedLines = detail.ready?.takeIf { it.trip.id == id }?.summary?.lines
+    val largeText = LocalDensity.current.fontScale >= LARGE_TEXT_SCALE
     if (replay != null) PlayClock(replay, playing, RATES[rate], { playhead }) { time, ended ->
         playhead = time
         if (ended) playing = false
@@ -147,12 +173,23 @@ fun TripReplayScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
             replay == null || replay.fixes.isEmpty() -> Text(stringResource(R.string.replay_none))
         }
     }
+    val stop: @Composable ColumnScope.(single: Boolean, chartHeight: Dp) -> Unit = { single, chartHeight ->
+        status()
+        if (player != null) {
+            if (details) ReplayDetails(player, chart.takeIf { single }, { chart = it }, chartHeight) else ReplayPanel(player)
+        }
+    }
+    val map: @Composable (Modifier, WindowInsets, (() -> Unit)?) -> Unit = { modifier, insets, back ->
+        ReplayMap(player, savedLines, startView, modifier, insets, back)
+    }
     if (isCompactHeight()) {
-        // Landscape on a phone: the map at full height, and the values and controls in a side pane.
-        MapWithPane(map = { modifier, insets -> ReplayMap(player, modifier, insets, onBack) }) {
-            Text(title, style = MaterialTheme.typography.titleLarge)
-            status()
-            if (player != null) ReplayPanel(player)
+        // Landscape on a phone: the map at full height, and the values and controls, or one chart, in a side pane.
+        MapWithPane(map = { modifier, insets -> map(modifier, insets, onBack) }, widePane = details) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+                if (player != null) StopButton(details) { details = !details }
+            }
+            stop(true, 120.dp)
         }
         return
     }
@@ -162,17 +199,25 @@ fun TripReplayScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
         Column(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets).testTag("replay")) {
             BoxWithConstraints(Modifier.weight(1f)) {
                 val panelHeight = maxHeight * 0.55f
-                // A wide window, such as an open foldable, uses the side pane.
-                if (maxWidth >= 600.dp) MapWithPane(map = { modifier, _ -> ReplayMap(player, modifier, WindowInsets(0), null) }, edgeToEdge = false) {
-                    status()
-                    if (player != null) ReplayPanel(player)
+                // Details keep a strip of the map at the top. It follows the cursor.
+                val strip = (maxHeight * 0.28f).coerceAtLeast(140.dp)
+                // A wide window, such as an open foldable or a tablet, uses the side pane. Details make it wide for the three charts.
+                if (maxWidth >= 600.dp) MapWithPane(map = { modifier, _ -> map(modifier, WindowInsets(0), null) }, edgeToEdge = false,
+                    widePane = details) {
+                    if (player != null) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        StopButton(details) { details = !details }
+                    }
+                    stop(largeText, if (largeText) 140.dp else 120.dp)
                 } else Column(Modifier.fillMaxSize()) {
-                    ReplayMap(player, Modifier.fillMaxWidth().weight(1f), WindowInsets(0), null)
-                    Surface {
-                        Column(Modifier.fillMaxWidth().heightIn(max = panelHeight).verticalScroll(rememberScrollState())
-                            .padding(Space.s4), verticalArrangement = Arrangement.spacedBy(Space.s3)) {
-                            status()
-                            if (player != null) ReplayPanel(player)
+                    map(Modifier.fillMaxWidth().then(if (details) Modifier.height(strip) else Modifier.weight(1f)), WindowInsets(0), null)
+                    Surface(Modifier.then(if (details) Modifier.weight(1f) else Modifier)) {
+                        Column(Modifier.fillMaxWidth().then(if (details) Modifier else Modifier.heightIn(max = panelHeight))) {
+                            if (player != null) SheetHandle(details, onChange = { details = it })
+                            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+                                .padding(start = Space.s4, end = Space.s4, bottom = Space.s4), verticalArrangement = Arrangement.spacedBy(Space.s3)) {
+                                // At the largest text sizes, one chart at a time keeps the charts readable.
+                                stop(largeText, if (largeText) 140.dp else 96.dp)
+                            }
                         }
                     }
                 }
@@ -225,7 +270,10 @@ private fun PlayClock(replay: TripReplay, playing: Boolean, rate: Int, playhead:
 }
 
 @Composable
-private fun ReplayMap(player: ReplayPlayer?, modifier: Modifier, insets: WindowInsets, onBack: (() -> Unit)?) {
+private fun ReplayMap(
+    player: ReplayPlayer?, savedLines: List<List<TrackSample>>?, startView: CameraPosition?, modifier: Modifier, insets: WindowInsets,
+    onBack: (() -> Unit)?,
+) {
     val format = rememberDisplayFormat()
     val names = momentNames()
     val replay = player?.replay
@@ -243,9 +291,69 @@ private fun ReplayMap(player: ReplayPlayer?, modifier: Modifier, insets: WindowI
         val longitude = values.longitudeRadians ?: return@let null
         LivePosition(fix.copy(latitudeRadians = latitude, longitudeRadians = longitude), fresh = true)
     }
-    MapSurface(replay?.lines.orEmpty(), modifier, routeReady = replay != null, insets = insets, onBack = onBack,
-        position = position, replay = true, moments = moments)
+    // The route after the playhead is muted. The map redraws the route only when the playhead passes a route point.
+    val played = replay?.let { replay -> replay.lines.indices.map { replay.playedPoints(it, player.playhead) } }
+    MapSurface(replay?.lines ?: savedLines.orEmpty(), modifier, routeReady = replay != null || savedLines != null, insets = insets,
+        onBack = onBack, position = position, replay = true, moments = moments, played = played, startView = startView)
 }
+
+/**
+ * The handle of the panel under the map. A drag up shows the charts, a drag down shows the map again.
+ * The button does the same, so a drag is not the only way.
+ */
+@Composable
+private fun SheetHandle(details: Boolean, onChange: (Boolean) -> Unit) {
+    val change by rememberUpdatedState(onChange)
+    val handleLabel = stringResource(if (details) R.string.replay_show_map else R.string.replay_show_charts)
+    Row(Modifier.fillMaxWidth().padding(horizontal = Space.s2), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.weight(1f).heightIn(min = Size.touch).testTag("replay_handle")
+            .pointerInput(Unit) {
+                var travel = 0f
+                detectVerticalDragGestures(onDragStart = { travel = 0f }, onDragEnd = {
+                    if (travel < -24.dp.toPx()) change(true) else if (travel > 24.dp.toPx()) change(false)
+                }) { _, amount -> travel += amount }
+            }
+            .semantics { contentDescription = handleLabel; onClick(label = handleLabel) { change(!details); true } },
+            contentAlignment = Alignment.Center) {
+            Box(Modifier.size(width = 32.dp, height = 4.dp).background(CvkeTheme.colors.inkMuted.copy(alpha = 0.6f), CircleShape))
+        }
+        StopButton(details) { change(!details) }
+    }
+}
+
+/** Changes between the glance stop and the charts. */
+@Composable
+private fun StopButton(details: Boolean, onClick: () -> Unit) {
+    TextButton(onClick = onClick, modifier = Modifier.heightIn(min = Size.touch).testTag("replay_stop")) {
+        ButtonContent(if (details) R.drawable.ic_route else R.drawable.ic_chart, if (details) R.string.replay_map else R.string.replay_charts)
+    }
+}
+
+/**
+ * Details: the values at the cursor, the controls, the moment chips, and the linked charts. With [chart], one chart shows
+ * with a selector. A moment chip then also selects the chart of that moment.
+ */
+@Composable
+private fun ReplayDetails(player: ReplayPlayer, chart: ReplayChartKind?, onChart: (ReplayChartKind) -> Unit, chartHeight: Dp) {
+    val format = rememberDisplayFormat()
+    val replay = player.replay
+    ReplayValues(player, format)
+    ReplayControls(player)
+    MomentChips(player, format) { moment -> if (chart != null) onChart(moment.kind.chart) }
+    ReplayCharts(replay, player.playhead, format, player.heightOffset,
+        if (player.heightReference == AltitudeReference.SeaLevel) R.string.trip_altitude else R.string.trip_gps_height,
+        timelineState(player, format), player.seek, player.pauseAt, chart, onChart, chartHeight)
+    if (!replay.accelerationFromSensors && replay.acceleration.isNotEmpty()) {
+        Text(stringResource(R.string.replay_acceleration_gps), style = MaterialTheme.typography.bodySmall, color = CvkeTheme.colors.inkMuted)
+    }
+}
+
+/** The time and the speed at the playhead, for a screen reader. */
+@Composable
+private fun timelineState(player: ReplayPlayer, format: DisplayFormat): String =
+    stringResource(R.string.replay_timeline_state, format.duration(player.playhead), format.duration(player.replay.durationNanos),
+        player.values.speedMetersPerSecond?.let(format::spokenSpeed) ?: stringResource(
+            if (player.values.fix == null) R.string.replay_no_gps else R.string.replay_approximate))
 
 /** The values at the playhead, the speed profile, the controls, and the moment chips. */
 @Composable
@@ -322,16 +430,14 @@ private fun SpeedProfile(player: ReplayPlayer, format: DisplayFormat) {
     val duration = replay.durationNanos.coerceAtLeast(1)
     val maximum = remember(replay) { replay.speed.maxOfOrNull { run -> run.values.max() }?.coerceAtLeast(1f) ?: 1f }
     val seek by rememberUpdatedState(player.seek)
-    val state = stringResource(R.string.replay_timeline_state, format.duration(player.playhead), format.duration(replay.durationNanos),
-        player.values.speedMetersPerSecond?.let(format::spokenSpeed) ?: stringResource(
-            if (player.values.fix == null) R.string.replay_no_gps else R.string.replay_approximate))
+    val state = timelineState(player, format)
     val nextLabel = stringResource(R.string.replay_next)
     val previousLabel = stringResource(R.string.replay_previous)
     val description = stringResource(R.string.replay_timeline)
     val numberStyle = TextStyle(color = colors.accentInk, fontSize = 11.sp, fontWeight = FontWeight.Bold)
     // The moment numbers grow with the text size, so the space above the profile grows with them.
     val numberSize = remember(measurer, numberStyle) { measurer.measure("8", numberStyle).size }
-    val density = androidx.compose.ui.platform.LocalDensity.current
+    val density = LocalDensity.current
     val radiusDp = with(density) { maxOf(8.dp.toPx(), numberSize.height / 2f + 2.dp.toPx()).toDp() }
     Canvas(Modifier.fillMaxWidth().height(52.dp + radiusDp * 2).testTag("replay_profile")
         .pointerInput(duration) {
@@ -439,7 +545,7 @@ private fun ReplayControls(player: ReplayPlayer) {
 
 /** One chip for each moment, with its number, name, and value. A chip moves the playhead there and pauses. */
 @Composable
-private fun MomentChips(player: ReplayPlayer, format: DisplayFormat) {
+private fun MomentChips(player: ReplayPlayer, format: DisplayFormat, onPick: (ReplayMoment) -> Unit = {}) {
     val names = momentNames()
     val moments = player.replay.moments
     if (moments.isEmpty()) {
@@ -450,7 +556,7 @@ private fun MomentChips(player: ReplayPlayer, format: DisplayFormat) {
         horizontalArrangement = Arrangement.spacedBy(Space.s2)) {
         for (moment in moments) {
             val selected = player.playhead == moment.timeNanos
-            FilterChip(selected = selected, onClick = { player.pauseAt(moment.timeNanos) },
+            FilterChip(selected = selected, onClick = { player.pauseAt(moment.timeNanos); onPick(moment) },
                 label = { Text(names.chip(moment.kind, momentValue(moment, player, format))) },
                 leadingIcon = {
                     // The number in an accent circle, as on the map and the profile.
@@ -480,6 +586,13 @@ private fun momentNames(): MomentNames {
     val resources = LocalResources.current
     val configuration = LocalConfiguration.current
     return remember(resources, configuration) { MomentNames(resources) }
+}
+
+/** The chart that shows a moment. */
+private val MomentKind.chart get() = when (this) {
+    MomentKind.Acceleration, MomentKind.Braking -> ReplayChartKind.Acceleration
+    MomentKind.FastestSpeed -> ReplayChartKind.Speed
+    MomentKind.HighestPoint -> ReplayChartKind.Height
 }
 
 @get:StringRes private val MomentKind.title get() = when (this) {

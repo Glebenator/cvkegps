@@ -15,6 +15,13 @@ unit tests can check them. They run once, off the main thread, when the screen o
 
 - We build in three steps, and each step is usable: (1) the calculations and the glance view; (2) the detail view with the
   three charts; (3) the landscape and foldable pane with a chart selector, and one chart at the largest text sizes.
-- Step 1 uses a fixed panel under the map. Step 2 changes it to a bottom sheet with two stops.
+- Step 1 uses a fixed panel under the map. Step 2 adds the second stop as a panel with a drag handle and a Charts and Map
+  button, not the Material bottom sheet component: the sheet's own vertical drag competes with the chart drags and the
+  page scroll, and the panel keeps the map strip a fixed height. Back in the details returns to the glance stop.
+- Step 3 keeps the moment chips in the details. One chart with a selector replaces the three charts where they would be
+  too small: a phone in landscape and text at 150% or more. A wide window shows the map beside a pane of about half the
+  window with the three charts. The map mutes the route after the playhead.
+- The replay map opens with the camera view of the saved trip map, so it does not show the whole world while the replay
+  is calculated. The view is kept in memory only, for the trip that was shown last.
 - The along-track acceleration and the barometric height need a test on a real phone in a car before the screen is final.
 - The playhead moves at most 10 times each second, and only while the replay plays and the screen is in front.

@@ -29,6 +29,10 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTouchInput
+import androidx.lifecycle.ViewModelProvider
+import com.example.cvkegps.tracking.TrackingViewModel
+import androidx.compose.ui.test.click
 import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -1002,7 +1006,14 @@ class TrackingDeviceTest {
             }
             clickVisible("trip_stop")
             waitUntil { !app.recorder.state.value.needsService }
+            // The saved trip map hands its view to the replay map, so the replay does not open with the whole world.
+            var vm: TrackingViewModel? = null
+            scenario!!.onActivity { vm = ViewModelProvider(it)[TrackingViewModel::class.java] }
+            compose.waitUntil(15_000) { vm!!.tripView(id) != null }
+            val view = vm!!.tripView(id)!!
+            assertTrue("The saved trip view is the whole world: $view", view.zoom > 10f)
             compose.onNodeWithTag("open_replay").performClick()
+            capture("replay-opening")
             compose.waitUntil(10_000) { compose.onAllNodesWithTag("moment_FastestSpeed").fetchSemanticsNodes().isNotEmpty() }
             val format = DisplayFormat(context.resources)
             // A chip moves the playhead to its moment. The values there are the stored fix.
@@ -1027,6 +1038,29 @@ class TrackingDeviceTest {
             assertTrue("The replay did not reach the end", played)
             compose.onNodeWithTag("replay_time", useUnmergedTree = true).assertTextEquals("$end / $end")
             capture("replay-light")
+            // Details: three linked charts with one cursor. The glance stop does not draw them.
+            compose.onNodeWithTag("chart_Speed").assertDoesNotExist()
+            compose.onNodeWithTag("replay_stop").performClick()
+            // The moment chips stay in details. A phone in portrait at normal text shows all three charts without a selector.
+            showVisible("replay_moments")
+            showVisible("moment_FastestSpeed")
+            compose.onNodeWithTag("chart_selector").assertDoesNotExist()
+            for (chart in listOf("chart_Speed", "chart_Height", "chart_Acceleration")) showVisible(chart)
+            compose.onNodeWithTag("chart_Speed").assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo))
+            compose.onNodeWithTag("chart_Speed").assert(SemanticsMatcher("has a summary") { node ->
+                SemanticsProperties.ContentDescription in node.config && node.config[SemanticsProperties.ContentDescription].any { it.startsWith("Speed from") } })
+            // A tap on the height chart moves the shared cursor and the values.
+            compose.onNodeWithTag("chart_Height").performTouchInput { click(androidx.compose.ui.geometry.Offset(width * 0.3f, height / 2f)) }
+            compose.onNodeWithTag("replay_time", useUnmergedTree = true).assert(SemanticsMatcher("cursor moved") { node ->
+                node.config[SemanticsProperties.Text].joinToString() != "$end / $end" })
+            capture("replay-details-light")
+            // Closer, the route before the playhead has the route colour and the route after it is muted.
+            repeat(3) { compose.onNodeWithTag("map_zoom_in").performClick(); Thread.sleep(600) }
+            capture("replay-played-route")
+            // Back in details returns to the glance stop.
+            device.pressBack()
+            compose.onNodeWithTag("replay_profile").assertIsDisplayed()
+            compose.onNodeWithTag("chart_Speed").assertDoesNotExist()
             for ((name, scale, dark) in listOf(Triple("dark", 1f, true), Triple("large-text", 2f, false))) {
                 for (landscape in listOf(false, true)) {
                     setDisplay(scale, landscape, dark)
@@ -1034,9 +1068,53 @@ class TrackingDeviceTest {
                     // The chips are in a row that scrolls sideways, inside a pane that can scroll down.
                     for (tag in listOf("route_map", "replay_play", "replay_profile", "replay_moments", "moment_FastestSpeed")) showVisible(tag)
                     compose.onNodeWithTag("replay_height", useUnmergedTree = true).assertTextContains(format.altitudeUnit, substring = true)
+                    showVisible("replay_stop")
+                    compose.onNodeWithTag("replay_stop").performClick()
+                    showVisible("replay_moments")
+                    showVisible("moment_FastestSpeed")
+                    if (landscape || scale >= 1.5f) {
+                        // A landscape phone and the largest text show one chart with a selector. The shown chart is the slider.
+                        showVisible("chart_pick_Height")
+                        compose.onNodeWithTag("chart_pick_Height").performClick()
+                        showVisible("chart_Height")
+                        compose.onNodeWithTag("chart_Speed").assertDoesNotExist()
+                        compose.onNodeWithTag("chart_Height").assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo))
+                        capture("replay-details-$name-$landscape")
+                        // A moment chip also selects the chart of its moment.
+                        showVisible("replay_moments")
+                        showVisible("moment_FastestSpeed")
+                        compose.onNodeWithTag("moment_FastestSpeed").performClick()
+                        showVisible("chart_Speed")
+                        compose.onNodeWithTag("chart_Height").assertDoesNotExist()
+                    } else {
+                        compose.onNodeWithTag("chart_selector").assertDoesNotExist()
+                        showVisible("chart_Speed")
+                        capture("replay-details-$name-$landscape")
+                        for (chart in listOf("chart_Height", "chart_Acceleration")) showVisible(chart)
+                    }
+                    showVisible("replay_stop")
+                    compose.onNodeWithTag("replay_stop").performClick()
+                    showVisible("replay_profile")
                 }
             }
+            // A window as wide as an open foldable or a tablet: the map beside a wide pane with the three charts.
+            setDisplay(1f, false, false)
+            shell("wm size 1800x2400")
+            shell("wm density 320")
+            compose.waitUntil(5_000) {
+                var wide = false
+                scenario!!.onActivity { wide = it.resources.configuration.screenWidthDp >= 840 }
+                wide
+            }
+            showVisible("replay_stop")
+            compose.onNodeWithTag("replay_stop").performClick()
+            compose.onNodeWithTag("route_map").assertIsDisplayed()
+            compose.onNodeWithTag("chart_selector").assertDoesNotExist()
+            for (chart in listOf("chart_Speed", "chart_Height", "chart_Acceleration")) showVisible(chart)
+            capture("replay-details-wide")
         } finally {
+            shell("wm size reset")
+            shell("wm density reset")
             shell("settings put system font_scale $font")
             shell("settings put system user_rotation $rotation")
             shell("settings put system accelerometer_rotation $auto")

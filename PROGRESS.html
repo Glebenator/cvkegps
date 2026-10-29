@@ -167,18 +167,20 @@
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-10-28">28 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>4113fa4</code> plus trip replay step 1 (branch <code>native-maps</code>, not committed)</dd></div>
+          <div><dt>App code baseline</dt><dd><code>8d9767c</code> plus trip replay steps 2 and 3 (branch <code>native-maps</code>, not committed)</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
       </aside>
     </div>
     <div class="metrics" aria-label="Last verified results">
-      <div class="metric"><strong>48 / 48</strong><span>Device tests passed with trip replay step 1</span><span class="small">Pixel 10 Pro emulator, API 37, with a Maps API key, on the final code</span></div>
-      <div class="metric"><strong>51 / 51</strong><span>Calculation tests passed</span><span class="small">New: replay clock, barometric height, along-track acceleration, moments</span></div>
+      <div class="metric"><strong>48 / 48</strong><span>Device tests passed with trip replay step 3</span><span class="small">Pixel 10 Pro emulator, API 37, with a Maps API key; the replay test passed again with its wide window step</span></div>
+      <div class="metric"><strong>54 / 54</strong><span>Calculation tests passed</span><span class="small">New: played points of the route lines</span></div>
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, debug lint, and unsigned release build</span><span class="small">Release APK not installed or run</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#replay-step3">Trip replay, step 3 · 28 Oct</a>
+      <a href="#replay-charts">Trip replay, step 2 · 28 Oct</a>
       <a href="#trip-replay">Trip replay, step 1 · 28 Oct</a>
       <a href="#trip-data">Trip data collection · 28 Oct</a>
       <a href="#settings-screen">Settings screen · 28 Oct</a>
@@ -206,6 +208,92 @@
       <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
     </nav>
+
+    <section id="replay-step3" aria-labelledby="replay-step3-heading">
+      <div class="section-head"><h2 id="replay-step3-heading">Trip replay, step 3: layouts, moments, and the played route · 28 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
+      <p class="section-intro">Step 3 of concept D fits the charts to each window, keeps the moments in the details, shows the played part of the route, and removes the view of the whole world when the replay opens.
+      The layouts are in <a href="app/src/main/java/com/example/cvkegps/tracking/TripReplayScreen.kt"><code>TripReplayScreen.kt</code></a>, the selector in <a href="app/src/main/java/com/example/cvkegps/tracking/ReplayCharts.kt"><code>ReplayCharts.kt</code></a>, and the played route in <a href="app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt"><code>RouteMap.kt</code></a>.</p>
+      <div class="table-wrap"><table class="wrap-cells">
+        <thead><tr><th scope="col">Part</th><th scope="col">Behaviour</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Moments in details</th><td>The moment chips stay in the details. A chip moves the playhead to its moment and pauses.</td></tr>
+          <tr><th scope="row">One chart with a selector</th><td>A phone in landscape and text at 150% or more show one chart at a time, with a selector for Speed, Height, and Acceleration. The selector wraps at large text. A moment chip also selects the chart of its moment. The shown chart is the slider for a screen reader. In landscape the details pane is about half the window.</td></tr>
+          <tr><th scope="row">Wide window</th><td>A window of 600 dp or wider, such as an open foldable or a tablet, shows the map beside a pane of about half the window with the three charts.</td></tr>
+          <tr><th scope="row">Played route</th><td>The route after the playhead is muted. <code>TripReplay.playedPoints</code> finds the played points of each line from the replay time of each point. The map changes a line only when the playhead passes one of its points.</td></tr>
+          <tr><th scope="row">Opening the replay</th><td>Before, the replay map started with the default camera, the whole world, until the replay was calculated. Now the saved trip map gives its camera view to the replay map through the ViewModel, in memory only. The replay map starts with that view and shows the saved route while the replay is calculated. The first move to the playhead is one short animation.</td></tr>
+        </tbody>
+      </table></div>
+      <h3 style="margin-top:24px">Pixel 10 Pro emulator, Android 17 (API 37)</h3>
+      <div class="screens">
+      <figure class="shot"><a href="docs/progress/images/2026-10-28-replay-step3-chips-dark.webp"><img src="docs/progress/images/2026-10-28-replay-step3-chips-dark.webp" loading="lazy" alt="Replay details in the dark theme, portrait: the map strip, the values, the controls, the Fastest speed moment chip, and the speed and altitude charts with one playhead."></a>
+      <figcaption><strong>Details keep the moment chips</strong>28 October 2026. Baseline <code>8d9767c</code> plus trip replay steps 2 and 3. Pixel 10 Pro emulator, Android 17 (API 37). Simulated GPS test locations.</figcaption></figure>
+      <figure class="shot landscape"><a href="docs/progress/images/2026-10-28-replay-step3-landscape-selector.webp"><img src="docs/progress/images/2026-10-28-replay-step3-landscape-selector.webp" loading="lazy" alt="Replay details in landscape, dark theme: the map on the left half, and on the right the controls, the moment chip, a selector with Speed, Altitude above sea level selected, and Acceleration, and the altitude chart."></a>
+      <figcaption><strong>Landscape: one chart with a selector</strong>28 October 2026. Baseline <code>8d9767c</code> plus trip replay steps 2 and 3. Pixel 10 Pro emulator, Android 17 (API 37). Simulated GPS test locations. The emulator lay still, so the altitude is flat.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-28-replay-step3-large-text.webp"><img src="docs/progress/images/2026-10-28-replay-step3-large-text.webp" loading="lazy" alt="Replay details at 200% text in portrait: the controls, the moment chip, the chart selector on three rows, and the altitude chart."></a>
+      <figcaption><strong>200% text: one chart with a selector</strong>28 October 2026. Baseline <code>8d9767c</code> plus trip replay steps 2 and 3. Pixel 10 Pro emulator, Android 17 (API 37). Simulated GPS test locations. Display settings were restored after the test.</figcaption></figure>
+      <figure class="shot landscape"><a href="docs/progress/images/2026-10-28-replay-step3-played-route.webp"><img src="docs/progress/images/2026-10-28-replay-step3-played-route.webp" loading="lazy" alt="A close map of the replay: a solid route line from the green start to the position marker, then a lighter line to the red end, with moment 1 between them."></a>
+      <figcaption><strong>Played route</strong>28 October 2026. Baseline <code>8d9767c</code> plus trip replay steps 2 and 3. Pixel 10 Pro emulator, Android 17 (API 37). Simulated GPS test locations. The map was zoomed in, because the test route is about 50 m long.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-28-replay-step3-wide.webp"><img src="docs/progress/images/2026-10-28-replay-step3-wide.webp" loading="lazy" alt="Replay details in a wide window: the map on the left and a wide pane on the right with the values, the controls, the moment chip, and the speed, altitude, and acceleration charts."></a>
+      <figcaption><strong>Wide window</strong>28 October 2026. Baseline <code>8d9767c</code> plus trip replay steps 2 and 3. Pixel 10 Pro emulator, Android 17 (API 37). Simulated GPS test locations. The emulator screen was set to 1800 × 2400 pixels at 320 dpi (900 dp wide) and restored after the test. The map tiles and markers were still loading after the size change.</figcaption></figure>
+      </div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li>Pixel 10 Pro emulator, Android 17 (API 37), with the development Maps API key: all 48 device tests passed on the step 3 code (34 minutes). The replay test then ran again with the wide window step and passed.</li>
+          <li>The replay device test now also checks: the saved trip map gives a view closer than zoom 10 to the replay; the moment chips in the details; no selector in portrait at normal text and in a wide window; in landscape and at 200% text, the selector, the selected Height chart as the slider, and a moment chip that selects the Speed chart again; and the three charts in a wide window.</li>
+          <li>54 of 54 calculation tests passed. New in <code>TripReplayTest</code>: the played points of each route line on the replay clock. Debug lint found no issues. The debug build and the unsigned release build passed.</li>
+          <li>The played route and the wide window were checked on screenshots. The tests ran only on the emulator. The connected physical phone was not used. Raw captures: <code>artifacts/replay-step3-2026-10-28/</code> (not in Git).</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>The test cannot see the first frames of the replay map, so the removed view of the whole world was checked through the handed-over view, not on screen. A check by hand on a phone is still useful.</li>
+          <li>Without a saved trip view, for example after the app process was stopped, the replay map still starts with the default view until the route is ready.</li>
+          <li>The acceleration and the barometric height still need a test on a real phone in a car.</li>
+          <li>TalkBack was not used on the replay screen. At 200% text, the lowest label of a chart can touch its line.</li>
+        </ul>
+      </article>
+    </section>
+
+    <section id="replay-charts" aria-labelledby="replay-charts-heading">
+      <div class="section-head"><h2 id="replay-charts-heading">Trip replay, step 2: linked charts · 28 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
+      <p class="section-intro">Step 2 of concept D adds the details stop. A drag up on the handle under the map, or the <strong>Charts</strong> button, opens it. The map becomes a strip at the top that follows the playhead.
+      Three linked charts show speed, height, and along-track acceleration with one playhead. <strong>Map</strong>, a drag down, or Back returns to the glance stop. The playhead and the stop stay after a rotation.
+      The charts are in <a href="app/src/main/java/com/example/cvkegps/tracking/ReplayCharts.kt"><code>ReplayCharts.kt</code></a>.</p>
+      <div class="table-wrap"><table class="wrap-cells">
+        <thead><tr><th scope="col">Part</th><th scope="col">Behaviour</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Charts</th><td>Speed from 0, height in a band of at least 10 m, and acceleration around a zero line. Each chart shows its lowest and highest label, its moment numbers, the segment marks, and the playhead with a dot on the line.
+          Speed hatches the GPS gaps and has the dashed warning line for approximate positions. Height and acceleration continue through GPS gaps and hatch only the gaps in their own record.</td></tr>
+          <tr><th scope="row">Input</th><td>A tap or a horizontal drag on any chart moves the one playhead for all charts, the values, and the map. A tap near a moment number goes to that moment and pauses. A vertical drag scrolls the page, so the charts take only horizontal drags.</td></tr>
+          <tr><th scope="row">Screen readers</th><td>The speed chart is the slider, with the time, the speed, and Next and Previous moment actions. Each chart has a text summary, for example "Speed from 11.2 mph to 44.7 mph. Fastest at 6 s.", which also shows under the chart.</td></tr>
+          <tr><th scope="row">Performance</th><td>The glance stop does not draw the charts. <a href="app/src/main/java/com/example/cvkegps/tracking/ReplayChartData.kt"><code>ReplayChartData</code></a> reduces each chart to a minimum and a maximum for each pixel column, once for each width, so a long High accuracy trip draws as fast as a short one and a short peak stays visible.</td></tr>
+          <tr><th scope="row">Design change</th><td>The second stop is a panel with a drag handle and a Charts and Map button, not the Material bottom sheet component. The sheet's vertical drag competes with the chart drags and the page scroll. See <a href="docs/adr/0004-replay-as-a-player-with-charts.md">ADR 0004</a>.</td></tr>
+        </tbody>
+      </table></div>
+      <h3 style="margin-top:24px">Pixel 10 Pro emulator, Android 17 (API 37)</h3>
+      <div class="screens">
+      <figure class="shot"><a href="docs/progress/images/2026-10-28-replay-charts-light.webp"><img src="docs/progress/images/2026-10-28-replay-charts-light.webp" loading="lazy" alt="Replay details in the light theme: a map strip at the top, the handle and the Map button, the play controls, and three charts: speed with moment 1 at its peak, altitude above sea level, and acceleration around zero. A vertical playhead line crosses all three charts at the same time."></a>
+      <figcaption><strong>Details with three linked charts</strong>28 October 2026. Baseline <code>8d9767c</code> plus trip replay step 2. Pixel 10 Pro emulator, Android 17 (API 37). Simulated GPS test locations; the emulator lay still, so the height and the acceleration are flat.</figcaption></figure>
+      <figure class="shot landscape"><a href="docs/progress/images/2026-10-28-replay-charts-dark-landscape.webp"><img src="docs/progress/images/2026-10-28-replay-charts-dark-landscape.webp" loading="lazy" alt="Replay details in landscape, dark theme: the map on the left and the pane on the right with the Map button, the values, the controls, and the speed chart."></a>
+      <figcaption><strong>Landscape, dark</strong>28 October 2026. Baseline <code>8d9767c</code> plus trip replay step 2. Pixel 10 Pro emulator, Android 17 (API 37). The pane scrolls to the height and acceleration charts.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-28-replay-charts-large-text.webp"><img src="docs/progress/images/2026-10-28-replay-charts-large-text.webp" loading="lazy" alt="Replay details at 200% text: the values, the controls, and the speed chart with larger labels, its summary under it, and the next chart title."></a>
+      <figcaption><strong>200% text</strong>28 October 2026. Baseline <code>8d9767c</code> plus trip replay step 2. Pixel 10 Pro emulator, Android 17 (API 37). Display settings were restored after the test.</figcaption></figure>
+      </div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li>Pixel 10 Pro emulator, Android 17 (API 37), with the development Maps API key: all 48 device tests passed on the final code (26 minutes).</li>
+          <li>The replay device test now also checks: no charts in the glance stop; the three charts after <strong>Charts</strong>; the speed chart as a slider with its summary; a tap on the height chart that moves the playhead and the values; Back to the glance stop; and both stops in dark mode, at 200% text, and in landscape, with the display settings restored.</li>
+          <li>53 of 53 calculation tests passed. New in <code>ReplayChartDataTest</code>: a short peak stays in its pixel column, runs stay separate, and the gaps that no run covers. Debug lint, the debug build, and the unsigned release build passed.</li>
+          <li>The tests ran only on the emulator. The connected physical phone was not used. Raw captures: <code>artifacts/replay-charts-2026-10-28/</code> (not in Git).</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>The chart values have the limits of step 1: the acceleration and the barometric height need a test on a real phone in a car.</li>
+          <li>Not built yet (step 3): a chart selector in landscape, all three charts side by side on an open foldable or a tablet, one chart with a selector at the largest text sizes, and the played part of the route in another colour. Landscape now scrolls through all three charts.</li>
+          <li>At 200% text, the lowest label of a chart can touch its line.</li>
+          <li>TalkBack was not used on the new screen.</li>
+        </ul>
+      </article>
+    </section>
 
     <section id="trip-replay" aria-labelledby="trip-replay-heading">
       <div class="section-head"><h2 id="trip-replay-heading">Trip replay, step 1 · 28 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
@@ -1967,6 +2055,12 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-28">28 October 2026</time><div><h3>Trip replay, step 3: layouts, moments, and the played route</h3>
+<p>The details keep the moment chips. A landscape phone and text at 150% or more show one chart with a selector, and a wide window shows the map beside a wide pane with the three charts. The map mutes the route after the playhead.
+The replay map now opens with the saved trip map's view instead of the whole world. On a Pixel 10 Pro API 37 emulator, 48 of 48 device tests and 54 of 54 calculation tests passed, with lint and the release build. See <a href="#replay-step3">evidence and limits</a>.</p></div></li>
+<li><time datetime="2026-10-28">28 October 2026</time><div><h3>Trip replay, step 2: linked charts</h3>
+<p>The replay has a second stop: a map strip that follows the playhead, and three linked charts for speed, height, and along-track acceleration with one playhead. A tap or a horizontal drag on any chart moves it. A drag on the handle, the Charts and Map button, or Back changes the stop.
+Charts hatch their own gaps, show their moment numbers, have text summaries, and are reduced to pixel columns. On a Pixel 10 Pro API 37 emulator, 48 of 48 device tests and 53 of 53 calculation tests passed, with lint and the release build. See <a href="#replay-charts">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-28">28 October 2026</time><div><h3>Trip replay, step 1</h3>
 <p>The owner chose concept D, a map player with linked charts. Step 1 adds the replay calculations and the glance view: a map with numbered moments and the position at the playhead, the values at the playhead, a speed profile that is also the scrubber, Play and Pause at 1× to 64×, Previous and Next moment, and moment chips for the strongest acceleration and braking, the fastest speed, and the highest point.
 On a Pixel 10 Pro API 37 emulator, 48 of 48 device tests and 51 of 51 calculation tests passed, with lint and the release build. The acceleration and barometric height need a real car test. See <a href="#trip-replay">evidence and limits</a>.</p></div></li>

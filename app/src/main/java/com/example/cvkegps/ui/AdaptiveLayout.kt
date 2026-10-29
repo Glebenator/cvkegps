@@ -93,12 +93,14 @@ fun PaneHeader(
 fun MapWithPane(
     map: @Composable (Modifier, WindowInsets) -> Unit,
     edgeToEdge: Boolean = true,
+    /** A wide pane takes about half the window, for content such as charts. */
+    widePane: Boolean = false,
     bottom: (@Composable ColumnScope.() -> Unit)? = null,
     pane: @Composable ColumnScope.() -> Unit,
 ) {
     val safe = if (edgeToEdge) WindowInsets.safeDrawing else WindowInsets(0)
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val paneWidth = (maxWidth * 0.38f).coerceIn(300.dp, 420.dp)
+        val paneWidth = if (widePane) (maxWidth * 0.5f).coerceIn(300.dp, 640.dp) else (maxWidth * 0.38f).coerceIn(300.dp, 420.dp)
         Row(Modifier.fillMaxSize()) {
             map(Modifier.weight(1f).fillMaxHeight(), safe.only(WindowInsetsSides.Top + WindowInsetsSides.Start + WindowInsetsSides.Bottom))
             Surface(Modifier.width(paneWidth).fillMaxHeight()) {

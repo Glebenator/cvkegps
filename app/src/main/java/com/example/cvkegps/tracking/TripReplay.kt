@@ -77,6 +77,8 @@ class TripReplay(
     val segmentStarts: List<Long>,
     val fixes: List<ReplayFix>,
     val lines: List<List<TrackSample>>,
+    /** The replay time of each point of [lines], in the same order. */
+    val lineTimes: List<LongArray>,
     val speed: List<ReplayRun>,
     val height: List<ReplayRun>,
     val heightSource: HeightSource,
@@ -130,6 +132,18 @@ class TripReplay(
         return (a.sample.latitudeRadians + (b.sample.latitudeRadians - a.sample.latitudeRadians) * part) to longitude
     }
 
+    /** How many points of route line [line] are at or before [time]. The map draws them as the played part. */
+    fun playedPoints(line: Int, time: Long): Int {
+        val times = lineTimes.getOrNull(line) ?: return 0
+        var low = 0
+        var high = times.size
+        while (low < high) {
+            val middle = (low + high) ushr 1
+            if (times[middle] <= time) low = middle + 1 else high = middle
+        }
+        return low
+    }
+
     /** The moment at or after [time] plus one nanosecond, or null. */
     fun nextMoment(time: Long): ReplayMoment? = moments.firstOrNull { it.timeNanos > time }
     fun previousMoment(time: Long): ReplayMoment? = moments.lastOrNull { it.timeNanos < time }
@@ -160,6 +174,8 @@ object ReplayAnalysis {
         val gaps = mutableListOf<LongRange>()
         val approximate = mutableListOf<LongRange>()
         var offset = 0L
+        // The route lines keep the sample objects, so each line point finds its replay time.
+        val sampleTimes = java.util.IdentityHashMap<TrackSample, Long>()
         segments.forEachIndexed { index, segment ->
             val samples = segment.samples.filter { it.valid() }.distinctBy { it.elapsedNanos }.sortedBy { it.elapsedNanos }
             val start = segment.startedElapsedNanos
@@ -167,6 +183,7 @@ object ReplayAnalysis {
             val end = maxOf(segment.endedElapsedNanos ?: lastData ?: start, start)
             val clock = { elapsed: Long -> offset + (elapsed - start) }
             if (index > 0) segmentStarts += offset
+            samples.forEach { sampleTimes[it] = clock(it.elapsedNanos).coerceIn(offset, offset + end - start) }
             val inSegment = samples.filter { it.elapsedNanos in start..end }
             inSegment.forEach { fixes += ReplayFix(clock(it.elapsedNanos), index, it) }
             speed += runs(inSegment.filter { it.source == FixSource.Gps }, clock) { it.usableSpeed }
@@ -191,9 +208,13 @@ object ReplayAnalysis {
         val fromSensors = sensorAcceleration.isNotEmpty()
         val acceleration = if (fromSensors) sensorAcceleration else gpsAcceleration
         val lines = RouteMath.summarize(segments.map { it.samples }).lines
-        val replay = TripReplay(offset, segmentStarts, fixes, lines, speed, height, heightSource, acceleration, fromSensors,
+        val lineTimes = lines.map { line ->
+            var last = 0L
+            LongArray(line.size) { i -> (sampleTimes[line[i]] ?: last).also { last = it } }
+        }
+        val replay = TripReplay(offset, segmentStarts, fixes, lines, lineTimes, speed, height, heightSource, acceleration, fromSensors,
             gaps, approximate, emptyList())
-        return TripReplay(offset, segmentStarts, fixes, lines, speed, height, heightSource, acceleration, fromSensors,
+        return TripReplay(offset, segmentStarts, fixes, lines, lineTimes, speed, height, heightSource, acceleration, fromSensors,
             gaps, approximate, moments(replay))
     }
 

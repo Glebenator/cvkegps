@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.cvkegps.location.GpsEvent
 import com.example.cvkegps.location.GpsReading
+import com.google.android.gms.maps.model.CameraPosition
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -142,6 +143,12 @@ class TrackingViewModel(
     }
 
     private fun clearExports() { exports.listFiles()?.forEach { it.delete() } }
+
+    // The newest camera view of a saved trip's map. The replay of that trip opens with it, so its map does not start with
+    // the whole world while the replay is calculated.
+    private var tripView: Pair<String, CameraPosition>? = null
+    fun keepTripView(id: String, view: CameraPosition) { tripView = id to view }
+    fun tripView(id: String): CameraPosition? = tripView?.takeIf { it.first == id }?.second
 
     // The newest replay. A rotation or a return to the replay screen does not calculate it again.
     private var replayCache: Pair<String, TripReplay?>? = null

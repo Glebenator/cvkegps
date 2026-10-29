@@ -40,6 +40,20 @@ class TripReplayTest {
         assertEquals(31 * second, fastest.timeNanos)
     }
 
+    @Test fun theMapKnowsThePlayedPartOfEachRouteLine() {
+        val first = ReplaySegment(10 * second, 20 * second, listOf(fix(10.0, 10f, 0.0), fix(11.0, 10f, 10.0), fix(12.0, 10f, 20.0)), emptyList())
+        val next = ReplaySegment(100 * second, 110 * second, listOf(fix(100.0, 10f, 30.0), fix(101.0, 10f, 40.0)), emptyList())
+        val replay = ReplayAnalysis.analyze(listOf(first, next))
+        assertEquals(2, replay.lines.size)
+        assertEquals(listOf(0L, second, 2 * second), replay.lineTimes[0].toList())
+        assertEquals(2, replay.playedPoints(0, second))
+        assertEquals(3, replay.playedPoints(0, 15 * second))
+        // The pause is not replayed, so the second line starts at 10 seconds.
+        assertEquals(0, replay.playedPoints(1, 10 * second - 1))
+        assertEquals(1, replay.playedPoints(1, 10 * second))
+        assertEquals(0, replay.playedPoints(2, 10 * second))
+    }
+
     @Test fun aPositionIsInterpolatedOnlyWithinOneLine() {
         // A fix needs a time after 0, so the segment starts 1 second before the first fix.
         val samples = listOf(fix(1.0, 10f, 0.0), fix(2.0, 10f, 10.0), fix(16.0, 10f, 150.0), fix(17.0, 10f, 160.0))
