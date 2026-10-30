@@ -116,9 +116,15 @@ These use only the Maps SDK, `maps-compose`, and the open-source Maps utility li
 | **All-trips map**: one map with every saved trip as a heat map, and the trip starts as clusters | `HeatmapTileProvider` (Maps utility library), clustering in `maps-compose-utils`, `TileOverlay` | Uses only local trips. Good pro feature with no running cost. Large trip counts need calculation off the main thread. |
 | **Planned route overlay**: show an imported route on the live and saved trip maps | KML and GeoJSON layers (Maps utility library) | The library reads KML and GeoJSON, not GPX. The app already writes GPX ([Gpx.kt](../app/src/main/java/com/example/cvkegps/tracking/Gpx.kt)), so a GPX reader in app code is also possible. |
 | **More map styles**: for example a minimal style for driving or a high-contrast style | JSON styling (`MapStyleOptions`), no map ID | Free. The style must then handle dark mode itself. The release notes show no deprecation of JSON styling up to 20.1.0. |
-| **Transit layer** in the map type menu | `setTransitEnabled()`, Maps SDK 20.0.0 | The app already has 20.0.0. `maps-compose` 8.3.0 may need `MapEffect` for it. Small; suits the free version. |
+| **Transit layer** in the map type menu | `setTransitEnabled()`, Maps SDK 20.0.0 | The app already has 20.0.0. `maps-compose` 8.3.0 needs `MapEffect` for it. Small; suits the free version. **Not usable yet** (see below). |
 | **Trip list thumbnails** | Lite mode | Lite mode has no dark mode, no gestures, and no tile overlays. Do not save the image to disk (no caching). Measure the list performance first. |
 | **Share card**: an image of the route with the trip values | None: the app draws the route from its own points | Free and with no terms risk. A map snapshot in the image is stored and shared map content. Check the terms before that option. |
+
+**Transit layer check, 30 October 2026.** The `setTransitEnabled()` and `isTransitEnabled()` methods are in the
+20.0.0 library. On a Pixel 10 Pro API 37 emulator with Google Play services 26.41.31, the map logs
+"setTransitEnabled is not yet supported", and `isTransitEnabled()` stays false after the call. The app therefore has no
+transit control, because a control without an effect is not permitted. Check again with later Play services versions
+and on a real phone.
 
 [Lite mode](https://developers.google.com/maps/documentation/android-sdk/lite),
 [maps-compose](https://github.com/googlemaps/android-maps-compose),
@@ -169,7 +175,7 @@ first choice for place names in the free version.
 
 | Feature | Version | Reason |
 | --- | --- | --- |
-| Transit layer | Free | Small change, no cost. |
+| Transit layer | Free | Small change, no cost. Not supported by the Play services map yet. |
 | Place names with `android.location.Geocoder` | Free | No cost, no server. |
 | Share card from the app's own drawing | Free or pro | No cost. |
 | All-trips map (heat map and clusters) | Pro | Clear user value, no running cost, no new data to Google. |
