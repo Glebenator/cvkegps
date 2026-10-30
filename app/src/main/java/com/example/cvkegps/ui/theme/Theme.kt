@@ -33,7 +33,7 @@ object CvkeTheme {
 }
 
 /**
- * Dynamic colour applies only to the neutral surfaces and lines, which the wallpaper tints a little.
+ * By default, dynamic colour applies only to the neutral surfaces and lines, which the wallpaper tints a little.
  * Text, the accent, status, data, and brand colours stay fixed, so the app keeps its one electric blue.
  * The tones match the token neutrals: a light page with white cards, or a dark page with lighter cards.
  */
@@ -45,13 +45,27 @@ private fun CvkeColors.withWallpaperNeutrals(wallpaper: ColorScheme, dark: Boole
     borderControl = wallpaper.outline,
 )
 
+/**
+ * The user's choice of wallpaper colours: the accent, text, and neutrals all come from the wallpaper.
+ * Status, data, and brand colours stay fixed, so they keep their meaning.
+ */
+private fun CvkeColors.withWallpaperColours(wallpaper: ColorScheme, dark: Boolean) = withWallpaperNeutrals(wallpaper, dark).copy(
+    ink = wallpaper.onSurface,
+    inkMuted = wallpaper.onSurfaceVariant,
+    accent = wallpaper.primary,
+    accentInk = wallpaper.onPrimary,
+    accentSubtle = wallpaper.primaryContainer,
+    // The wallpaper primary can be too light on its container, so the container gets its own text colour.
+    accentOnSubtle = wallpaper.onPrimaryContainer,
+)
+
 /** Material roles from the design tokens. The page is `bg`; cards, bars, sheets, and menus are `surface`. */
 private fun CvkeColors.scheme(dark: Boolean): ColorScheme {
     val base = if (dark) darkColorScheme() else lightColorScheme()
     return base.copy(
-        primary = accent, onPrimary = accentInk, primaryContainer = accentSubtle, onPrimaryContainer = accent,
+        primary = accent, onPrimary = accentInk, primaryContainer = accentSubtle, onPrimaryContainer = accentOnSubtle,
         inversePrimary = if (dark) LightTokens.accent else DarkTokens.accent,
-        secondary = accent, onSecondary = accentInk, secondaryContainer = accentSubtle, onSecondaryContainer = accent,
+        secondary = accent, onSecondary = accentInk, secondaryContainer = accentSubtle, onSecondaryContainer = accentOnSubtle,
         tertiary = accent, onTertiary = accentInk, tertiaryContainer = surfaceSunken, onTertiaryContainer = ink,
         background = bg, onBackground = ink,
         surface = bg, onSurface = ink, surfaceVariant = surfaceSunken, onSurfaceVariant = inkMuted,
@@ -98,17 +112,27 @@ private val CvkeShapes = Shapes(
 @Composable
 fun CvkeGpsTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    wallpaperColours: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
-    // Android 12 and later give wallpaper colours. Earlier versions use the token neutrals.
-    val tokens = remember(context, configuration, darkTheme) {
-        val fixed = if (darkTheme) DarkTokens else LightTokens
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) fixed
-        else fixed.withWallpaperNeutrals(if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context), darkTheme)
+    // Android 12 and later give wallpaper colours. Earlier versions use the token colours.
+    val wallpaper = remember(context, configuration, darkTheme) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) null
+        else if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
     }
-    val scheme = remember(tokens, darkTheme) { tokens.scheme(darkTheme) }
+    val tokens = remember(wallpaper, darkTheme, wallpaperColours) {
+        val fixed = if (darkTheme) DarkTokens else LightTokens
+        when {
+            wallpaper == null -> fixed
+            wallpaperColours -> fixed.withWallpaperColours(wallpaper, darkTheme)
+            else -> fixed.withWallpaperNeutrals(wallpaper, darkTheme)
+        }
+    }
+    val scheme = remember(tokens, darkTheme, wallpaper, wallpaperColours) {
+        tokens.scheme(darkTheme).let { if (wallpaper != null && wallpaperColours) it.copy(inversePrimary = wallpaper.inversePrimary) else it }
+    }
     CompositionLocalProvider(LocalCvkeColors provides tokens) {
         MaterialTheme(colorScheme = scheme, typography = CvkeTypography, shapes = CvkeShapes, content = content)
     }

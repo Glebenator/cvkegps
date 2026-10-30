@@ -166,8 +166,8 @@
       </div>
       <aside class="meta" aria-label="Report details">
         <dl>
-          <div><dt>Report updated</dt><dd><time datetime="2026-10-28">28 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>9254634</code> plus the replay mode (branch <code>native-maps</code>, not committed)</dd></div>
+          <div><dt>Report updated</dt><dd><time datetime="2026-10-30">30 October 2026</time></dd></div>
+          <div><dt>App code baseline</dt><dd><code>e888677</code> plus the colours setting (branch <code>native-maps</code>)</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
@@ -179,6 +179,7 @@
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, debug lint, and unsigned release build</span><span class="small">Release APK not installed or run</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#wallpaper-colours">Wallpaper colours · 30 Oct</a>
       <a href="#replay-mode">Replay mode and smooth movement · 28 Oct</a>
       <a href="#replay-step3">Trip replay, step 3 · 28 Oct</a>
       <a href="#replay-charts">Trip replay, step 2 · 28 Oct</a>
@@ -209,6 +210,52 @@
       <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
     </nav>
+
+    <section id="wallpaper-colours" aria-labelledby="wallpaper-colours-heading">
+      <div class="section-head"><h2 id="wallpaper-colours-heading">Wallpaper colours as a setting · 30 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
+      <p class="section-intro">Settings has a new <strong>Colours</strong> card. <strong>App colours</strong> is the default and keeps the design language: the electric blue accent, and on Android 12 and later a light wallpaper tint on the neutral surfaces. <strong>Wallpaper colours</strong> brings back full Android dynamic colour: the accent, text, and surfaces come from the wallpaper palette.
+      The choice is stored in <a href="app/src/main/java/com/example/cvkegps/settings/AppSettings.kt"><code>AppSettings.kt</code></a>, <a href="app/src/main/java/com/example/cvkegps/MainActivity.kt"><code>MainActivity.kt</code></a> gives it to the theme, and <a href="app/src/main/java/com/example/cvkegps/ui/theme/Theme.kt"><code>Theme.kt</code></a> maps the wallpaper palette to the tokens.</p>
+      <div class="table-wrap"><table class="wrap-cells">
+        <thead><tr><th scope="col">Part</th><th scope="col">Behaviour</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">What changes</th><td>The accent and its subtle fill, the text, the muted text, the page, cards, sunken areas, and lines. Buttons, switches, radio buttons, the selected tab, the route line, and the replay charts follow the accent.</td></tr>
+          <tr><th scope="row">What stays fixed</th><td>Status colours (success, warning, danger), the brand art colours, and the end colour of the accuracy bar. They keep their meaning with every wallpaper.</td></tr>
+          <tr><th scope="row">Contrast</th><td>A new token, <code>accentOnSubtle</code>, colours text and icons on the subtle accent fill: the selected tab, segmented choices, map toggles, and icon tiles. In app colours it is the accent, so nothing changes. In wallpaper colours it is the wallpaper <code>onPrimaryContainer</code>. The first build used the wallpaper primary there and measured 3.65:1 on a warm palette. The fix measures 6.08:1.</td></tr>
+          <tr><th scope="row">Before Android 12</th><td>Android has no wallpaper palette. The wallpaper choice is disabled and shows <em>Needs Android 12 or later.</em> App colours show as selected.</td></tr>
+        </tbody>
+      </table></div>
+      <pre><code><a href="app/src/main/java/com/example/cvkegps/ui/theme/Theme.kt">Theme.kt</a> · withWallpaperColours
+withWallpaperNeutrals(wallpaper, dark).copy(
+    ink = wallpaper.onSurface, inkMuted = wallpaper.onSurfaceVariant,
+    accent = wallpaper.primary, accentInk = wallpaper.onPrimary,
+    accentSubtle = wallpaper.primaryContainer, accentOnSubtle = wallpaper.onPrimaryContainer,
+)</code></pre>
+      <h3 style="margin-top:24px">Pixel 10 Pro emulator, Android 17 (API 37)</h3>
+      <div class="screens">
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-wallpaper-colours-speed-light.webp"><img src="docs/progress/images/2026-10-30-wallpaper-colours-speed-light.webp" loading="lazy" alt="Speed tab with wallpaper colours and a warm palette: a peach page, white cards, a brown Start trip button with light text, a brown-to-pink accuracy bar, and a peach selected tab with a dark brown icon."></a>
+      <figcaption><strong>Wallpaper colours, light</strong>30 October 2026. Baseline <code>e888677</code> plus the colours setting. Pixel 10 Pro emulator, Android 17 (API 37). The emulator system palette was set to the seed colour #D9661F (tonal spot) for the capture, and then restored. Simulated position from <code>adb emu geo fix</code>, which gives no speed.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-wallpaper-colours-speed-dark.webp"><img src="docs/progress/images/2026-10-30-wallpaper-colours-speed-dark.webp" loading="lazy" alt="The same Speed tab in the dark theme: a brown-black page, dark brown cards, a light peach Start trip button with dark text, and a brown selected tab with a light icon."></a>
+      <figcaption><strong>Wallpaper colours, dark</strong>30 October 2026. Same baseline, palette, and simulated position.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-wallpaper-colours-settings-light.webp"><img src="docs/progress/images/2026-10-30-wallpaper-colours-settings-light.webp" loading="lazy" alt="Settings with wallpaper colours: the Maps card with Default selected on a peach fill in dark brown text, a brown radio button for Standard, and a brown switch for Wi-Fi and mobile networks."></a>
+      <figcaption><strong>Settings controls after the contrast fix</strong>30 October 2026. Same baseline and palette. The selected map type text measures 6.08:1 on its fill.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-colours-settings-large-text.webp"><img src="docs/progress/images/2026-10-30-colours-settings-large-text.webp" loading="lazy" alt="The Colours card at 200% text with the Saved note: App colours and Wallpaper colours with their explanations on several lines, and Wallpaper colours selected."></a>
+      <figcaption><strong>Colours card, 200% text</strong>30 October 2026. An earlier build of the same change, before the <code>accentOnSubtle</code> fix, which does not change this card. Pixel 10 Pro emulator, Android 17 (API 37), with the default emulator wallpaper, so the accent is a muted blue. A capture from the device test. Display settings were restored after the test.</figcaption></figure>
+      </div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li>New device test <code>SettingsDeviceTest.wallpaperColoursReplaceTheBlueAccentAndStayAfterRecreation</code>: the selected radio button draws the app blue, and after the wallpaper choice it draws the exact wallpaper primary from Android. The choice and the open Settings screen stay after a new activity. Below Android 12 the test checks that the choice is disabled.</li>
+          <li>Pixel 10 Pro emulator, Android 17 (API 37): all 5 Settings device tests passed on the final code. The new test also passed in the dark theme and at 200% text on an earlier build of this change.</li>
+          <li>55 of 55 calculation tests passed. Debug lint found no issues. The debug build passed. One earlier run of lint and the unit tests failed, and its error output was not kept. The next run passed without a code change.</li>
+          <li>Text contrast was measured on the captures with a warm palette: 6.08:1 for the selected map type and tab icon in light, 6.06:1 for the tab icon in dark, and 6.07:1 and 6.13:1 for the Start trip button. Raw captures: <code>artifacts/colours/</code> (not in Git). The connected physical phone was not used.</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>The settings load after the first frame. With wallpaper colours, the app can show the app colours for a short time when it starts. This was not measured.</li>
+          <li>Only the default emulator wallpaper and one warm palette were checked. The full device test suite was not run after this change. The release build was not checked.</li>
+          <li>The map styles, the notification, and the launcher icon do not follow the wallpaper colours.</li>
+        </ul>
+      </article>
+    </section>
 
     <section id="replay-mode" aria-labelledby="replay-mode-heading">
       <div class="section-head"><h2 id="replay-mode-heading">Trip replay as a mode, and smooth map movement · 28 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
@@ -1296,7 +1343,7 @@ builder.setWhen(System.currentTimeMillis() - elapsedMillis.coerceAtLeast(0)).set
           <h3>A native Android main screen</h3>
           <ul>
             <li>Jetpack Compose and Material 3.</li>
-            <li>System light and dark themes. On Android 12 and later, dynamic colour tints the neutral surfaces; the accent stays fixed.</li>
+            <li>System light and dark themes. On Android 12 and later, dynamic colour tints the neutral surfaces and the accent stays fixed. A setting gives full wallpaper colours instead.</li>
             <li>Current speed in km/h, GPS altitude, accuracy, and maximum speed.</li>
             <li>Portrait and landscape layouts, large text, and screen-reader labels.</li>
             <li>No home-screen scroll area. The speed display uses the space left by the readings and GPS controls.</li>
@@ -2090,6 +2137,8 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-30">30 October 2026</time><div><h3>Wallpaper colours as a setting</h3>
+<p>Settings has a Colours card. App colours stay the default. Wallpaper colours bring back full Android dynamic colour on Android 12 and later; status and brand colours stay fixed. A new <code>accentOnSubtle</code> token keeps text on the subtle accent fill at 4.5:1 or more. On a Pixel 10 Pro API 37 emulator, 5 of 5 Settings device tests, 55 of 55 calculation tests, and lint passed. See <a href="#wallpaper-colours">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-28">28 October 2026</time><div><h3>Trip replay as a mode, and smooth map movement</h3>
 <p>The replay is a mode of the saved trip screen, so the map stays when the replay opens and only the pane changes. While the replay plays, the map moves on each display frame, the direction of travel turns evenly between fixes, and the zoom stays. On a Pixel 10 Pro API 37 emulator, 42 of 48 device tests passed in one slow run and the other 6 passed one by one after a cold start; 55 of 55 calculation tests, lint, and the release build passed. See <a href="#replay-mode">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-28">28 October 2026</time><div><h3>Trip replay, step 3: layouts, moments, and the played route</h3>

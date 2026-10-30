@@ -101,7 +101,7 @@ fun StatusText(text: String, color: Color, modifier: Modifier = Modifier) {
 fun IconTile(@DrawableRes icon: Int, modifier: Modifier = Modifier) {
     Box(modifier.size(Size.tile).background(CvkeTheme.colors.accentSubtle, RoundedCornerShape(Radius.md)),
         contentAlignment = Alignment.Center) {
-        Icon(painterResource(icon), contentDescription = null, Modifier.size(Size.iconMd), tint = CvkeTheme.colors.accent)
+        Icon(painterResource(icon), contentDescription = null, Modifier.size(Size.iconMd), tint = CvkeTheme.colors.accentOnSubtle)
     }
 }
 
@@ -132,7 +132,7 @@ fun mapButtonColors(): IconButtonColors = CvkeTheme.colors.let {
 @Composable
 fun mapToggleColors(): IconToggleButtonColors = CvkeTheme.colors.let {
     IconButtonDefaults.filledTonalIconToggleButtonColors(containerColor = it.surface, contentColor = it.ink,
-        checkedContainerColor = it.accentSubtle, checkedContentColor = it.accent)
+        checkedContainerColor = it.accentSubtle, checkedContentColor = it.accentOnSubtle)
 }
 
 /** The slice's distance from the disc, in 1/96 of the art width. At rest it is a quarter of the disc radius. */
@@ -206,7 +206,7 @@ fun <T> SegmentedChoice(
                 .testTag(tag(option)),
                 contentAlignment = Alignment.Center) {
                 Text(label(option), Modifier.padding(horizontal = Space.s2, vertical = Space.s1),
-                    style = MaterialTheme.typography.labelLarge, color = if (chosen) colors.accent else colors.ink,
+                    style = MaterialTheme.typography.labelLarge, color = if (chosen) colors.accentOnSubtle else colors.ink,
                     textAlign = TextAlign.Center)
             }
         }

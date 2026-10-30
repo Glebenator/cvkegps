@@ -3,17 +3,20 @@ package com.example.cvkegps
 import android.os.Bundle
 import android.os.SystemClock
 import android.content.Intent
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.cvkegps.tracking.TrackingApplication
 import com.example.cvkegps.tracking.RecordingService
 import com.example.cvkegps.location.AndroidGnssSource
 import com.example.cvkegps.location.AndroidHeadingSource
+import com.example.cvkegps.settings.AppColours
 import com.example.cvkegps.ui.CompassViewModel
 import com.example.cvkegps.ui.AppShell
 import com.example.cvkegps.ui.SpeedometerViewModel
@@ -42,7 +45,8 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null && intent.getBooleanExtra(RecordingService.OPEN_TRIPS, false)) tripsRequest.intValue++
         enableEdgeToEdge()
         setContent {
-            CvkeGpsTheme {
+            val settings by tracking.settings.values.collectAsStateWithLifecycle()
+            CvkeGpsTheme(wallpaperColours = settings.colours == AppColours.Wallpaper) {
                 AppShell(tracking, viewModel, compassViewModel, tripsRequest.intValue, touches)
             }
         }

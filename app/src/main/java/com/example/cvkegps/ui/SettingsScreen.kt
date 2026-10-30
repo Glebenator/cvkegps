@@ -1,5 +1,6 @@
 package com.example.cvkegps.ui
 
+import android.os.Build
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -53,6 +54,7 @@ import com.example.cvkegps.R
 import com.example.cvkegps.location.seaLevelAltitudeSupported
 import com.example.cvkegps.settings.AltitudeReference
 import com.example.cvkegps.settings.AltitudeUnit
+import com.example.cvkegps.settings.AppColours
 import com.example.cvkegps.settings.AppSettings
 import com.example.cvkegps.settings.DistanceUnit
 import com.example.cvkegps.settings.MapLayer
@@ -64,7 +66,7 @@ import com.example.cvkegps.ui.theme.SavedNote
 import com.example.cvkegps.ui.theme.SegmentedChoice
 import com.example.cvkegps.ui.theme.Space
 
-private enum class Section { Units, Altitude, Screen, Maps, Recording }
+private enum class Section { Units, Altitude, Screen, Colours, Maps, Recording }
 
 /** One long page with a heading and a card for each section. Each change saves at once and shows "Saved" by its heading. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -122,6 +124,17 @@ fun SettingsScreen(settings: AppSettings, onBack: () -> Unit) {
                 SwitchRow(R.string.settings_dim, R.string.settings_dim_body, values.dimScreen, "setting_dim", on) {
                     saved(Section.Screen) { settings.setDimScreen(it) }
                 }
+            }
+            SettingsSection(R.string.settings_colours, changes[Section.Colours] ?: 0, Modifier.selectableGroup()) {
+                // Before Android 12 the wallpaper choice shows why it is not available.
+                val wallpaper = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                val colours = if (wallpaper) values.colours else AppColours.App
+                ChoiceRow(R.string.settings_colours_app, R.string.settings_colours_app_body, colours == AppColours.App, "colours_app") {
+                    saved(Section.Colours) { settings.setColours(AppColours.App) }
+                }
+                ChoiceRow(R.string.settings_colours_wallpaper, if (wallpaper) R.string.settings_colours_wallpaper_body
+                    else R.string.settings_colours_wallpaper_unavailable, colours == AppColours.Wallpaper, "colours_wallpaper",
+                    enabled = wallpaper) { saved(Section.Colours) { settings.setColours(AppColours.Wallpaper) } }
             }
             SettingsSection(R.string.settings_maps, changes[Section.Maps] ?: 0) {
                 Column(Modifier.padding(start = Space.s4, end = Space.s4, top = Space.s4), verticalArrangement = Arrangement.spacedBy(Space.s2)) {

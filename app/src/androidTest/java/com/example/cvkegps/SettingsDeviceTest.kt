@@ -7,12 +7,18 @@ import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import android.view.WindowManager
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -24,10 +30,13 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
+import com.example.cvkegps.settings.AppColours
 import com.example.cvkegps.tracking.RecordingCommand
 import com.example.cvkegps.tracking.TrackingApplication
 import com.example.cvkegps.tracking.TripStatus
 import com.example.cvkegps.ui.DisplayFormat
+import com.example.cvkegps.ui.theme.DarkTokens
+import com.example.cvkegps.ui.theme.LightTokens
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -68,6 +77,7 @@ class SettingsDeviceTest {
         instrumentation.runOnMainSync { app.recorder.send(RecordingCommand.Finish()) }
         waitUntil { !app.recorder.state.value.needsService }
         scenario?.close()
+        instrumentation.runOnMainSync { app.settings.setColours(AppColours.App) }
         device.wakeUp()
         manager.removeTestProvider(LocationManager.GPS_PROVIDER)
         shell("appops set ${context.packageName} android:mock_location default")
@@ -180,6 +190,32 @@ class SettingsDeviceTest {
         assertEquals(WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE, brightness())
     }
 
+    @Test fun wallpaperColoursReplaceTheBlueAccentAndStayAfterRecreation() {
+        launch()
+        openSettings()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            compose.onNodeWithTag("colours_wallpaper").performScrollTo().assertIsNotEnabled()
+            compose.onNodeWithTag("colours_app").assertIsSelected()
+            return
+        }
+        // The selected radio button shows the accent: the app blue first, then the wallpaper primary.
+        compose.onNodeWithTag("colours_app").performScrollTo().assertIsSelected()
+        awaitColour("colours_app", if (dark()) DarkTokens.accent else LightTokens.accent)
+        compose.onNodeWithTag("colours_wallpaper").performScrollTo().performClick()
+        compose.onNodeWithTag("colours_wallpaper").assertIsSelected()
+        val dark = dark()
+        var wallpaper = Color.Unspecified
+        scenario!!.onActivity { wallpaper = (if (dark) dynamicDarkColorScheme(it) else dynamicLightColorScheme(it)).primary }
+        assertTrue(wallpaper != LightTokens.accent && wallpaper != DarkTokens.accent)
+        awaitColour("colours_wallpaper", wallpaper)
+        capture("wallpaper-colours")
+        // A new activity keeps the open Settings screen and the choice.
+        scenario!!.recreate()
+        compose.onNodeWithTag("settings_content").assertIsDisplayed()
+        compose.onNodeWithTag("colours_wallpaper").performScrollTo().assertIsSelected()
+        awaitColour("colours_wallpaper", wallpaper)
+    }
+
     @Test fun settingsFitThemesLargeTextAndRotation() {
         val font = shell("settings get system font_scale").trim()
         val rotation = shell("settings get system user_rotation").trim()
@@ -275,6 +311,21 @@ class SettingsDeviceTest {
             altitude = 100.0
             verticalAccuracyMeters = 4f
         })
+    }
+
+    /** Waits until the tagged node draws at least one pixel in exactly this colour. A touch ripple can cover it for a short time. */
+    private fun awaitColour(tag: String, colour: Color) = compose.waitUntil(3_000) {
+        val pixels = compose.onNodeWithTag(tag).captureToImage().toPixelMap()
+        (0 until pixels.width).any { x -> (0 until pixels.height).any { y -> pixels[x, y].toArgb() == colour.toArgb() } }
+    }
+
+    private fun dark(): Boolean {
+        var dark = false
+        scenario!!.onActivity {
+            dark = it.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
+        }
+        return dark
     }
 
     private fun brightness(): Float {

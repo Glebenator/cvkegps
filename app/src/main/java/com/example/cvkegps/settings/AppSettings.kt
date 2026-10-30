@@ -35,6 +35,8 @@ data class Settings(
     val recordingAccuracy: RecordingAccuracy = RecordingAccuracy.Standard,
     /** A recording trip uses a network position while it has no GPS signal. It applies to the next trip that starts or resumes. */
     val networkFallback: Boolean = true,
+    /** The app colours, or the wallpaper colours of Android 12 and later. */
+    val colours: AppColours = AppColours.App,
 ) {
     /** The chosen units, with the region's units where the user made no choice. */
     fun units(country: String): Units = Units.forCountry(country).let {
@@ -47,6 +49,13 @@ enum class MapLayer(override val key: String) : StoredChoice {
     Default("default"),
     Satellite("satellite"),
     Terrain("terrain"),
+}
+
+/** The colour scheme. [App] keeps the blue accent; on Android 12 and later the wallpaper tints only the neutral surfaces. */
+enum class AppColours(override val key: String) : StoredChoice {
+    App("app"),
+    /** Android 12 and later: the accent, text, and surfaces come from the wallpaper. Status, data, and brand colours stay fixed. */
+    Wallpaper("wallpaper"),
 }
 
 /** How a trip uses the GPS receiver. [High] uses much more battery. */
@@ -94,6 +103,7 @@ class AppSettings(
                 mapTraffic = pick(MAP_TRAFFIC) { mapTraffic },
                 recordingAccuracy = pick(RECORDING_ACCURACY) { recordingAccuracy },
                 networkFallback = pick(NETWORK_FALLBACK) { networkFallback },
+                colours = pick(COLOURS) { colours },
             )
         }
     }
@@ -115,6 +125,7 @@ class AppSettings(
     fun setRecordingAccuracy(value: RecordingAccuracy) =
         change(RECORDING_ACCURACY, { copy(recordingAccuracy = value) }) { putString(RECORDING_ACCURACY, value.key) }
     fun setNetworkFallback(value: Boolean) = change(NETWORK_FALLBACK, { copy(networkFallback = value) }) { putBoolean(NETWORK_FALLBACK, value) }
+    fun setColours(value: AppColours) = change(COLOURS, { copy(colours = value) }) { putString(COLOURS, value.key) }
 
     /** Shows the change at once and writes only the changed value, so a change before the first read keeps the other stored values. */
     private fun change(key: String, update: Settings.() -> Settings, write: SharedPreferences.Editor.() -> Unit) {
@@ -146,6 +157,7 @@ class AppSettings(
         const val MAP_TRAFFIC = "map_traffic"
         const val RECORDING_ACCURACY = "recording_accuracy"
         const val NETWORK_FALLBACK = "network_fallback"
+        const val COLOURS = "colours"
 
         /** An unknown stored value, for example from a later app version, reads as the default. */
         fun read(read: SharedPreferences) = Settings(
@@ -163,6 +175,7 @@ class AppSettings(
             mapTraffic = read.getBoolean(MAP_TRAFFIC, false),
             recordingAccuracy = read.getString(RECORDING_ACCURACY, null).toChoice<RecordingAccuracy>() ?: RecordingAccuracy.Standard,
             networkFallback = read.getBoolean(NETWORK_FALLBACK, true),
+            colours = read.getString(COLOURS, null).toChoice<AppColours>() ?: AppColours.App,
         )
     }
 }

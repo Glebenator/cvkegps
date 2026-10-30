@@ -57,6 +57,12 @@
     <string name="settings_screen_trip_map">Current trip map</string>
     <string name="settings_dim">Dim after 1 minute without touch</string>
     <string name="settings_dim_body">Touch the screen to make it bright again. This uses less battery.</string>
+    <string name="settings_colours">Colours</string>
+    <string name="settings_colours_app">App colours</string>
+    <string name="settings_colours_app_body">Blue controls. On Android 12 and later, the wallpaper tints the backgrounds a little.</string>
+    <string name="settings_colours_wallpaper">Wallpaper colours</string>
+    <string name="settings_colours_wallpaper_body">Controls, text, and backgrounds use the colours of your wallpaper. Status colours do not change.</string>
+    <string name="settings_colours_wallpaper_unavailable">Needs Android 12 or later.</string>
     <string name="settings_maps">Maps</string>
     <string name="settings_map_type">Map type</string>
     <string name="settings_traffic">Traffic on the current trip map</string>

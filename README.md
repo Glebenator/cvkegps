@@ -90,8 +90,10 @@ The app uses the owner's design language (My Design Language, touch dialect):
 
 - Colours come from the design tokens in `ui/theme/Tokens.kt`. Material roles map to them in `ui/theme/Theme.kt`.
   The page is the cool neutral `bg`; cards, bars, and sheets are `surface`. Electric blue is the one accent.
-- Dynamic colour applies only to the neutrals. On Android 12 and later, the wallpaper tints the page, cards, bars, and lines.
+- By default, dynamic colour applies only to the neutrals. On Android 12 and later, the wallpaper tints the page, cards, bars, and lines.
   Text, the electric blue accent, status, data, and brand colours stay fixed. Light and dark follow the system setting.
+- Settings > Colours > Wallpaper colours gives full dynamic colour on Android 12 and later: the accent, text, and surfaces come from the wallpaper.
+  Status and brand colours stay fixed. Text on the subtle accent fill uses `accentOnSubtle`, so it keeps its contrast.
 - Type uses the system font with weight 500 headings. Spacing uses the 4 dp steps in `Space`.
 - Cards are 16 dp with a soft shadow and no border. Buttons and chips are pills. Secondary buttons are outlined.
 - Tabs show icons only. Their names are the accessible names.
