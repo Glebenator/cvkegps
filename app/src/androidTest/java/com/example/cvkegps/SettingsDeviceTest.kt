@@ -60,6 +60,8 @@ class SettingsDeviceTest {
     private var lastSent = 0L
 
     @Before @Suppress("DEPRECATION") fun prepare() {
+        // The colour test starts from the default choice.
+        instrumentation.runOnMainSync { app.settings.setColours(AppColours.Wallpaper) }
         originalLocation = shell("cmd location is-location-enabled").trim()
         shell("cmd location set-location-enabled true")
         shell("appops set ${context.packageName} android:mock_location allow")
@@ -77,7 +79,7 @@ class SettingsDeviceTest {
         instrumentation.runOnMainSync { app.recorder.send(RecordingCommand.Finish()) }
         waitUntil { !app.recorder.state.value.needsService }
         scenario?.close()
-        instrumentation.runOnMainSync { app.settings.setColours(AppColours.App) }
+        instrumentation.runOnMainSync { app.settings.setColours(AppColours.Wallpaper) }
         device.wakeUp()
         manager.removeTestProvider(LocationManager.GPS_PROVIDER)
         shell("appops set ${context.packageName} android:mock_location default")
@@ -190,30 +192,42 @@ class SettingsDeviceTest {
         assertEquals(WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE, brightness())
     }
 
-    @Test fun wallpaperColoursReplaceTheBlueAccentAndStayAfterRecreation() {
+    @Test fun colourChoicesChangeTheAccentAndTheBackgroundsAndStayAfterRecreation() {
         launch()
         openSettings()
+        val fixed = if (dark()) DarkTokens else LightTokens
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
             compose.onNodeWithTag("colours_wallpaper").performScrollTo().assertIsNotEnabled()
+            compose.onNodeWithTag("colours_backgrounds").assertIsNotEnabled()
             compose.onNodeWithTag("colours_app").assertIsSelected()
             return
         }
-        // The selected radio button shows the accent: the app blue first, then the wallpaper primary.
-        compose.onNodeWithTag("colours_app").performScrollTo().assertIsSelected()
-        awaitColour("colours_app", if (dark()) DarkTokens.accent else LightTokens.accent)
-        compose.onNodeWithTag("colours_wallpaper").performScrollTo().performClick()
-        compose.onNodeWithTag("colours_wallpaper").assertIsSelected()
         val dark = dark()
-        var wallpaper = Color.Unspecified
-        scenario!!.onActivity { wallpaper = (if (dark) dynamicDarkColorScheme(it) else dynamicLightColorScheme(it)).primary }
-        assertTrue(wallpaper != LightTokens.accent && wallpaper != DarkTokens.accent)
-        awaitColour("colours_wallpaper", wallpaper)
+        var scheme: androidx.compose.material3.ColorScheme? = null
+        scenario!!.onActivity { scheme = if (dark) dynamicDarkColorScheme(it) else dynamicLightColorScheme(it) }
+        val wallpaper = scheme!!
+        val wallpaperPage = if (dark) wallpaper.surface else wallpaper.surfaceContainerLow
+        assertTrue(wallpaper.primary != fixed.accent && wallpaperPage != fixed.bg)
+        // Wallpaper colours are the default. The selected radio button shows the accent, and the page shows the background.
+        compose.onNodeWithTag("colours_wallpaper").performScrollTo().assertIsSelected()
+        awaitColour("colours_wallpaper", wallpaper.primary)
+        awaitColour("settings_content", wallpaperPage)
         capture("wallpaper-colours")
+        // Wallpaper backgrounds: the app blue on the wallpaper page.
+        compose.onNodeWithTag("colours_backgrounds").performClick()
+        awaitColour("colours_backgrounds", fixed.accent)
+        awaitColour("settings_content", wallpaperPage)
+        capture("wallpaper-backgrounds")
+        // App colours: no dynamic colour. The page is the token background again.
+        compose.onNodeWithTag("colours_app").performScrollTo().performClick()
+        awaitColour("colours_app", fixed.accent)
+        awaitColour("settings_content", fixed.bg)
+        capture("app-colours")
         // A new activity keeps the open Settings screen and the choice.
         scenario!!.recreate()
         compose.onNodeWithTag("settings_content").assertIsDisplayed()
-        compose.onNodeWithTag("colours_wallpaper").performScrollTo().assertIsSelected()
-        awaitColour("colours_wallpaper", wallpaper)
+        compose.onNodeWithTag("colours_app").performScrollTo().assertIsSelected()
+        awaitColour("settings_content", fixed.bg)
     }
 
     @Test fun settingsFitThemesLargeTextAndRotation() {

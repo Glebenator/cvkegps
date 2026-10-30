@@ -127,15 +127,14 @@ fun SettingsScreen(settings: AppSettings, onBack: () -> Unit) {
                 }
             }
             SettingsSection(R.string.settings_colours, changes[Section.Colours] ?: 0, Modifier.selectableGroup()) {
-                // Before Android 12 the wallpaper choice shows why it is not available.
+                // Before Android 12 the wallpaper choices show why they are not available.
                 val wallpaper = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
                 val colours = if (wallpaper) values.colours else AppColours.App
-                ChoiceRow(R.string.settings_colours_app, R.string.settings_colours_app_body, colours == AppColours.App, "colours_app") {
-                    saved(Section.Colours) { settings.setColours(AppColours.App) }
+                AppColours.entries.forEach { choice ->
+                    val available = wallpaper || choice == AppColours.App
+                    ChoiceRow(choice.title, if (available) choice.body else R.string.settings_colours_wallpaper_unavailable, colours == choice,
+                        "colours_${choice.key}", enabled = available) { saved(Section.Colours) { settings.setColours(choice) } }
                 }
-                ChoiceRow(R.string.settings_colours_wallpaper, if (wallpaper) R.string.settings_colours_wallpaper_body
-                    else R.string.settings_colours_wallpaper_unavailable, colours == AppColours.Wallpaper, "colours_wallpaper",
-                    enabled = wallpaper) { saved(Section.Colours) { settings.setColours(AppColours.Wallpaper) } }
             }
             SettingsSection(R.string.settings_maps, changes[Section.Maps] ?: 0) {
                 Column(Modifier.padding(start = Space.s4, end = Space.s4, top = Space.s4), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
@@ -295,6 +294,18 @@ private fun transparent(enabled: Boolean = true) = CvkeTheme.colors.let {
 @get:StringRes private val RecordingAccuracy.body get() = when (this) {
     RecordingAccuracy.Standard -> R.string.settings_recording_standard_body
     RecordingAccuracy.High -> R.string.settings_recording_high_body
+}
+
+@get:StringRes private val AppColours.title get() = when (this) {
+    AppColours.App -> R.string.settings_colours_app
+    AppColours.Backgrounds -> R.string.settings_colours_backgrounds
+    AppColours.Wallpaper -> R.string.settings_colours_wallpaper
+}
+
+@get:StringRes private val AppColours.body get() = when (this) {
+    AppColours.App -> R.string.settings_colours_app_body
+    AppColours.Backgrounds -> R.string.settings_colours_backgrounds_body
+    AppColours.Wallpaper -> R.string.settings_colours_wallpaper_body
 }
 
 @get:StringRes private val RouteColour.title get() = when (this) {

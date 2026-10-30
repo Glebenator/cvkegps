@@ -16,7 +16,6 @@ import com.example.cvkegps.tracking.TrackingApplication
 import com.example.cvkegps.tracking.RecordingService
 import com.example.cvkegps.location.AndroidGnssSource
 import com.example.cvkegps.location.AndroidHeadingSource
-import com.example.cvkegps.settings.AppColours
 import com.example.cvkegps.ui.CompassViewModel
 import com.example.cvkegps.ui.AppShell
 import com.example.cvkegps.ui.SpeedometerViewModel
@@ -46,7 +45,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val settings by tracking.settings.values.collectAsStateWithLifecycle()
-            CvkeGpsTheme(wallpaperColours = settings.colours == AppColours.Wallpaper) {
+            CvkeGpsTheme(colours = settings.colours) {
                 AppShell(tracking, viewModel, compassViewModel, tripsRequest.intValue, touches)
             }
         }

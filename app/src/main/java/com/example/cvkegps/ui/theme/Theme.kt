@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import com.example.cvkegps.settings.AppColours
 
 private val LocalCvkeColors = staticCompositionLocalOf { LightTokens }
 
@@ -33,7 +34,7 @@ object CvkeTheme {
 }
 
 /**
- * By default, dynamic colour applies only to the neutral surfaces and lines, which the wallpaper tints a little.
+ * Wallpaper backgrounds: dynamic colour applies only to the neutral surfaces and lines, which the wallpaper tints a little.
  * Text, the accent, status, data, and brand colours stay fixed, so the app keeps its one electric blue.
  * The tones match the token neutrals: a light page with white cards, or a dark page with lighter cards.
  */
@@ -46,7 +47,7 @@ private fun CvkeColors.withWallpaperNeutrals(wallpaper: ColorScheme, dark: Boole
 )
 
 /**
- * The user's choice of wallpaper colours: the accent, text, and neutrals all come from the wallpaper.
+ * Wallpaper colours: the accent, text, and neutrals all come from the wallpaper.
  * Status, data, and brand colours stay fixed, so they keep their meaning.
  */
 private fun CvkeColors.withWallpaperColours(wallpaper: ColorScheme, dark: Boolean) = withWallpaperNeutrals(wallpaper, dark).copy(
@@ -112,26 +113,27 @@ private val CvkeShapes = Shapes(
 @Composable
 fun CvkeGpsTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    wallpaperColours: Boolean = false,
+    colours: AppColours = AppColours.Wallpaper,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
-    // Android 12 and later give wallpaper colours. Earlier versions use the token colours.
-    val wallpaper = remember(context, configuration, darkTheme) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) null
+    // Android 12 and later give wallpaper colours. Earlier versions, and the app colours choice, use the token colours only.
+    val wallpaper = remember(context, configuration, darkTheme, colours) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || colours == AppColours.App) null
         else if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
     }
-    val tokens = remember(wallpaper, darkTheme, wallpaperColours) {
+    val full = wallpaper != null && colours == AppColours.Wallpaper
+    val tokens = remember(wallpaper, darkTheme, full) {
         val fixed = if (darkTheme) DarkTokens else LightTokens
         when {
             wallpaper == null -> fixed
-            wallpaperColours -> fixed.withWallpaperColours(wallpaper, darkTheme)
+            full -> fixed.withWallpaperColours(wallpaper, darkTheme)
             else -> fixed.withWallpaperNeutrals(wallpaper, darkTheme)
         }
     }
-    val scheme = remember(tokens, darkTheme, wallpaper, wallpaperColours) {
-        tokens.scheme(darkTheme).let { if (wallpaper != null && wallpaperColours) it.copy(inversePrimary = wallpaper.inversePrimary) else it }
+    val scheme = remember(tokens, darkTheme, wallpaper, full) {
+        tokens.scheme(darkTheme).let { if (wallpaper != null && full) it.copy(inversePrimary = wallpaper.inversePrimary) else it }
     }
     CompositionLocalProvider(LocalCvkeColors provides tokens) {
         MaterialTheme(colorScheme = scheme, typography = CvkeTypography, shapes = CvkeShapes, content = content)

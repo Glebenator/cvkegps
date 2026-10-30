@@ -37,8 +37,8 @@ data class Settings(
     val recordingAccuracy: RecordingAccuracy = RecordingAccuracy.Standard,
     /** A recording trip uses a network position while it has no GPS signal. It applies to the next trip that starts or resumes. */
     val networkFallback: Boolean = true,
-    /** The app colours, or the wallpaper colours of Android 12 and later. */
-    val colours: AppColours = AppColours.App,
+    /** Where the wallpaper colours of Android 12 and later apply. Earlier versions always use the app colours. */
+    val colours: AppColours = AppColours.Wallpaper,
 ) {
     /** The chosen units, with the region's units where the user made no choice. */
     fun units(country: String): Units = Units.forCountry(country).let {
@@ -53,10 +53,13 @@ enum class MapLayer(override val key: String) : StoredChoice {
     Terrain("terrain"),
 }
 
-/** The colour scheme. [App] keeps the blue accent; on Android 12 and later the wallpaper tints only the neutral surfaces. */
+/** How much of the app takes the wallpaper colours of Android 12 and later. Status, data, and brand colours never do. */
 enum class AppColours(override val key: String) : StoredChoice {
+    /** The design tokens only: the blue accent and fixed neutrals. No dynamic colour. */
     App("app"),
-    /** Android 12 and later: the accent, text, and surfaces come from the wallpaper. Status, data, and brand colours stay fixed. */
+    /** The blue accent. The wallpaper tints the neutral surfaces and lines a little. */
+    Backgrounds("backgrounds"),
+    /** The accent, text, and surfaces come from the wallpaper. */
     Wallpaper("wallpaper"),
 }
 
@@ -188,7 +191,7 @@ class AppSettings(
             routeColour = read.getString(ROUTE_COLOUR, null).toChoice<RouteColour>() ?: RouteColour.Speed,
             recordingAccuracy = read.getString(RECORDING_ACCURACY, null).toChoice<RecordingAccuracy>() ?: RecordingAccuracy.Standard,
             networkFallback = read.getBoolean(NETWORK_FALLBACK, true),
-            colours = read.getString(COLOURS, null).toChoice<AppColours>() ?: AppColours.App,
+            colours = read.getString(COLOURS, null).toChoice<AppColours>() ?: AppColours.Wallpaper,
         )
     }
 }

@@ -167,7 +167,7 @@
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-10-30">30 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>770aeba</code> plus speed colours (branch <code>native-maps</code>, not committed)</dd></div>
+          <div><dt>App code baseline</dt><dd><code>770aeba</code> plus speed colours and the three colour choices (branch <code>native-maps</code>, not committed)</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
@@ -179,6 +179,7 @@
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, debug lint, and unsigned release build</span><span class="small">Release APK not installed or run</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#colour-choices">Colour choices · 30 Oct</a>
       <a href="#speed-colours">Speed colours · 30 Oct</a>
       <a href="#wallpaper-colours">Wallpaper colours · 30 Oct</a>
       <a href="#replay-mode">Replay mode and smooth movement · 28 Oct</a>
@@ -212,6 +213,39 @@
       <a href="#history">Change history</a>
     </nav>
 
+    <section id="colour-choices" aria-labelledby="colour-choices-heading">
+      <div class="section-head"><h2 id="colour-choices-heading">Three colour choices, wallpaper colours by default · 30 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
+      <p class="section-intro">The owner asked that turning dynamic colour off turns it off everywhere, and chose the native look as the default. The Colours card now has three choices. On Android 11 and earlier, the two wallpaper choices are disabled with <em>Needs Android 12 or later.</em>, and the app uses App colours.
+      The choice is in <a href="app/src/main/java/com/example/cvkegps/settings/AppSettings.kt"><code>AppSettings.kt</code></a>, and <a href="app/src/main/java/com/example/cvkegps/ui/theme/Theme.kt"><code>Theme.kt</code></a> applies it.</p>
+      <div class="table-wrap"><table class="wrap-cells">
+        <thead><tr><th scope="col">Choice</th><th scope="col">Accent and text</th><th scope="col">Backgrounds and lines</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">App colours</th><td>Electric blue, token text</td><td>Fixed token neutrals. No dynamic colour.</td></tr>
+          <tr><th scope="row">Wallpaper backgrounds</th><td>Electric blue, token text</td><td>Tinted by the wallpaper. This was the default before.</td></tr>
+          <tr><th scope="row">Wallpaper colours (default)</th><td>From the wallpaper</td><td>From the wallpaper</td></tr>
+        </tbody>
+      </table></div>
+      <p>Status, brand, and speed colours never change. The stored value of the earlier App colours choice now means fixed colours. The app is not published, so there is no migration.</p>
+      <h3 style="margin-top:24px">Pixel 10 Pro emulator, Android 17 (API 37)</h3>
+      <div class="screens">
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-colour-choices-app-light.webp"><img src="docs/progress/images/2026-10-30-colour-choices-app-light.webp" loading="lazy" alt="Settings in the light theme with App colours selected: a cool grey page, white cards, and electric blue radio buttons. The Colours card lists App colours, Wallpaper backgrounds, and Wallpaper colours with their explanations."></a>
+      <figcaption><strong>App colours</strong>30 October 2026. Baseline <code>770aeba</code> plus speed colours and the three colour choices. Pixel 10 Pro emulator, Android 17 (API 37). Default emulator wallpaper. A capture from the device test.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-colour-choices-wallpaper-dark.webp"><img src="docs/progress/images/2026-10-30-colour-choices-wallpaper-dark.webp" loading="lazy" alt="Settings in the dark theme with Wallpaper colours selected: a dark page with lavender radio buttons from the wallpaper palette."></a>
+      <figcaption><strong>Wallpaper colours, dark</strong>30 October 2026. Same baseline. Pixel 10 Pro emulator, Android 17 (API 37). Default emulator wallpaper. A capture from the device test.</figcaption></figure>
+      </div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li>The Settings device test <code>colourChoicesChangeTheAccentAndTheBackgroundsAndStayAfterRecreation</code> starts at the default and checks each choice on the screen: the exact accent of the selected radio button, and the exact page background. Wallpaper colours show the wallpaper primary and page. Wallpaper backgrounds show the app blue on the wallpaper page. App colours show the app blue on the token page <code>bg</code>. The choice stays after a new activity. Below Android 12 the test checks that the wallpaper choices are disabled.</li>
+          <li>All 5 Settings device tests passed in the light theme, and the colour test also passed in the dark theme. 58 of 58 calculation tests passed. Debug lint found no issues. Raw captures: <code>artifacts/colours3/</code> (not in Git).</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>The settings load after the first frame. With a choice other than the default, the app can show wallpaper colours for a short time when it starts. This was not measured.</li>
+          <li>The other screens were not inspected with each choice after this change. The full device test suite was not run. The release build was not checked.</li>
+        </ul>
+      </article>
+    </section>
+
     <section id="speed-colours" aria-labelledby="speed-colours-heading">
       <div class="section-head"><h2 id="speed-colours-heading">Speed colours on saved routes · 30 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
       <p class="section-intro">Saved trip and replay maps colour the route by speed, from dark (slow) to yellow (fast). The scale uses the speed range of each trip, and a legend on the map shows the speeds at the two ends.
@@ -242,7 +276,7 @@ if (fast - slow &gt;= MIN_RANGE_METERS_PER_SECOND) return SpeedScale(slow, fast)
       <figure class="shot"><a href="docs/progress/images/2026-10-30-speed-colours-replay.webp"><img src="docs/progress/images/2026-10-30-speed-colours-replay.webp" loading="lazy" alt="The replay map strip: the played route in speed colours up to the position marker, then a muted route to moment 1 and beyond. The legend shows 16.8 mph and 35.8 mph."></a>
       <figcaption><strong>Replay, played part in colour</strong>30 October 2026. An earlier build of this change, before the centred minimum range and the legend placement fix. Pixel 10 Pro emulator, Android 17 (API 37). Simulated speeds 5 to 20 m/s. The top of the screenshot only.</figcaption></figure>
       <figure class="shot"><a href="docs/progress/images/2026-10-30-speed-colours-settings.webp"><img src="docs/progress/images/2026-10-30-speed-colours-settings.webp" loading="lazy" alt="Settings, Maps card: Map type, then Route colour on saved trips with One colour and Speed, Speed selected, and a note about the colours and the legend."></a>
-      <figcaption><strong>Route colour setting</strong>30 October 2026. Baseline <code>770aeba</code> plus speed colours. Pixel 10 Pro emulator, Android 17 (API 37). The Maps card only, cut from a device test screenshot.</figcaption></figure>
+      <figcaption><strong>Route colour setting</strong>30 October 2026. Baseline <code>770aeba</code> plus speed colours, before the three colour choices. Pixel 10 Pro emulator, Android 17 (API 37). The Maps card only, cut from a device test screenshot.</figcaption></figure>
       </div>
       <article class="panel" style="margin-top:24px"><h3>Verification</h3>
         <ul>
@@ -1393,7 +1427,7 @@ builder.setWhen(System.currentTimeMillis() - elapsedMillis.coerceAtLeast(0)).set
           <h3>A native Android main screen</h3>
           <ul>
             <li>Jetpack Compose and Material 3.</li>
-            <li>System light and dark themes. On Android 12 and later, dynamic colour tints the neutral surfaces and the accent stays fixed. A setting gives full wallpaper colours instead.</li>
+            <li>System light and dark themes. On Android 12 and later, the app uses the wallpaper colours by default. Settings &gt; Colours gives wallpaper backgrounds with the blue accent, or app colours with no dynamic colour.</li>
             <li>Current speed in km/h, GPS altitude, accuracy, and maximum speed.</li>
             <li>Portrait and landscape layouts, large text, and screen-reader labels.</li>
             <li>No home-screen scroll area. The speed display uses the space left by the readings and GPS controls.</li>
@@ -2187,6 +2221,8 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-30">30 October 2026</time><div><h3>Three colour choices, wallpaper colours by default</h3>
+<p>The Colours card has App colours (no dynamic colour), Wallpaper backgrounds, and Wallpaper colours, which is now the default. On a Pixel 10 Pro API 37 emulator, 5 of 5 Settings device tests passed, and the colour test passed in light and dark. See <a href="#colour-choices">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-30">30 October 2026</time><div><h3>Speed colours on saved routes</h3>
 <p>Saved trip and replay maps colour the route from dark (slow) to yellow (fast) across the speed range of the trip, with an outline and a legend. The map type menu and Settings change it to one colour. On a Pixel 10 Pro API 37 emulator, the new device test, the affected map, replay, and Settings device tests, 58 of 58 calculation tests, and lint passed. See <a href="#speed-colours">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-30">30 October 2026</time><div><h3>Wallpaper colours as a setting</h3>
