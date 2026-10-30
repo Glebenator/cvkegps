@@ -65,6 +65,10 @@
     <string name="settings_colours_wallpaper_unavailable">Needs Android 12 or later.</string>
     <string name="settings_maps">Maps</string>
     <string name="settings_map_type">Map type</string>
+    <string name="settings_route_colour">Route colour on saved trips</string>
+    <string name="settings_route_single">One colour</string>
+    <string name="settings_route_speed">Speed</string>
+    <string name="settings_route_colour_note">Speed colours go from dark for slow to yellow for fast, across the speeds of each trip. A legend on the map shows the speeds. The current trip map uses one colour.</string>
     <string name="settings_traffic">Traffic on the current trip map</string>
     <string name="settings_traffic_body">Loads more map data.</string>
     <string name="settings_recording">Trip recording</string>

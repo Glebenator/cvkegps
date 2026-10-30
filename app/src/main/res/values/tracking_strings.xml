@@ -160,6 +160,9 @@
     <string name="map_layer_satellite">Satellite</string>
     <string name="map_layer_terrain">Terrain</string>
     <string name="map_traffic">Traffic</string>
+    <string name="map_route_single">Route in one colour</string>
+    <string name="map_route_speed">Route coloured by speed</string>
+    <string name="map_speed_legend">Route colour shows speed: dark is %1$s or slower, yellow is %2$s or faster.</string>
     <string name="map_start_marker">Start</string>
     <string name="map_end_marker">End</string>
     <string name="map_marker_description">%1$s, %2$s</string>

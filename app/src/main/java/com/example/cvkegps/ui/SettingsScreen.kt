@@ -59,6 +59,7 @@ import com.example.cvkegps.settings.AppSettings
 import com.example.cvkegps.settings.DistanceUnit
 import com.example.cvkegps.settings.MapLayer
 import com.example.cvkegps.settings.RecordingAccuracy
+import com.example.cvkegps.settings.RouteColour
 import com.example.cvkegps.settings.ScreenOn
 import com.example.cvkegps.settings.SpeedUnit
 import com.example.cvkegps.ui.theme.CvkeTheme
@@ -141,6 +142,11 @@ fun SettingsScreen(settings: AppSettings, onBack: () -> Unit) {
                     Text(stringResource(R.string.settings_map_type), style = MaterialTheme.typography.titleSmall)
                     SegmentedChoice(MapLayer.entries, values.mapLayer, { stringResource(it.title) },
                         { saved(Section.Maps) { settings.setMapLayer(it) } }, tag = { "map_type_${it.key}" })
+                    Text(stringResource(R.string.settings_route_colour), Modifier.padding(top = Space.s2), style = MaterialTheme.typography.titleSmall)
+                    SegmentedChoice(RouteColour.entries, values.routeColour, { stringResource(it.title) },
+                        { saved(Section.Maps) { settings.setRouteColour(it) } }, tag = { "route_colour_${it.key}" })
+                    Text(stringResource(R.string.settings_route_colour_note), style = MaterialTheme.typography.bodySmall,
+                        color = CvkeTheme.colors.inkMuted)
                 }
                 SwitchRow(R.string.settings_traffic, R.string.settings_traffic_body, values.mapTraffic, "setting_traffic") {
                     saved(Section.Maps) { settings.setMapTraffic(it) }
@@ -289,6 +295,11 @@ private fun transparent(enabled: Boolean = true) = CvkeTheme.colors.let {
 @get:StringRes private val RecordingAccuracy.body get() = when (this) {
     RecordingAccuracy.Standard -> R.string.settings_recording_standard_body
     RecordingAccuracy.High -> R.string.settings_recording_high_body
+}
+
+@get:StringRes private val RouteColour.title get() = when (this) {
+    RouteColour.Single -> R.string.settings_route_single
+    RouteColour.Speed -> R.string.settings_route_speed
 }
 
 @get:StringRes private val MapLayer.title get() = when (this) {

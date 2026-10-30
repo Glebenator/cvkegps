@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.dp
 
 /** The design-language colour tokens. Material roles map to them in [CvkeGpsTheme]. Brand colours are for brand art only. */
@@ -80,6 +81,30 @@ internal val DarkTokens = CvkeColors(
     dangerSubtle = Color(0xFF3A1614),
     scrim = Color(0x9905070A),
 )
+
+/**
+ * Data colours for a route coloured by speed, from slow to fast. They are the viridis scale: the lightness rises in order,
+ * so the order also shows without colour vision. They stay the same in both themes and with wallpaper colours.
+ */
+object SpeedRamp {
+    val stops = listOf(
+        Color(0xFF440154), Color(0xFF443983), Color(0xFF31688E), Color(0xFF21918C), Color(0xFF35B779), Color(0xFF90D743), Color(0xFFFDE725),
+    )
+
+    /** A route part without a usable speed. */
+    val noSpeed = Color(0xFF8A8F87)
+
+    /** The outline under a speed-coloured route on a light map, and on a dark or satellite map. */
+    val outlineOnLight = Color(0xFF161A1F)
+    val outlineOnDark = Color(0xFFFFFFFF)
+
+    /** The colour at [position], from 0 (slow) to 1 (fast). */
+    fun at(position: Float): Color {
+        val x = position.coerceIn(0f, 1f) * (stops.size - 1)
+        val i = x.toInt().coerceAtMost(stops.size - 2)
+        return lerp(stops[i], stops[i + 1], x - i)
+    }
+}
 
 /** The 4 dp spacing steps. Use only these for gaps and padding. */
 object Space {

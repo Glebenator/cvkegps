@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
@@ -57,6 +58,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -72,6 +75,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.example.cvkegps.R
 import com.example.cvkegps.ui.theme.CvkeTheme
+import com.example.cvkegps.ui.theme.SpeedRamp
 import com.example.cvkegps.ui.theme.mapButtonColors
 import com.example.cvkegps.ui.theme.mapButtonModifier
 import com.example.cvkegps.ui.theme.mapToggleColors
@@ -79,7 +83,9 @@ import com.example.cvkegps.ui.theme.Space
 import com.example.cvkegps.location.FixSource
 import com.example.cvkegps.location.TrackSample
 import com.example.cvkegps.settings.MapLayer
+import com.example.cvkegps.settings.RouteColour
 import com.example.cvkegps.ui.FloatingBackButton
+import com.example.cvkegps.ui.rememberDisplayFormat
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -91,6 +97,8 @@ import com.google.android.gms.maps.model.Gap
 import com.google.android.gms.maps.model.JointType
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.RoundCap
+import com.google.android.gms.maps.model.StrokeStyle
+import com.google.android.gms.maps.model.StyleSpan
 import com.google.maps.android.compose.CameraMoveStartedReason
 import com.google.maps.android.compose.Circle
 import com.google.maps.android.compose.ComposeMapColorScheme
@@ -173,6 +181,10 @@ private fun MapCanvas(
     val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     // The route uses the one accent, so it matches the app in both themes.
     val routeColor = CvkeTheme.colors.accent
+    // Saved trip and replay maps can colour the route by speed. The current trip map keeps one colour.
+    val bySpeed = !live && choice.routeColour == RouteColour.Speed
+    // An outline keeps both ends of the speed colours visible: dark on a light map, white on a dark or satellite map.
+    val outline = if (dark || choice.mapLayer == MapLayer.Satellite) SpeedRamp.outlineOnDark else SpeedRamp.outlineOnLight
     // A missing or old Google Play services result. Null while the check runs or when the services are ready.
     val servicesProblem = rememberPlayServices()?.takeIf { it != ConnectionResult.SUCCESS }
     val scope = rememberCoroutineScope()
@@ -234,14 +246,21 @@ private fun MapCanvas(
 
         // The route line. A live route redraws at most every ROUTE_REDRAW_MILLIS, so a long trip does not rebuild the line for each fix.
         var route by remember { mutableStateOf<List<RouteLine>>(emptyList()) }
+        var speedScale by remember { mutableStateOf<SpeedScale?>(null) }
         val latestLines by rememberUpdatedState(lines)
-        LaunchedEffect(fitRequest) {
+        LaunchedEffect(fitRequest, bySpeed) {
             snapshotFlow { latestLines }.conflate().collect { lines ->
-                route = withContext(Dispatchers.Default) {
+                val (built, scale) = withContext(Dispatchers.Default) {
+                    // One scale for all lines of the trip, so a colour means the same speed on each line.
+                    val speeds = if (bySpeed) lines.map(SpeedColours::smoothedSpeeds) else null
+                    val scale = speeds?.let(SpeedColours::scale)
+                    val positions = scale?.let { s -> speeds.map { line -> line.map { SpeedColours.position(it, s) } } }
                     lines.withIndex().filter { it.value.size > 1 }.map { (index, line) ->
-                        RouteLine(index, line.map { it.latLng() }, line.first().source == FixSource.Network)
-                    }
+                        RouteLine(index, line.map { it.latLng() }, line.first().source == FixSource.Network, positions?.get(index))
+                    } to scale
                 }
+                route = built
+                speedScale = scale
                 // Review fits once. Route updates must not reset a user pan. A live map that follows the position places the camera itself.
                 if (!placed && !(live && follow != FollowMode.Off)) {
                     val (width, height) = fitArea
@@ -302,14 +321,21 @@ private fun MapCanvas(
             contentPadding = padding,
             mapColorScheme = if (dark) ComposeMapColorScheme.DARK else ComposeMapColorScheme.LIGHT,
         ) {
-            RouteOverlay(route, lines, live, position, routeColor, moments, played)
+            RouteOverlay(route, lines, live, position, routeColor, outline, moments, played)
         }
         // The controls stay inside the safe area.
         Box(Modifier.matchParentSize().windowInsetsPadding(insets)) {
             if (onBack != null) FloatingBackButton(onBack, Modifier.align(Alignment.TopStart).padding(Space.s2))
+            val scale = speedScale
+            if (servicesProblem == null && bySpeed && scale != null && route.any { it.speedPositions != null && !it.approximate }) {
+                // The legend stays clear of the back button and the map buttons. On a short map the buttons are in a row at the top.
+                SpeedLegend(scale, Modifier.align(Alignment.TopStart).padding(start = Space.s2,
+                    top = if (onBack != null || shortMap) CONTROL_SPACE else Space.s2, end = if (shortMap) Space.s2 else CONTROL_SPACE))
+            }
             val controls: @Composable () -> Unit = {
                 val hasRoute = lines.any { it.isNotEmpty() }
-                MapTypeButton(choice.mapLayer, choice.mapTraffic.takeIf { live }, settings::setMapLayer, settings::setMapTraffic)
+                MapTypeButton(choice.mapLayer, choice.mapTraffic.takeIf { live }, choice.routeColour.takeIf { !live },
+                    settings::setMapLayer, settings::setMapTraffic, settings::setRouteColour)
                 if (follows) {
                     val label = stringResource(if (follow == FollowMode.Course) R.string.map_follow_course else R.string.map_follow)
                     val state = stringResource(when (follow) {
@@ -370,8 +396,8 @@ private fun MapCanvas(
 /** The route line, the start and end markers, and the live position. Only the map content can make marker images. */
 @Composable
 private fun RouteOverlay(
-    route: List<RouteLine>, lines: List<List<TrackSample>>, live: Boolean, position: LivePosition?, routeColor: Color, moments: List<MapMoment>,
-    played: List<Int>?,
+    route: List<RouteLine>, lines: List<List<TrackSample>>, live: Boolean, position: LivePosition?, routeColor: Color, outline: Color,
+    moments: List<MapMoment>, played: List<Int>?,
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -382,16 +408,35 @@ private fun RouteOverlay(
     val dashes = remember(density) { with(density) { listOf(Dash(8.dp.toPx()), Gap(6.dp.toPx())) } }
     // A replay draws the part after the playhead muted. The position marker shows where the two parts meet.
     val mutedAlpha = 0.4f
+    val outlineWidth = lineWidth + with(density) { 3.dp.toPx() }
     for (line in route) key(line.index) {
         val color = if (line.approximate) approximateColor else routeColor
         val count = played?.getOrNull(line.index)?.coerceIn(0, line.points.size) ?: line.points.size
         val done = remember(line, count) { line.points.subList(0, count) }
         // The remaining part starts at the last played point, so the two parts join.
-        val rest = remember(line, count) { line.points.subList((count - 1).coerceAtLeast(0), line.points.size).takeIf { count < line.points.size } }
-        Polyline(done, color = color, width = lineWidth, jointType = JointType.ROUND, pattern = dashes.takeIf { line.approximate },
-            startCap = RoundCap(), endCap = RoundCap(), zIndex = 1.5f)
-        Polyline(rest.orEmpty(), color = color.copy(alpha = mutedAlpha), width = lineWidth, jointType = JointType.ROUND,
-            pattern = dashes.takeIf { line.approximate }, startCap = RoundCap(), endCap = RoundCap(), zIndex = 1f)
+        val start = (count - 1).coerceAtLeast(0)
+        val rest = remember(line, count) { line.points.subList(start, line.points.size).takeIf { count < line.points.size } }
+        val speeds = line.speedPositions?.takeIf { !line.approximate }
+        if (speeds != null) {
+            // Each part has one span for each run of segments, with the colours of the speeds at its ends.
+            val doneSpans = remember(line, count) { speedSpans(speeds.subList(0, count), 1f) }
+            val restSpans = remember(line, count) { if (rest == null) emptyList() else speedSpans(speeds.subList(start, speeds.size), mutedAlpha) }
+            Polyline(done, color = outline, width = outlineWidth, jointType = JointType.ROUND, startCap = RoundCap(), endCap = RoundCap(), zIndex = 0.75f)
+            Polyline(rest.orEmpty(), color = outline.copy(alpha = mutedAlpha), width = outlineWidth, jointType = JointType.ROUND,
+                startCap = RoundCap(), endCap = RoundCap(), zIndex = 0.5f)
+            // The Maps SDK fails when a line with spans gets points while it has no span, so a part without a segment is not drawn.
+            if (done.size > 1 && doneSpans.isNotEmpty()) {
+                Polyline(done, doneSpans, width = lineWidth, jointType = JointType.ROUND, startCap = RoundCap(), endCap = RoundCap(), zIndex = 1.5f)
+            }
+            if (rest != null && rest.size > 1 && restSpans.isNotEmpty()) {
+                Polyline(rest, restSpans, width = lineWidth, jointType = JointType.ROUND, startCap = RoundCap(), endCap = RoundCap(), zIndex = 1f)
+            }
+        } else {
+            Polyline(done, color = color, width = lineWidth, jointType = JointType.ROUND, pattern = dashes.takeIf { line.approximate },
+                startCap = RoundCap(), endCap = RoundCap(), zIndex = 1.5f)
+            Polyline(rest.orEmpty(), color = color.copy(alpha = mutedAlpha), width = lineWidth, jointType = JointType.ROUND,
+                pattern = dashes.takeIf { line.approximate }, startCap = RoundCap(), endCap = RoundCap(), zIndex = 1f)
+        }
     }
     val first = lines.firstOrNull { it.isNotEmpty() }?.first()
     // While recording, the position marker shows the newest point instead of an end marker.
@@ -441,9 +486,12 @@ private fun RouteOverlay(
     }
 }
 
-/** Selects the map type. On the current trip map it also turns live traffic on or off. */
+/** Selects the map type. On the current trip map it also turns live traffic on or off. On other maps it selects the route colour. */
 @Composable
-private fun MapTypeButton(layer: MapLayer, traffic: Boolean?, onLayer: (MapLayer) -> Unit, onTraffic: (Boolean) -> Unit) {
+private fun MapTypeButton(
+    layer: MapLayer, traffic: Boolean?, routeColour: RouteColour?,
+    onLayer: (MapLayer) -> Unit, onTraffic: (Boolean) -> Unit, onRouteColour: (RouteColour) -> Unit,
+) {
     var open by remember { mutableStateOf(false) }
     Box {
         FilledTonalIconButton(onClick = { open = true }, colors = mapButtonColors(), modifier = mapButtonModifier.testTag("map_layers")) {
@@ -463,8 +511,48 @@ private fun MapTypeButton(layer: MapLayer, traffic: Boolean?, onLayer: (MapLayer
                     modifier = Modifier.testTag("map_traffic").semantics { role = Role.Checkbox; toggleableState = ToggleableState(traffic) },
                     leadingIcon = { Checkbox(checked = traffic, onCheckedChange = null) })
             }
+            if (routeColour != null) {
+                HorizontalDivider()
+                for ((option, label) in listOf(RouteColour.Single to R.string.map_route_single, RouteColour.Speed to R.string.map_route_speed)) {
+                    val selected = option == routeColour
+                    DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { onRouteColour(option); open = false },
+                        modifier = Modifier.testTag("map_route_${option.key}").semantics { role = Role.RadioButton; this.selected = selected },
+                        leadingIcon = { RadioButton(selected = selected, onClick = null) })
+                }
+            }
         }
     }
+}
+
+/**
+ * The speeds at the two ends of the route colours, with the colour steps between them.
+ * A screen reader reads one sentence that names the colours.
+ */
+@Composable
+private fun SpeedLegend(scale: SpeedScale, modifier: Modifier) {
+    val format = rememberDisplayFormat()
+    val slow = format.speed(scale.slowMetersPerSecond)
+    val fast = format.speed(scale.fastMetersPerSecond)
+    val description = stringResource(R.string.map_speed_legend, slow, fast)
+    Surface(modifier.testTag("speed_legend").clearAndSetSemantics { contentDescription = description },
+        color = CvkeTheme.colors.surface, shape = MaterialTheme.shapes.small, shadowElevation = 6.dp) {
+        Row(Modifier.padding(horizontal = Space.s2, vertical = Space.s1), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Space.s2)) {
+            Text(slow, style = MaterialTheme.typography.labelMedium, color = CvkeTheme.colors.ink)
+            Row {
+                for (stop in SpeedRamp.stops) Box(Modifier.size(Space.s3, Space.s2).background(stop))
+            }
+            Text(fast, style = MaterialTheme.typography.labelMedium, color = CvkeTheme.colors.ink)
+        }
+    }
+}
+
+/** Map spans for a line part with these colour positions. Runs at one colour get a plain span, the others a gradient. */
+private fun speedSpans(positions: List<Float?>, alpha: Float): List<StyleSpan> = SpeedColours.runs(positions).map { run ->
+    val from = (run.from?.let(SpeedRamp::at) ?: SpeedRamp.noSpeed).copy(alpha = alpha).toArgb()
+    val to = (run.to?.let(SpeedRamp::at) ?: SpeedRamp.noSpeed).copy(alpha = alpha).toArgb()
+    val style = if (from == to) StrokeStyle.colorBuilder(from) else StrokeStyle.gradientBuilder(from, to)
+    StyleSpan(style.build(), run.segments.toDouble())
 }
 
 /** Opens the Google Play services dialog that installs, updates, or turns on the services that the map needs. */
@@ -494,8 +582,11 @@ private fun rememberPlayServices(): Int? {
     }.value
 }
 
-/** One drawn part of the route. [approximate] is a part from network positions. */
-private class RouteLine(val index: Int, val points: List<LatLng>, val approximate: Boolean)
+/**
+ * One drawn part of the route. [approximate] is a part from network positions.
+ * [speedPositions] are the colour positions of the points when the route is coloured by speed.
+ */
+private class RouteLine(val index: Int, val points: List<LatLng>, val approximate: Boolean, val speedPositions: List<Float?>? = null)
 
 private fun TrackSample.latLng() = LatLng(Math.toDegrees(latitudeRadians), Math.toDegrees(longitudeRadians))
 

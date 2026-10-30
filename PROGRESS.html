@@ -167,7 +167,7 @@
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-10-30">30 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>e888677</code> plus the colours setting (branch <code>native-maps</code>)</dd></div>
+          <div><dt>App code baseline</dt><dd><code>770aeba</code> plus speed colours (branch <code>native-maps</code>, not committed)</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
@@ -175,10 +175,11 @@
     </div>
     <div class="metrics" aria-label="Last verified results">
       <div class="metric"><strong>42 / 48</strong><span>Device tests passed in one run with the replay mode</span><span class="small">Pixel 10 Pro emulator, API 37, on a slow emulator; the 6 others passed one by one after a cold start</span></div>
-      <div class="metric"><strong>55 / 55</strong><span>Calculation tests passed</span><span class="small">New: the bearing between fixes</span></div>
+      <div class="metric"><strong>58 / 58</strong><span>Calculation tests passed</span><span class="small">New: speed colour smoothing, scale, and runs</span></div>
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, debug lint, and unsigned release build</span><span class="small">Release APK not installed or run</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#speed-colours">Speed colours · 30 Oct</a>
       <a href="#wallpaper-colours">Wallpaper colours · 30 Oct</a>
       <a href="#replay-mode">Replay mode and smooth movement · 28 Oct</a>
       <a href="#replay-step3">Trip replay, step 3 · 28 Oct</a>
@@ -210,6 +211,55 @@
       <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
     </nav>
+
+    <section id="speed-colours" aria-labelledby="speed-colours-heading">
+      <div class="section-head"><h2 id="speed-colours-heading">Speed colours on saved routes · 30 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
+      <p class="section-intro">Saved trip and replay maps colour the route by speed, from dark (slow) to yellow (fast). The scale uses the speed range of each trip, and a legend on the map shows the speeds at the two ends.
+      The rules are in <a href="app/src/main/java/com/example/cvkegps/tracking/SpeedColours.kt"><code>SpeedColours.kt</code></a>, the drawing and the legend in <a href="app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt"><code>RouteMap.kt</code></a>, and the decision in <a href="docs/adr/0005-colour-saved-routes-by-trip-speed-range.md">ADR 0005</a>.</p>
+      <div class="table-wrap"><table class="wrap-cells">
+        <thead><tr><th scope="col">Part</th><th scope="col">Behaviour</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Scale</th><td>The 5th and the 95th percentile of the moving speeds (0.5 m/s or more) of the trip, so a bike ride and a drive both use all colours and a few wrong fixes do not set the ends. The range is at least 2 m/s, centred on the speeds, so a trip at an even speed shows the middle colours.</td></tr>
+          <tr><th scope="row">Colours</th><td>The viridis scale (<code>SpeedRamp</code> in <code>Tokens.kt</code>). Its lightness rises in order, so the order also shows without colour vision. The colours stay the same in both themes and with every colour choice. An outline under the line keeps both ends visible: dark on a light map, white on a dark or satellite map.</td></tr>
+          <tr><th scope="row">Data</th><td>The usable GPS speed, averaged over 5 seconds. A part without a usable speed is grey. Network positions stay dashed in the warning colour. A replay mutes the part after the playhead, as before.</td></tr>
+          <tr><th scope="row">Legend</th><td>The slow and the fast speed in the chosen units, with seven colour steps between them. A screen reader reads one sentence, for example: dark is 4.5 mph or slower, yellow is 67.1 mph or faster. The legend stays clear of the back button and the map buttons.</td></tr>
+          <tr><th scope="row">Choice</th><td>Speed colours are the default. The map type menu of a saved trip and Settings &gt; Maps &gt; Route colour on saved trips change between speed colours and one colour. The current trip map always uses one colour.</td></tr>
+          <tr><th scope="row">Drawing</th><td>One line for each recorded piece, with map style spans: one span for each run of segments with the same rounded colour (32 steps). The Maps SDK fails when a line with spans gets points while it has no span, so a part without a segment is not drawn.</td></tr>
+        </tbody>
+      </table></div>
+      <pre><code><a href="app/src/main/java/com/example/cvkegps/tracking/SpeedColours.kt">SpeedColours.kt</a> · scale
+val slow = moving[((moving.size - 1) * 0.05).roundToInt()]
+val fast = moving[((moving.size - 1) * 0.95).roundToInt()]
+if (fast - slow &gt;= MIN_RANGE_METERS_PER_SECOND) return SpeedScale(slow, fast)</code></pre>
+      <h3 style="margin-top:24px">Pixel 10 Pro emulator, Android 17 (API 37)</h3>
+      <div class="screens">
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-speed-colours-light.webp"><img src="docs/progress/images/2026-10-30-speed-colours-light.webp" loading="lazy" alt="A saved trip map in the light theme: a straight route from the green start to the red end that changes from dark purple through blue and green to yellow, with a dark outline. The legend at the top left shows 4.5 mph, seven colour steps, and 67.1 mph."></a>
+      <figcaption><strong>Speed colours, light</strong>30 October 2026. Baseline <code>770aeba</code> plus speed colours. Pixel 10 Pro emulator, Android 17 (API 37). Simulated GPS test locations: speeds that rise from 2 to 30 m/s, one fix each second.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-speed-colours-dark.webp"><img src="docs/progress/images/2026-10-30-speed-colours-dark.webp" loading="lazy" alt="The same route on the dark map, with a white outline that keeps the dark purple start visible, and a dark legend."></a>
+      <figcaption><strong>Speed colours, dark</strong>30 October 2026. An earlier build of this change, before the centred minimum range and the legend placement fix, which do not change this trip or this layout. Pixel 10 Pro emulator, Android 17 (API 37). Same simulated trip.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-speed-colours-satellite.webp"><img src="docs/progress/images/2026-10-30-speed-colours-satellite.webp" loading="lazy" alt="The same route on the satellite map with labels, with a white outline."></a>
+      <figcaption><strong>Satellite</strong>30 October 2026. Baseline <code>770aeba</code> plus speed colours. Pixel 10 Pro emulator, Android 17 (API 37). Same simulated trip.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-speed-colours-replay.webp"><img src="docs/progress/images/2026-10-30-speed-colours-replay.webp" loading="lazy" alt="The replay map strip: the played route in speed colours up to the position marker, then a muted route to moment 1 and beyond. The legend shows 16.8 mph and 35.8 mph."></a>
+      <figcaption><strong>Replay, played part in colour</strong>30 October 2026. An earlier build of this change, before the centred minimum range and the legend placement fix. Pixel 10 Pro emulator, Android 17 (API 37). Simulated speeds 5 to 20 m/s. The top of the screenshot only.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-speed-colours-settings.webp"><img src="docs/progress/images/2026-10-30-speed-colours-settings.webp" loading="lazy" alt="Settings, Maps card: Map type, then Route colour on saved trips with One colour and Speed, Speed selected, and a note about the colours and the legend."></a>
+      <figcaption><strong>Route colour setting</strong>30 October 2026. Baseline <code>770aeba</code> plus speed colours. Pixel 10 Pro emulator, Android 17 (API 37). The Maps card only, cut from a device test screenshot.</figcaption></figure>
+      </div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li>New device test <code>savedRouteShowsSpeedColoursWithALegendAndTheMenuChangesToOneColour</code>: it records a trip with speeds from 2 to 30 m/s through the Android test provider, then finds the slow and the fast end colours in screenshots of the map, on the default and the satellite map. It checks the legend description, the map menu choice, and that the yellow end and the legend go away with one colour. It passed in the light and the dark theme.</li>
+          <li>On the final speed-colour code: the new test, the saved map themes, large text, and rotation test, the short narrow window test, the replay test, the wide window test, and the 5 Settings device tests passed. The map type and the saved map camera tests passed on an earlier build of this change.</li>
+          <li>The first replay run failed in the Maps SDK (<code>Polyline.setPoints</code>, index 0 of 0) when the played part started without a segment. After the fix the replay test passed.</li>
+          <li>58 of 58 calculation tests passed. New <code>SpeedColoursTest</code>: smoothing that skips speeds that are not usable, the percentile scale, the centred minimum range, and colour runs. Debug lint found no issues. Raw captures: <code>artifacts/speed-colours/</code> (not in Git).</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>The 5 second average flattens short peaks. On the short replay test trip the fast end of the legend is 35.8 mph, while the fastest moment is 44.7 mph. The legend says "or faster", so it stays correct.</li>
+          <li>A colour means a different speed on each trip. Only the legend gives the speeds.</li>
+          <li>The test trips are straight lines of under 1 km. A long trip, a trip at 10 fixes each second, and the drawing time were not measured. Measure them on a real phone.</li>
+          <li>TalkBack was not used on the legend. The full device test suite was not run after this change. The release build was not checked.</li>
+        </ul>
+      </article>
+    </section>
 
     <section id="wallpaper-colours" aria-labelledby="wallpaper-colours-heading">
       <div class="section-head"><h2 id="wallpaper-colours-heading">Wallpaper colours as a setting · 30 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
@@ -2137,6 +2187,8 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-30">30 October 2026</time><div><h3>Speed colours on saved routes</h3>
+<p>Saved trip and replay maps colour the route from dark (slow) to yellow (fast) across the speed range of the trip, with an outline and a legend. The map type menu and Settings change it to one colour. On a Pixel 10 Pro API 37 emulator, the new device test, the affected map, replay, and Settings device tests, 58 of 58 calculation tests, and lint passed. See <a href="#speed-colours">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-30">30 October 2026</time><div><h3>Wallpaper colours as a setting</h3>
 <p>Settings has a Colours card. App colours stay the default. Wallpaper colours bring back full Android dynamic colour on Android 12 and later; status and brand colours stay fixed. A new <code>accentOnSubtle</code> token keeps text on the subtle accent fill at 4.5:1 or more. On a Pixel 10 Pro API 37 emulator, 5 of 5 Settings device tests, 55 of 55 calculation tests, and lint passed. See <a href="#wallpaper-colours">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-28">28 October 2026</time><div><h3>Trip replay as a mode, and smooth map movement</h3>

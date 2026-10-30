@@ -20,6 +20,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.assertCountEquals
@@ -94,6 +95,10 @@ class TrackingDeviceTest {
         instrumentation.runOnMainSync { app.recorder.send(com.example.cvkegps.tracking.RecordingCommand.Finish()) }
         waitUntil { !app.recorder.state.value.needsService }
         scenario?.close()
+        instrumentation.runOnMainSync {
+            app.settings.setRouteColour(com.example.cvkegps.settings.RouteColour.Speed)
+            app.settings.setMapLayer(com.example.cvkegps.settings.MapLayer.Default)
+        }
         device.wakeUp()
         manager.removeTestProvider(LocationManager.GPS_PROVIDER)
         if (networkProvider) manager.removeTestProvider(LocationManager.NETWORK_PROVIDER)
@@ -487,6 +492,56 @@ class TrackingDeviceTest {
         compose.onNodeWithTag("map_layer_satellite").performClick()
         waitUntil { withMap { it.mapType } == com.google.android.gms.maps.GoogleMap.MAP_TYPE_HYBRID }
         capture("saved-satellite")
+    }
+
+    @Test fun savedRouteShowsSpeedColoursWithALegendAndTheMenuChangesToOneColour() {
+        launch()
+        startTrip()
+        val id = app.recorder.state.value.trip!!.id
+        // The speed rises from 2 to 30 m/s. Each fix is saved before the next one.
+        for (speed in listOf(2f, 2f, 2f, 6f, 10f, 14f, 18f, 22f, 26f, 30f, 30f, 30f)) {
+            val before = savedCount(id)
+            waitFor(10_000) { inject(speed = speed); Thread.sleep(1_100); savedCount(id) > before }
+        }
+        clickVisible("trip_stop")
+        waitUntil { !app.recorder.state.value.needsService }
+        compose.waitUntil(15_000) { compose.onAllNodesWithTag("speed_legend").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("speed_legend").assert(SemanticsMatcher("names the speeds") { node ->
+            SemanticsProperties.ContentDescription in node.config && node.config[SemanticsProperties.ContentDescription].any { it.startsWith("Route colour shows speed") } })
+        // The map draws the slow and the fast end colours of the speed scale.
+        waitUntil { screenHas(0xFF440154.toInt()) && screenHas(0xFFFDE725.toInt()) }
+        capture("speed-colours-map")
+        // On satellite images the outline is white. The end colours still show.
+        compose.onNodeWithTag("map_layers").performClick()
+        compose.onNodeWithTag("map_layer_satellite").performClick()
+        waitUntil { withMap { it.mapType } == com.google.android.gms.maps.GoogleMap.MAP_TYPE_HYBRID }
+        waitUntil { screenHas(0xFF440154.toInt()) && screenHas(0xFFFDE725.toInt()) }
+        Thread.sleep(2_000)
+        capture("speed-colours-satellite")
+        compose.onNodeWithTag("map_layers").performClick()
+        compose.onNodeWithTag("map_route_speed").assertIsSelected()
+        capture("speed-colours-menu")
+        compose.onNodeWithTag("map_route_single").performClick()
+        compose.onNodeWithTag("speed_legend").assertDoesNotExist()
+        waitUntil { !screenHas(0xFFFDE725.toInt()) }
+        assertEquals(com.example.cvkegps.settings.RouteColour.Single, app.settings.values.value.routeColour)
+    }
+
+    /** True when a screenshot has a pixel near this colour. Anti-aliased edges differ a little, so the test allows a small difference. */
+    private fun screenHas(color: Int): Boolean {
+        compose.waitForIdle()
+        val shot = instrumentation.uiAutomation.takeScreenshot() ?: return false
+        try {
+            for (y in 0 until shot.height step 2) for (x in 0 until shot.width step 2) {
+                val pixel = shot.getPixel(x, y)
+                if (kotlin.math.abs(android.graphics.Color.red(pixel) - android.graphics.Color.red(color)) <= 12 &&
+                    kotlin.math.abs(android.graphics.Color.green(pixel) - android.graphics.Color.green(color)) <= 12 &&
+                    kotlin.math.abs(android.graphics.Color.blue(pixel) - android.graphics.Color.blue(color)) <= 12) return true
+            }
+            return false
+        } finally {
+            shot.recycle()
+        }
     }
 
     @Test fun homeAndSavedMapFitThemesLargeTextAndRotation() {

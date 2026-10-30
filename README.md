@@ -103,6 +103,21 @@ The app uses the owner's design language (My Design Language, touch dialect):
   slowly away from the disc and back (2.4 s each way). It stops off screen and when animations are off in the system.
 - The accuracy bar fill uses the functional blue-to-apricot gradient.
 
+## Speed colours on saved routes on 30 October 2026
+
+Saved trip and replay maps show the route in speed colours by default, from dark (slow) to yellow (fast):
+
+- **Scale.** The colours use the speed range of the trip: the 5th and the 95th percentile of the moving speeds, so a bike
+  ride and a drive both use all colours. A legend at the top of the map shows the speeds at the two ends in the chosen units.
+- **Colours.** The viridis scale rises in lightness, so the order also shows without colour vision. An outline keeps both
+  ends visible: dark on a light map, white on a dark or satellite map. The colours do not change with wallpaper colours.
+- **Data.** Speeds are averaged over 5 seconds. A part without a usable speed is grey. Network positions stay dashed.
+- **Choice.** The map type menu on a saved trip and Settings > Maps > Route colour on saved trips change between speed colours
+  and one colour. The current trip map always uses one colour.
+
+The decision is in [ADR 0005](docs/adr/0005-colour-saved-routes-by-trip-speed-range.md). Results and limits are in
+[the report](PROGRESS.html#speed-colours).
+
 ## Trip replay, step 1, on 28 October 2026
 
 A saved trip has a **Replay trip** button (the play icon in the top bar, and the trip menu). The replay screen is step 1 of
@@ -505,7 +520,8 @@ app/src/main/java/com/example/cvkegps/
     LiveTripScreen.kt            Current trip with the live map
     SavedTripScreen.kt           Saved trip with its map and details
     TripComponents.kt            Shared trip controls, values, and labels
-    RouteMap.kt                  Google Maps route map, map type, and Play services recovery
+    RouteMap.kt                  Google Maps route map, map type, speed colours and legend, and Play services recovery
+    SpeedColours.kt              Speed smoothing, the speed range of a trip, and colour runs for the route line
 ```
 
 State flows from the location source through the ViewModel to the screen.
