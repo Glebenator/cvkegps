@@ -1,5 +1,6 @@
 package com.example.cvkegps.tracking
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -12,10 +13,13 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -44,6 +48,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -57,7 +62,6 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MenuDefaults
 import com.example.cvkegps.ui.theme.CvkeTheme
-import com.google.android.gms.maps.model.CameraPosition
 import com.example.cvkegps.ui.theme.ProblemBanner
 import com.example.cvkegps.ui.theme.SecondaryButton
 import com.example.cvkegps.ui.theme.Size
@@ -68,9 +72,13 @@ import com.example.cvkegps.ui.isCompactHeight
 import com.example.cvkegps.ui.rememberDisplayFormat
 import kotlinx.coroutines.launch
 
+/**
+ * A saved trip: the map and the totals. Replay changes the pane to the replay and keeps the same map, so the map does not
+ * load again. Back, or the back button, leaves the replay. See ADR 0004.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit, onReplay: () -> Unit = {}) {
+fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
     // The trip list selects the trip before navigation. This covers a screen restored after process loss.
     LaunchedEffect(id) { if (actions.vm.selectedId.value != id) actions.vm.select(id) }
     val rows by actions.vm.trips.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
@@ -82,9 +90,17 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit, on
     val readFailed = detail is StoredRead.Failed
     var details by rememberSaveable { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
-    val title = trip?.let { tripTime(it.startedMillis) } ?: ""
-    // The replay opens with this map's view.
-    val keepView: (CameraPosition) -> Unit = remember(id) { { view -> actions.vm.keepTripView(id, view) } }
+    var replaying by rememberSaveable(id) { mutableStateOf(false) }
+    val mode = rememberReplayMode(actions, id, replaying)
+    // Back in the replay charts returns to the replay glance stop, and then to the trip.
+    BackHandler(enabled = mode != null) { if (mode?.details == true) mode.setDetails(false) else replaying = false }
+    val back = if (mode != null) { { replaying = false } } else onBack
+    val openReplay = { replaying = true }
+    val title = if (mode != null) stringResource(R.string.replay_title) else trip?.let { tripTime(it.startedMillis) } ?: ""
+    val lines = shown?.summary?.lines
+    val largeText = LocalDensity.current.fontScale >= LARGE_TEXT_SCALE
+    val chartsOpen = mode?.details == true
+    val stopButton: @Composable () -> Unit = { if (mode?.player != null) StopButton(mode.details) { mode.setDetails(!mode.details) } }
 
     // Stop and save opens this screen. For a short time the trip can continue, which undoes an accidental stop.
     val savedMessage = stringResource(R.string.trip_saved_message)
@@ -96,32 +112,34 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit, on
             if (result == SnackbarResult.ActionPerformed) actions.reopen(id)
         }
     }
+    // The replay shows the saved trip, so it closes the offer to continue the trip.
+    LaunchedEffect(replaying) { if (replaying) snackbar.currentSnackbarData?.dismiss() }
 
     if (isCompactHeight()) {
-        val lines = shown?.summary?.lines
         Box(Modifier.fillMaxSize().testTag("trip_review")) {
             BoxWithConstraints(Modifier.fillMaxSize()) {
-                if (maxWidth >= 600.dp) MapWithPane(map = { modifier, insets ->
-                    MapSurface(lines.orEmpty(), modifier, routeReady = lines != null, insets = insets, onBack = onBack, onView = keepView)
-                }) {
+                if (maxWidth >= 600.dp) MapWithPane(map = { modifier, insets -> TripMap(lines, mode, modifier, insets, back) }, widePane = chartsOpen) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, maxLines = 2,
                             overflow = TextOverflow.Ellipsis)
-                        if (trip != null) TripMenu(actions, id, trip, shown, snackbar, onReplay)
+                        if (mode != null) stopButton() else if (trip != null) TripMenu(actions, id, trip, shown, snackbar, openReplay)
                     }
-                    SavedTripContent(actions, id, trip, shown, readFailed = readFailed)
+                    // Landscape on a phone: one chart at a time in the replay details.
+                    if (mode != null) ReplayPane(actions, mode, single = true, chartHeight = 120.dp)
+                    else SavedTripContent(actions, id, trip, shown, readFailed = readFailed)
                 } else {
                     // The detail pane beside the trip list: a header, the map, and the values below it.
                     val panelHeight = maxHeight * 0.45f
                     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical + WindowInsetsSides.End))) {
-                        PaneHeader(title, onBack, Modifier.padding(horizontal = Space.s1)) {
-                            if (trip != null) TripMenu(actions, id, trip, shown, snackbar, onReplay)
+                        PaneHeader(title, back, Modifier.padding(horizontal = Space.s1)) {
+                            if (mode != null) stopButton() else if (trip != null) TripMenu(actions, id, trip, shown, snackbar, openReplay)
                         }
-                        MapSurface(lines.orEmpty(), Modifier.fillMaxWidth().weight(1f), routeReady = lines != null, onView = keepView)
+                        TripMap(lines, mode, Modifier.fillMaxWidth().weight(1f), WindowInsets(0), null)
                         Surface {
                             Column(Modifier.fillMaxWidth().heightIn(max = panelHeight).verticalScroll(rememberScrollState())
                                 .padding(Space.s4), verticalArrangement = Arrangement.spacedBy(Space.s3)) {
-                                SavedTripContent(actions, id, trip, shown, readFailed = readFailed)
+                                if (mode != null) ReplayPane(actions, mode, single = true, chartHeight = 96.dp)
+                                else SavedTripContent(actions, id, trip, shown, readFailed = readFailed)
                             }
                         }
                     }
@@ -135,34 +153,65 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit, on
     Scaffold(snackbarHost = { SnackbarHost(snackbar) }, topBar = {
         TopAppBar(
             title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            navigationIcon = { BackButton(onBack) },
+            navigationIcon = { BackButton(back) },
             actions = {
-                if (trip != null) {
-                    if (replayable(trip, shown)) IconButton(onClick = onReplay, modifier = Modifier.testTag("open_replay")) {
+                if (trip != null && mode == null) {
+                    if (replayable(trip, shown)) IconButton(onClick = openReplay, modifier = Modifier.testTag("open_replay")) {
                         Icon(painterResource(R.drawable.ic_play), contentDescription = stringResource(R.string.replay_open))
                     }
                     DetailsAction { details = true }
-                    TripMenu(actions, id, trip, shown, snackbar, onReplay)
+                    TripMenu(actions, id, trip, shown, snackbar, openReplay)
                 }
             },
         )
     }) { insets ->
         Column(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets).testTag("trip_review")) {
-            actions.error?.let { ProblemBanner(stringResource(it), Modifier.padding(horizontal = Space.s4, vertical = Space.s2)) }
-            if (readFailed) ReadError(actions.vm::retryReads, Modifier.fillMaxWidth().padding(horizontal = Space.s4))
+            if (mode == null) {
+                actions.error?.let { ProblemBanner(stringResource(it), Modifier.padding(horizontal = Space.s4, vertical = Space.s2)) }
+                if (readFailed) ReadError(actions.vm::retryReads, Modifier.fillMaxWidth().padding(horizontal = Space.s4))
+            }
             BoxWithConstraints(Modifier.weight(1f)) {
-                // A wide area, such as an open foldable, uses the landscape side pane. A narrow detail pane keeps the portrait layout.
-                if (maxWidth >= 600.dp) MapWithPane(map = { modifier, _ ->
-                    MapSurface(shown?.summary?.lines.orEmpty(), modifier, routeReady = shown != null, onView = keepView)
-                }, edgeToEdge = false) { SavedTripContent(actions, id, trip, shown, showError = false) }
-                else MapWorkspace(shown?.summary?.lines, onView = keepView) {
-                    SavedTotals(trip, shown)
-                    InterruptedActions(actions, id, trip)
+                val sideWidth = (maxWidth * 0.36f).coerceIn(240.dp, 360.dp)
+                // The replay charts keep a strip of the map at the top. It follows the playhead.
+                val strip = (maxHeight * 0.28f).coerceAtLeast(140.dp)
+                val panelHeight = maxHeight * if (mode != null) 0.55f else 0.45f
+                // A wide area, such as an open foldable or a tablet, uses the side pane. The replay charts make it wide.
+                if (maxWidth >= 600.dp) MapWithPane(map = { modifier, _ -> TripMap(lines, mode, modifier, WindowInsets(0), null) },
+                    edgeToEdge = false, widePane = chartsOpen) {
+                    if (mode != null) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { stopButton() }
+                        ReplayPane(actions, mode, single = largeText, chartHeight = if (largeText) 140.dp else 120.dp)
+                    } else SavedTripContent(actions, id, trip, shown, showError = false)
+                } else if (maxWidth > maxHeight) Row(Modifier.fillMaxSize()) {
+                    TripMap(lines, mode, Modifier.weight(1f).fillMaxHeight(), WindowInsets(0), null)
+                    Surface(Modifier.width(sideWidth).fillMaxHeight()) {
+                        Column(Modifier.verticalScroll(rememberScrollState()).padding(Space.s4), verticalArrangement = Arrangement.spacedBy(Space.s3)) {
+                            if (mode != null) {
+                                stopButton()
+                                ReplayPane(actions, mode, single = true, chartHeight = 96.dp)
+                            } else PortraitTripPanel(actions, id, trip, shown)
+                        }
+                    }
+                } else Column(Modifier.fillMaxSize()) {
+                    TripMap(lines, mode, Modifier.fillMaxWidth().then(if (chartsOpen) Modifier.height(strip) else Modifier.weight(1f)),
+                        WindowInsets(0), null)
+                    Surface(Modifier.then(if (chartsOpen) Modifier.weight(1f) else Modifier)) {
+                        Column(Modifier.fillMaxWidth().then(if (chartsOpen) Modifier else Modifier.heightIn(max = panelHeight))) {
+                            if (mode?.player != null) SheetHandle(mode.details, onChange = mode.setDetails)
+                            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+                                .padding(start = Space.s4, end = Space.s4, bottom = Space.s4, top = if (mode?.player != null) 0.dp else Space.s4),
+                                verticalArrangement = Arrangement.spacedBy(Space.s3)) {
+                                // At the largest text sizes, one chart at a time keeps the charts readable.
+                                if (mode != null) ReplayPane(actions, mode, single = largeText, chartHeight = if (largeText) 140.dp else 96.dp)
+                                else PortraitTripPanel(actions, id, trip, shown)
+                            }
+                        }
+                    }
                 }
             }
         }
     }
-    if (details && shown != null) TripDetailsSheet({ details = false }) {
+    if (details && shown != null && mode == null) TripDetailsSheet({ details = false }) {
         ElevatedCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(Space.s4), verticalArrangement = Arrangement.spacedBy(Space.s3)) {
                 Column {
@@ -176,6 +225,13 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit, on
         SavedTechnicalDetails(shown)
         PrivacyNote()
     }
+}
+
+/** Portrait content: the totals and, for an interrupted trip, its actions. The details sheet shows the rest. */
+@Composable
+private fun PortraitTripPanel(actions: TrackingActions, id: String, trip: TripRecord?, shown: TripDetail?) {
+    SavedTotals(trip, shown)
+    InterruptedActions(actions, id, trip)
 }
 
 /** Landscape content: everything that the portrait details sheet shows, inside the pane. */

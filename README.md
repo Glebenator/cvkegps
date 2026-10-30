@@ -133,8 +133,16 @@ and each chart has its moment numbers and a text summary. **Map**, a drag down, 
 - A wide window, such as an open foldable or a tablet, shows the map beside a pane of about half the window with the
   three charts.
 - The route after the playhead is muted on the map, so the played part shows in the route colour.
-- The replay map opens with the view of the saved trip map, and shows the saved route while the replay is calculated.
-  Before, it showed the whole world until the replay was ready.
+
+**Replay mode and smooth movement.** The replay is a mode of the saved trip screen, not a separate screen. **Replay trip**
+keeps the same map, route, and camera, and changes only the pane and the top bar. The map then adds the moments, the
+position at the playhead, and the muted route after it, and follows the playhead. Back (or the back button) leaves the
+replay, and the trip panel returns with the same map. The replay keeps its playhead until the trip closes.
+
+While the replay plays, the map moves the position and the camera on each display frame between two playhead steps.
+The direction of travel turns evenly from one fix to the next, so the arrow and a map with the direction of travel up
+turn smoothly. The replay keeps one zoom level, and the zoom buttons change it. The values, the profile, and the charts
+still change 10 times each second.
 
 ## Trip data collection on 28 October 2026
 
@@ -483,7 +491,7 @@ app/src/main/java/com/example/cvkegps/
     SharedLocationSource.kt      The shared GPS request, network positions, and full GNSS tracking
     SensorRecord.kt              Sensor kinds, the stored chunk format, and the motion source contract
     TripReplay.kt                Replay clock, values at the playhead, barometric height, along-track acceleration, moments
-    TripReplayScreen.kt          Replay screen: glance and details stops, map, values, speed profile scrubber, controls, chips
+    TripReplayScreen.kt          Replay mode: state, map content, glance and details stops, profile scrubber, controls, chips
     ReplayCharts.kt              Linked speed, height, and acceleration charts with one playhead, and the chart selector
     ReplayChartData.kt           Chart values reduced to pixel columns, and gaps in the record
     AndroidMotionSource.kt       Accelerometer, orientation, and barometer recording on a worker thread

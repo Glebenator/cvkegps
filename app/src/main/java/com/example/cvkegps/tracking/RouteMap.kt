@@ -111,6 +111,9 @@ import kotlinx.coroutines.withContext
 /** The shortest time between two redraws of a live route line. The position marker still moves with each fix. */
 private const val ROUTE_REDRAW_MILLIS = 5_000L
 
+/** The replay zoom: about 300 m across a phone screen. The zoom buttons change it. */
+private const val REPLAY_ZOOM = 16f
+
 /** The camera tilt while the map follows with the direction of travel up. It shows more of the road ahead. */
 private const val COURSE_TILT = 45f
 
@@ -142,15 +145,9 @@ internal fun MapSurface(
     moments: List<MapMoment> = emptyList(),
     /** For each of [lines], how many points the replay has passed. The map draws them in the route colour and the rest muted. */
     played: List<Int>? = null,
-    /** The first camera view, for example the view of the map that opened this one. Without it the map fits the route. */
-    startView: CameraPosition? = null,
-    /** Receives the camera view each time the camera stops, so the next map of this trip can start with it. */
-    onView: ((CameraPosition) -> Unit)? = null,
 ) {
     var retry by rememberSaveable { mutableIntStateOf(0) }
-    key(retry) {
-        MapCanvas(lines, modifier, live, routeReady, insets, onBack, position, replay, moments, played, startView, onView, onRetry = { retry++ })
-    }
+    key(retry) { MapCanvas(lines, modifier, live, routeReady, insets, onBack, position, replay, moments, played, onRetry = { retry++ }) }
 }
 
 @Composable
@@ -165,11 +162,9 @@ private fun MapCanvas(
     replay: Boolean,
     moments: List<MapMoment>,
     played: List<Int>?,
-    startView: CameraPosition?,
-    onView: ((CameraPosition) -> Unit)?,
     onRetry: () -> Unit,
 ) {
-    // A replay follows its playhead as a live map follows the newest fix.
+    // A replay follows its playhead as a live map follows the newest fix. A saved trip map can change to replay mode and back.
     val follows = live || replay
     val context = LocalContext.current
     val settings = (context.applicationContext as TrackingApplication).settings
@@ -181,8 +176,7 @@ private fun MapCanvas(
     // A missing or old Google Play services result. Null while the check runs or when the services are ready.
     val servicesProblem = rememberPlayServices()?.takeIf { it != ConnectionResult.SUCCESS }
     val scope = rememberCoroutineScope()
-    // A start view replaces the default view of the whole world, which would show until the route or the position is ready.
-    val camera = rememberCameraPositionState { startView?.let { view -> this.position = view } }
+    val camera = rememberCameraPositionState()
     var loaded by remember { mutableStateOf(false) }
     var unavailable by remember { mutableStateOf(false) }
     // The map usually loads during the screen transition. Show the loading note only when it is slow.
@@ -194,24 +188,27 @@ private fun MapCanvas(
         if (!loaded) unavailable = true
     }
     // True after the camera first shows the route or the position. It is saved, so a recreated screen keeps the user's view.
-    var placed by rememberSaveable { mutableStateOf(startView != null) }
-    // The first move to the position after a start view is one short animation, so the change of view is easy to follow.
-    var smoothStart by rememberSaveable { mutableStateOf(startView != null) }
+    var placed by rememberSaveable { mutableStateOf(false) }
     var fitRequest by remember { mutableIntStateOf(0) }
     var follow by rememberSaveable { mutableStateOf(if (follows) FollowMode.North else FollowMode.Off) }
     // Zoom follows speed until the zoom buttons change it.
     var userZoomed by rememberSaveable { mutableStateOf(false) }
+    // The first move to the playhead after the map changes to replay mode is one short animation, so the change is easy to follow.
+    var replayStart by rememberSaveable { mutableStateOf(replay) }
+    var followsShown by rememberSaveable { mutableStateOf(follows) }
+    LaunchedEffect(follows) {
+        if (followsShown == follows) return@LaunchedEffect
+        followsShown = follows
+        follow = if (follows) FollowMode.North else FollowMode.Off
+        userZoomed = false
+        replayStart = replay
+    }
     // A map gesture stops following. The compass turns the map to north, so following continues with north up.
     LaunchedEffect(camera) {
         snapshotFlow { camera.isMoving to camera.cameraMoveStartedReason }.collect { (moving, reason) ->
             if (moving && reason == CameraMoveStartedReason.GESTURE) follow = FollowMode.Off
             else if (moving && reason == CameraMoveStartedReason.API_ANIMATION && follow == FollowMode.Course) follow = FollowMode.North
         }
-    }
-    val viewChanged by rememberUpdatedState(onView)
-    LaunchedEffect(camera, onView != null) {
-        if (onView == null) return@LaunchedEffect
-        snapshotFlow { camera.isMoving to camera.position }.collect { (moving, view) -> if (!moving && placed) viewChanged?.invoke(view) }
     }
 
     // The marker state is also read aloud, because its colour alone does not tell a screen reader user that it is old.
@@ -264,6 +261,8 @@ private fun MapCanvas(
             if (!follows || follow == FollowMode.Off) return@LaunchedEffect
             val current = camera.position
             val zoom = when {
+                // A replay keeps one zoom, so the map does not jump in and out with the speed. The zoom buttons change it.
+                replay -> if (replayStart || !placed) REPLAY_ZOOM else current.zoom.coerceIn(3f, 21f)
                 !placed -> speedZoom(last) ?: 15f
                 userZoomed -> current.zoom.coerceIn(3f, 18f)
                 else -> speedZoom(last) ?: current.zoom.coerceIn(3f, 18f)
@@ -272,10 +271,10 @@ private fun MapCanvas(
             val bearing = if (course) courseRadians(last)?.let { Math.toDegrees(it).toFloat() } ?: current.bearing else 0f
             val update = CameraUpdateFactory.newCameraPosition(CameraPosition(last.latLng(), zoom, if (course) COURSE_TILT else 0f, bearing))
             // One short camera move for each new fix. There is no continuous animation.
-            // A replay moves the position up to 10 times each second, so its camera jumps with it.
-            if (placed && (!replay || smoothStart)) camera.animate(update, 800) else camera.move(update)
+            // A playing replay moves the position on each display frame, so its camera moves with it.
+            if (placed && (!replay || replayStart)) camera.animate(update, 800) else camera.move(update)
             placed = true
-            smoothStart = false
+            replayStart = false
         }
 
         if (servicesProblem == null) GoogleMap(

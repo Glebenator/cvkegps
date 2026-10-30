@@ -76,7 +76,6 @@ import com.example.cvkegps.R
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ElevatedCard
 import com.example.cvkegps.ui.theme.CvkeTheme
-import com.google.android.gms.maps.model.CameraPosition
 import com.example.cvkegps.ui.theme.ProblemBanner
 import com.example.cvkegps.ui.theme.SecondaryButton
 import com.example.cvkegps.ui.theme.Size
@@ -292,22 +291,19 @@ internal fun ButtonContent(icon: Int, @StringRes label: Int) {
 
 /** Keep map gestures separate from the scrolling measurements. Null lines mean the route is still loading. */
 @Composable
-internal fun MapWorkspace(
-    lines: List<List<TrackSample>>?, live: Boolean = false, position: LivePosition? = null, onView: ((CameraPosition) -> Unit)? = null,
-    panel: @Composable () -> Unit,
-) {
+internal fun MapWorkspace(lines: List<List<TrackSample>>?, live: Boolean = false, position: LivePosition? = null, panel: @Composable () -> Unit) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val panelHeight = maxHeight * 0.45f
         val panelWidth = (maxWidth * 0.36f).coerceIn(240.dp, 360.dp)
         if (maxWidth > maxHeight) Row(Modifier.fillMaxSize()) {
-            MapSurface(lines.orEmpty(), Modifier.weight(1f).fillMaxHeight(), live, routeReady = lines != null, position = position, onView = onView)
+            MapSurface(lines.orEmpty(), Modifier.weight(1f).fillMaxHeight(), live, routeReady = lines != null, position = position)
             Surface(Modifier.width(panelWidth).fillMaxHeight()) {
                 Column(Modifier.verticalScroll(rememberScrollState()).padding(Space.s4), verticalArrangement = Arrangement.spacedBy(Space.s3)) {
                     panel()
                 }
             }
         } else Column(Modifier.fillMaxSize()) {
-            MapSurface(lines.orEmpty(), Modifier.fillMaxWidth().weight(1f), live, routeReady = lines != null, position = position, onView = onView)
+            MapSurface(lines.orEmpty(), Modifier.fillMaxWidth().weight(1f), live, routeReady = lines != null, position = position)
             Surface {
                 Column(Modifier.fillMaxWidth().heightIn(max = panelHeight)
                     .verticalScroll(rememberScrollState()).padding(Space.s4), verticalArrangement = Arrangement.spacedBy(Space.s3)) { panel() }

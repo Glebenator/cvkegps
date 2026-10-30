@@ -167,18 +167,19 @@
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-10-28">28 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>8d9767c</code> plus trip replay steps 2 and 3 (branch <code>native-maps</code>, not committed)</dd></div>
+          <div><dt>App code baseline</dt><dd><code>9254634</code> plus the replay mode (branch <code>native-maps</code>, not committed)</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
       </aside>
     </div>
     <div class="metrics" aria-label="Last verified results">
-      <div class="metric"><strong>48 / 48</strong><span>Device tests passed with trip replay step 3</span><span class="small">Pixel 10 Pro emulator, API 37, with a Maps API key; the replay test passed again with its wide window step</span></div>
-      <div class="metric"><strong>54 / 54</strong><span>Calculation tests passed</span><span class="small">New: played points of the route lines</span></div>
+      <div class="metric"><strong>42 / 48</strong><span>Device tests passed in one run with the replay mode</span><span class="small">Pixel 10 Pro emulator, API 37, on a slow emulator; the 6 others passed one by one after a cold start</span></div>
+      <div class="metric"><strong>55 / 55</strong><span>Calculation tests passed</span><span class="small">New: the bearing between fixes</span></div>
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, debug lint, and unsigned release build</span><span class="small">Release APK not installed or run</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#replay-mode">Replay mode and smooth movement · 28 Oct</a>
       <a href="#replay-step3">Trip replay, step 3 · 28 Oct</a>
       <a href="#replay-charts">Trip replay, step 2 · 28 Oct</a>
       <a href="#trip-replay">Trip replay, step 1 · 28 Oct</a>
@@ -208,6 +209,40 @@
       <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
     </nav>
+
+    <section id="replay-mode" aria-labelledby="replay-mode-heading">
+      <div class="section-head"><h2 id="replay-mode-heading">Trip replay as a mode, and smooth map movement · 28 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
+      <p class="section-intro">The replay is now a mode of the saved trip screen, so the map stays when the replay opens, and the map moves smoothly while the replay plays.
+      The screen is in <a href="app/src/main/java/com/example/cvkegps/tracking/SavedTripScreen.kt"><code>SavedTripScreen.kt</code></a>, and the replay parts are in <a href="app/src/main/java/com/example/cvkegps/tracking/TripReplayScreen.kt"><code>TripReplayScreen.kt</code></a>.</p>
+      <div class="table-wrap"><table class="wrap-cells">
+        <thead><tr><th scope="col">Part</th><th scope="col">Behaviour</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">One map</th><td><strong>Replay trip</strong> keeps the same Google map, route, and camera. Only the pane and the top bar change. Before, the replay was a second screen with a second map, which loaded again and showed a blank map. The camera hand-over of step 3 is removed.</td></tr>
+          <tr><th scope="row">Leaving the replay</th><td>Back in the charts returns to the replay glance stop. Back again, or the back button, returns to the trip panel with the same map. The replay keeps its playhead while the trip is open. The replay closes the offer to continue a trip that was just saved.</td></tr>
+          <tr><th scope="row">Smooth movement</th><td>While the replay plays, the map moves the position and the camera on each display frame between two playhead steps. The values, the profile, and the charts still change 10 times each second. Nothing runs while the replay is paused or the screen is hidden.</td></tr>
+          <tr><th scope="row">Direction and zoom</th><td>The direction of travel turns the shorter way from one fix to the next, so the arrow and a map with the direction of travel up turn smoothly. The replay keeps one zoom level (16), and the zoom buttons change it. Before, the zoom changed in steps with the speed.</td></tr>
+        </tbody>
+      </table></div>
+      <h3 style="margin-top:24px">Pixel 10 Pro emulator, Android 17 (API 37)</h3>
+      <div class="screens">
+      <figure class="shot"><a href="docs/progress/images/2026-10-28-replay-mode-playing.webp"><img src="docs/progress/images/2026-10-28-replay-mode-playing.webp" loading="lazy" alt="Replay mode playing a circular test route: the position marker with its direction arrow on the circle, the route ahead of it muted, moment 1, and the pane with the replay time 0:05 of 0:36, the speed, the profile, and the Pause button."></a>
+      <figcaption><strong>Replay mode while it plays</strong>28 October 2026. Baseline <code>9254634</code> plus the replay mode. Pixel 10 Pro emulator, Android 17 (API 37). Simulated GPS test locations on a 60 m circle at 12 m/s. A frame of a screen recording at 720 × 1280 pixels.</figcaption></figure>
+      </div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li>Pixel 10 Pro emulator, Android 17 (API 37), with the development Maps API key: the full suite ran on the final code. 42 of 48 device tests passed, and the run took 57 minutes instead of 34. The 6 failures were waits for display changes and recording counts in tests of other screens; the replay test passed. After a cold start of the emulator, the 6 tests passed one by one.</li>
+          <li>The replay device test now checks that the trip map and the replay use the same map view, that Back leaves the charts and then the replay with the same map, and that the replay opens again at the same playhead.</li>
+          <li>55 of 55 calculation tests passed. New in <code>TripReplayTest</code>: the bearing turns the shorter way between fixes. Debug lint found no issues. The debug build and the unsigned release build passed.</li>
+          <li>A temporary test recorded a circular trip, which was then played by hand at 1×. Raw captures and the recording: <code>artifacts/replay-mode-2026-10-28/</code> (not in Git). The connected physical phone was not used.</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>The emulator draws this screen at 3 to 5 frames each second while the replay plays: a median frame time of 400 ms with the frame updates and 300 ms without them. So the emulator cannot show whether the movement is smooth, and the cost of the frame updates must be measured on a real phone.</li>
+          <li>The position moves in straight lines between fixes, on the drawn route. Curves between fixes are not smoothed.</li>
+          <li>The acceleration and the barometric height still need a test on a real phone in a car. TalkBack was not used on the replay.</li>
+        </ul>
+      </article>
+    </section>
 
     <section id="replay-step3" aria-labelledby="replay-step3-heading">
       <div class="section-head"><h2 id="replay-step3-heading">Trip replay, step 3: layouts, moments, and the played route · 28 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
@@ -2055,6 +2090,8 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-28">28 October 2026</time><div><h3>Trip replay as a mode, and smooth map movement</h3>
+<p>The replay is a mode of the saved trip screen, so the map stays when the replay opens and only the pane changes. While the replay plays, the map moves on each display frame, the direction of travel turns evenly between fixes, and the zoom stays. On a Pixel 10 Pro API 37 emulator, 42 of 48 device tests passed in one slow run and the other 6 passed one by one after a cold start; 55 of 55 calculation tests, lint, and the release build passed. See <a href="#replay-mode">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-28">28 October 2026</time><div><h3>Trip replay, step 3: layouts, moments, and the played route</h3>
 <p>The details keep the moment chips. A landscape phone and text at 150% or more show one chart with a selector, and a wide window shows the map beside a wide pane with the three charts. The map mutes the route after the playhead.
 The replay map now opens with the saved trip map's view instead of the whole world. On a Pixel 10 Pro API 37 emulator, 48 of 48 device tests and 54 of 54 calculation tests passed, with lint and the release build. See <a href="#replay-step3">evidence and limits</a>.</p></div></li>

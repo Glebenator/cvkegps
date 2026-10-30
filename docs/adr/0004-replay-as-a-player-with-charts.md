@@ -21,7 +21,11 @@ unit tests can check them. They run once, off the main thread, when the screen o
 - Step 3 keeps the moment chips in the details. One chart with a selector replaces the three charts where they would be
   too small: a phone in landscape and text at 150% or more. A wide window shows the map beside a pane of about half the
   window with the three charts. The map mutes the route after the playhead.
-- The replay map opens with the camera view of the saved trip map, so it does not show the whole world while the replay
-  is calculated. The view is kept in memory only, for the trip that was shown last.
+- The replay is a mode of the saved trip screen, not a separate screen. The map stays, so it does not load again, and only
+  the pane and the top bar change. Back leaves the details, then the replay. This replaces a camera hand-over between two
+  maps, which still showed a blank map while the second map loaded.
 - The along-track acceleration and the barometric height need a test on a real phone in a car before the screen is final.
-- The playhead moves at most 10 times each second, and only while the replay plays and the screen is in front.
+- The playhead moves at most 10 times each second, and only while the replay plays and the screen is in front. While it
+  plays, the map alone moves the position and the camera on each display frame between two playhead steps, and the
+  direction of travel turns evenly between fixes. The replay keeps one zoom level. The frame cost must be measured on a
+  real phone: the emulator draws this screen at 3 to 5 frames each second with or without the frame updates.

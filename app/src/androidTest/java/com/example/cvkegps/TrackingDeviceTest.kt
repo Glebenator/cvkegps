@@ -30,8 +30,9 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTouchInput
-import androidx.lifecycle.ViewModelProvider
-import com.example.cvkegps.tracking.TrackingViewModel
+import android.view.View
+import android.view.ViewGroup
+import com.google.android.gms.maps.MapView
 import androidx.compose.ui.test.click
 import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
@@ -52,6 +53,7 @@ import java.io.File
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -1006,15 +1008,15 @@ class TrackingDeviceTest {
             }
             clickVisible("trip_stop")
             waitUntil { !app.recorder.state.value.needsService }
-            // The saved trip map hands its view to the replay map, so the replay does not open with the whole world.
-            var vm: TrackingViewModel? = null
-            scenario!!.onActivity { vm = ViewModelProvider(it)[TrackingViewModel::class.java] }
-            compose.waitUntil(15_000) { vm!!.tripView(id) != null }
-            val view = vm!!.tripView(id)!!
-            assertTrue("The saved trip view is the whole world: $view", view.zoom > 10f)
+            // The replay is a mode of the saved trip screen. It keeps the same map, so the map does not load again.
+            // The live trip map leaves with the screen change. Then only the saved trip map is on the screen.
+            compose.onNodeWithTag("trip_review").assertExists()
+            compose.waitUntil(15_000) { mapView() != null }
+            val tripMap = mapView()
             compose.onNodeWithTag("open_replay").performClick()
             capture("replay-opening")
             compose.waitUntil(10_000) { compose.onAllNodesWithTag("moment_FastestSpeed").fetchSemanticsNodes().isNotEmpty() }
+            assertSame("The replay made a new map", tripMap, mapView())
             val format = DisplayFormat(context.resources)
             // A chip moves the playhead to its moment. The values there are the stored fix.
             compose.onNodeWithTag("moment_FastestSpeed").performClick()
@@ -1061,6 +1063,15 @@ class TrackingDeviceTest {
             device.pressBack()
             compose.onNodeWithTag("replay_profile").assertIsDisplayed()
             compose.onNodeWithTag("chart_Speed").assertDoesNotExist()
+            // Back again leaves the replay. The trip and its map stay, and the replay opens again where it was.
+            val replayTime = compose.onNodeWithTag("replay_time", useUnmergedTree = true).fetchSemanticsNode().config[SemanticsProperties.Text]
+            device.pressBack()
+            compose.onNodeWithTag("open_replay").assertIsDisplayed()
+            compose.onNodeWithTag("replay_play").assertDoesNotExist()
+            assertSame("Leaving the replay made a new map", tripMap, mapView())
+            compose.onNodeWithTag("open_replay").performClick()
+            compose.onNodeWithTag("replay_time", useUnmergedTree = true).assert(SemanticsMatcher("same playhead") { node ->
+                node.config[SemanticsProperties.Text] == replayTime })
             for ((name, scale, dark) in listOf(Triple("dark", 1f, true), Triple("large-text", 2f, false))) {
                 for (landscape in listOf(false, true)) {
                     setDisplay(scale, landscape, dark)
@@ -1210,6 +1221,16 @@ class TrackingDeviceTest {
         }
     }
 
+    /** The one Google map view on the screen. Null while there is none, or while a screen change shows two. */
+    private fun mapView(): View? {
+        fun find(view: View): List<View> = if (view is MapView) listOf(view) else (view as? ViewGroup)?.let { group ->
+            (0 until group.childCount).flatMap { find(group.getChildAt(it)) }
+        }.orEmpty()
+        var found: List<View> = emptyList()
+        scenario!!.onActivity { found = find(it.window.decorView) }
+        return found.singleOrNull()
+    }
+
     private fun showVisible(tag: String) {
         runCatching { compose.onNodeWithTag(tag).performScrollTo() }
         compose.onNodeWithTag(tag).assertIsDisplayed()
@@ -1220,7 +1241,8 @@ class TrackingDeviceTest {
         shell("cmd uimode night ${if (dark) "yes" else "no"}")
         shell("settings put system accelerometer_rotation 0")
         shell("settings put system user_rotation ${if (landscape) 1 else 0}")
-        compose.waitUntil(5_000) {
+        // Three changes at once can take more than 5 seconds on the emulator.
+        compose.waitUntil(10_000) {
             var ready = false
             scenario!!.onActivity {
                 ready = it.resources.configuration.fontScale == scale &&

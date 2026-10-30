@@ -65,6 +65,16 @@ class TripReplayTest {
         assertNull(replay.valuesAt(12 * second).longitudeRadians)
     }
 
+    @Test fun theBearingTurnsTheShorterWayBetweenFixes() {
+        val samples = listOf(fix(1.0, 10f, 0.0).copy(bearingRadians = Math.toRadians(350.0)),
+            fix(2.0, 10f, 10.0).copy(bearingRadians = Math.toRadians(10.0)))
+        val replay = ReplayAnalysis.analyze(listOf(ReplaySegment(second, 3 * second, samples, emptyList())))
+        // Half way, the bearing is north, not south.
+        val north = Math.toDegrees(replay.valuesAt(second / 2).bearingRadians!!)
+        assertEquals(0.0, if (north > 180) north - 360 else north, 0.01)
+        assertEquals(355.0, Math.toDegrees(replay.valuesAt(second / 4).bearingRadians!!), 0.01)
+    }
+
     @Test fun aNetworkPositionGivesAnApproximateRangeWithoutSpeed() {
         val samples = listOf(fix(0.0, 10f), fix(12.0, 10f, source = FixSource.Network).copy(speedMetersPerSecond = null),
             fix(17.0, 10f, source = FixSource.Network).copy(speedMetersPerSecond = null), fix(20.0, 10f))

@@ -54,6 +54,8 @@ data class ReplayValues(
     /** The position on the route line at the time. Null in a gap. */
     val latitudeRadians: Double?,
     val longitudeRadians: Double?,
+    /** The direction of travel at the time, turned evenly from one fix to the next. Null without a position or a bearing. */
+    val bearingRadians: Double?,
     val speedMetersPerSecond: Float?,
     val heightMeters: Float?,
     val accelerationMetersPerSecondSquared: Float?,
@@ -97,7 +99,7 @@ class TripReplay(
         val fix = fixes.getOrNull(index)?.takeIf { time - it.timeNanos < RouteMath.SIGNAL_GAP_NANOS }
         val position = fix?.takeIf { it.sample.usablePosition }?.let { interpolate(index, time) }
         return ReplayValues(
-            fix?.sample, position?.first, position?.second,
+            fix?.sample, position?.latitude, position?.longitude, position?.bearing,
             fix?.sample?.usableSpeed,
             height.firstNotNullOfOrNull { it.at(time) },
             acceleration.firstNotNullOfOrNull { it.at(time) },
@@ -115,21 +117,36 @@ class TripReplay(
         return found
     }
 
-    /** A position between two fixes of the same line. A gap, a poor fix, or a change of source is not crossed. */
-    private fun interpolate(index: Int, time: Long): Pair<Double, Double> {
+    private class Position(val latitude: Double, val longitude: Double, val bearing: Double?)
+
+    /**
+     * A position between two fixes of the same line. A gap, a poor fix, or a change of source is not crossed.
+     * The bearing turns the shorter way from the first fix's bearing to the next one's.
+     */
+    private fun interpolate(index: Int, time: Long): Position {
         val a = fixes[index]
         val b = fixes.getOrNull(index + 1)
+        val first = a.sample.bearingRadians?.takeIf { it.isFinite() }
         if (b == null || b.segment != a.segment || !b.sample.usablePosition || b.sample.source != a.sample.source ||
             b.timeNanos - a.timeNanos >= RouteMath.SIGNAL_GAP_NANOS || b.timeNanos == a.timeNanos) {
-            return a.sample.latitudeRadians to a.sample.longitudeRadians
+            return Position(a.sample.latitudeRadians, a.sample.longitudeRadians, first)
         }
         val part = (time - a.timeNanos).toDouble() / (b.timeNanos - a.timeNanos)
-        var longitudeStep = b.sample.longitudeRadians - a.sample.longitudeRadians
-        // The shorter way across the date line.
-        if (longitudeStep > Math.PI) longitudeStep -= 2 * Math.PI else if (longitudeStep < -Math.PI) longitudeStep += 2 * Math.PI
-        var longitude = a.sample.longitudeRadians + longitudeStep * part
+        var longitude = a.sample.longitudeRadians + shorter(b.sample.longitudeRadians - a.sample.longitudeRadians) * part
         if (longitude > Math.PI) longitude -= 2 * Math.PI else if (longitude < -Math.PI) longitude += 2 * Math.PI
-        return (a.sample.latitudeRadians + (b.sample.latitudeRadians - a.sample.latitudeRadians) * part) to longitude
+        val next = b.sample.bearingRadians?.takeIf { it.isFinite() }
+        val bearing = if (first == null || next == null) first else {
+            val turned = first + shorter(next - first) * part
+            if (turned < 0) turned + 2 * Math.PI else if (turned >= 2 * Math.PI) turned - 2 * Math.PI else turned
+        }
+        return Position(a.sample.latitudeRadians + (b.sample.latitudeRadians - a.sample.latitudeRadians) * part, longitude, bearing)
+    }
+
+    /** An angle step the shorter way round, from -π to π. It also crosses the date line the shorter way. */
+    private fun shorter(step: Double): Double = when {
+        step > Math.PI -> step - 2 * Math.PI
+        step < -Math.PI -> step + 2 * Math.PI
+        else -> step
     }
 
     /** How many points of route line [line] are at or before [time]. The map draws them as the played part. */

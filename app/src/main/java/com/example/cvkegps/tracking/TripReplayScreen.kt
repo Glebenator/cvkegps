@@ -4,7 +4,6 @@ import android.content.res.Resources
 import android.location.Location
 import android.os.SystemClock
 import androidx.annotation.StringRes
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -13,40 +12,28 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.consumeWindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -58,6 +45,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -103,13 +91,10 @@ import com.example.cvkegps.location.seaLevelAltitudeSupported
 import com.example.cvkegps.settings.AltitudeReference
 import com.example.cvkegps.ui.DisplayFormat
 import com.example.cvkegps.ui.LocalDisplayChoices
-import com.example.cvkegps.ui.MapWithPane
-import com.example.cvkegps.ui.isCompactHeight
 import com.example.cvkegps.ui.rememberDisplayFormat
 import com.example.cvkegps.ui.theme.CvkeTheme
 import com.example.cvkegps.ui.theme.Size
 import com.example.cvkegps.ui.theme.Space
-import com.google.android.gms.maps.model.CameraPosition
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -121,113 +106,65 @@ private val RATES = intArrayOf(1, 4, 16, 64)
 private const val TICK_MILLIS = 100L
 
 /** From this text scale, details show one chart at a time. Android offers up to 2. */
-private const val LARGE_TEXT_SCALE = 1.5f
+internal const val LARGE_TEXT_SCALE = 1.5f
 
 /**
- * The replay of a saved trip in two stops. At a glance: the map with numbered moments, the values at the playhead, a speed
- * profile that is also the scrubber, play controls, and moment chips. Details: the map becomes a strip that follows the
- * cursor, the moment chips stay, and three linked charts show speed, height, and acceleration. A drag on the handle or the
- * Charts and Map button changes the stop. Back in details returns to the glance stop.
+ * The replay mode of a saved trip. The saved trip screen keeps its map and changes its pane, so the map does not load again.
  *
- * A landscape phone and the largest text sizes show one chart with a selector. A wide window shows the map beside a wide
- * pane with the three charts. The map opens with the view of the saved trip map, and the route shows while the replay is
- * calculated once, off the main thread.
+ * The pane has two stops. At a glance: the values at the playhead, a speed profile that is also the scrubber, play controls,
+ * and moment chips. Details: the map becomes a strip that follows the cursor, the moment chips stay, and three linked charts
+ * show speed, height, and acceleration. A landscape phone and the largest text sizes show one chart with a selector.
+ * The replay is calculated once, off the main thread, when the mode starts.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+internal class ReplayMode(
+    val load: StoredRead<TripReplay?>,
+    val player: ReplayPlayer?,
+    val details: Boolean,
+    val setDetails: (Boolean) -> Unit,
+    val chart: ReplayChartKind,
+    val setChart: (ReplayChartKind) -> Unit,
+)
+
+/**
+ * The replay state of trip [id]. The playhead, the play state, the speed, and the stop stay after a rotation and while the
+ * mode is off. Leaving the mode pauses the replay. Null while the mode is off.
+ */
 @Composable
-fun TripReplayScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
-    val load by remember(id) { actions.vm.replay(id) }.collectAsStateWithLifecycle(StoredRead.Loading)
-    val replay = load.ready
-    // The playhead, the play state, and the speed stay after a rotation.
+internal fun rememberReplayMode(actions: TrackingActions, id: String, active: Boolean): ReplayMode? {
     var playhead by rememberSaveable(id) { mutableLongStateOf(0L) }
     var playing by rememberSaveable(id) { mutableStateOf(false) }
     var rate by rememberSaveable(id) { mutableIntStateOf(0) }
     var details by rememberSaveable(id) { mutableStateOf(false) }
     var chart by rememberSaveable(id) { mutableStateOf(ReplayChartKind.Speed) }
-    BackHandler(enabled = details) { details = false }
-    // The saved trip map's view and route, so the map does not start with the whole world while the replay is calculated.
-    val startView = remember(id) { actions.vm.tripView(id) }
-    val detail by actions.vm.detail.collectAsStateWithLifecycle()
-    val savedLines = detail.ready?.takeIf { it.trip.id == id }?.summary?.lines
-    val largeText = LocalDensity.current.fontScale >= LARGE_TEXT_SCALE
+    // The real time of the newest playhead step. The map continues from it until the next step.
+    var stepNanos by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(active) { if (!active) { playing = false; details = false } }
+    if (!active) return null
+    val load by remember(id) { actions.vm.replay(id) }.collectAsStateWithLifecycle(StoredRead.Loading)
+    val replay = load.ready
     if (replay != null) PlayClock(replay, playing, RATES[rate], { playhead }) { time, ended ->
         playhead = time
+        stepNanos = SystemClock.elapsedRealtimeNanos()
         if (ended) playing = false
     }
-    val level = rememberSeaLevelOffset(replay, LocalDisplayChoices.current.altitude)
+    val offset = rememberSeaLevelOffset(replay, LocalDisplayChoices.current.altitude)
     val player = replay?.let {
-        ReplayPlayer(it, playhead, playing, RATES[rate], level.first, level.second,
-            seek = { time -> playhead = time.coerceIn(0, it.durationNanos) },
-            pauseAt = { time -> playing = false; playhead = time },
+        val move = { time: Long -> playhead = time.coerceIn(0, it.durationNanos); stepNanos = SystemClock.elapsedRealtimeNanos() }
+        ReplayPlayer(it, playhead, playing, RATES[rate], offset.first, offset.second, stepNanos,
+            seek = move,
+            pauseAt = { time -> playing = false; move(time) },
             toggle = {
-                if (!playing && playhead >= it.durationNanos) playhead = 0
+                if (!playing && playhead >= it.durationNanos) move(0)
+                stepNanos = SystemClock.elapsedRealtimeNanos()
                 playing = !playing
             },
             nextRate = { rate = (rate + 1) % RATES.size })
     }
-    val title = stringResource(R.string.replay_title)
-    val status: @Composable ColumnScope.() -> Unit = {
-        when {
-            load is StoredRead.Failed -> ReadError(actions.vm::retryReads)
-            load is StoredRead.Loading -> Text(stringResource(R.string.replay_loading), Modifier.testTag("replay_loading"))
-            replay == null || replay.fixes.isEmpty() -> Text(stringResource(R.string.replay_none))
-        }
-    }
-    val stop: @Composable ColumnScope.(single: Boolean, chartHeight: Dp) -> Unit = { single, chartHeight ->
-        status()
-        if (player != null) {
-            if (details) ReplayDetails(player, chart.takeIf { single }, { chart = it }, chartHeight) else ReplayPanel(player)
-        }
-    }
-    val map: @Composable (Modifier, WindowInsets, (() -> Unit)?) -> Unit = { modifier, insets, back ->
-        ReplayMap(player, savedLines, startView, modifier, insets, back)
-    }
-    if (isCompactHeight()) {
-        // Landscape on a phone: the map at full height, and the values and controls, or one chart, in a side pane.
-        MapWithPane(map = { modifier, insets -> map(modifier, insets, onBack) }, widePane = details) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-                if (player != null) StopButton(details) { details = !details }
-            }
-            stop(true, 120.dp)
-        }
-        return
-    }
-    Scaffold(topBar = {
-        TopAppBar(title = { Text(title) }, navigationIcon = { BackButton(onBack) })
-    }) { insets ->
-        Column(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets).testTag("replay")) {
-            BoxWithConstraints(Modifier.weight(1f)) {
-                val panelHeight = maxHeight * 0.55f
-                // Details keep a strip of the map at the top. It follows the cursor.
-                val strip = (maxHeight * 0.28f).coerceAtLeast(140.dp)
-                // A wide window, such as an open foldable or a tablet, uses the side pane. Details make it wide for the three charts.
-                if (maxWidth >= 600.dp) MapWithPane(map = { modifier, _ -> map(modifier, WindowInsets(0), null) }, edgeToEdge = false,
-                    widePane = details) {
-                    if (player != null) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        StopButton(details) { details = !details }
-                    }
-                    stop(largeText, if (largeText) 140.dp else 120.dp)
-                } else Column(Modifier.fillMaxSize()) {
-                    map(Modifier.fillMaxWidth().then(if (details) Modifier.height(strip) else Modifier.weight(1f)), WindowInsets(0), null)
-                    Surface(Modifier.then(if (details) Modifier.weight(1f) else Modifier)) {
-                        Column(Modifier.fillMaxWidth().then(if (details) Modifier else Modifier.heightIn(max = panelHeight))) {
-                            if (player != null) SheetHandle(details, onChange = { details = it })
-                            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
-                                .padding(start = Space.s4, end = Space.s4, bottom = Space.s4), verticalArrangement = Arrangement.spacedBy(Space.s3)) {
-                                // At the largest text sizes, one chart at a time keeps the charts readable.
-                                stop(largeText, if (largeText) 140.dp else 96.dp)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    return ReplayMode(load, player, details, { details = it }, chart, { chart = it })
 }
 
 /** The replay and its playback state. The screen owns the state, so it stays after a rotation. */
-private class ReplayPlayer(
+internal class ReplayPlayer(
     val replay: TripReplay,
     val playhead: Long,
     val playing: Boolean,
@@ -235,6 +172,8 @@ private class ReplayPlayer(
     /** Subtract it from a replay height to get a height above [heightReference]. */
     val heightOffset: Double,
     val heightReference: AltitudeReference,
+    /** The real time, in elapsed nanoseconds, when the playhead last moved. */
+    val stepNanos: Long,
     val seek: (Long) -> Unit,
     val pauseAt: (Long) -> Unit,
     val toggle: () -> Unit,
@@ -269,14 +208,40 @@ private fun PlayClock(replay: TripReplay, playing: Boolean, rate: Int, playhead:
     }
 }
 
+/**
+ * The replay time for the map. While the replay plays, the map moves on each display frame between two playhead steps,
+ * so the position marker and the camera move evenly. The values, the profile, and the charts still change 10 times
+ * each second. Nothing runs while the replay is paused or the screen is hidden.
+ */
 @Composable
-private fun ReplayMap(
-    player: ReplayPlayer?, savedLines: List<List<TrackSample>>?, startView: CameraPosition?, modifier: Modifier, insets: WindowInsets,
-    onBack: (() -> Unit)?,
+private fun rememberMapTime(player: ReplayPlayer): Long {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val time by produceState(player.playhead, player.playhead, player.playing, player.rate, player.stepNanos, lifecycle) {
+        value = player.playhead
+        if (!player.playing) return@produceState
+        // At most two steps ahead, so a late step does not let the map run far ahead of the values.
+        val limit = minOf(player.replay.durationNanos, player.playhead + TICK_MILLIS * 2_000_000L * player.rate)
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (true) withFrameNanos {
+                value = (player.playhead + (SystemClock.elapsedRealtimeNanos() - player.stepNanos) * player.rate).coerceIn(player.playhead, limit)
+            }
+        }
+    }
+    return time
+}
+
+/**
+ * The saved trip map. In replay mode the same map also shows the numbered moments, the position at the playhead, and the
+ * played part of the route, and it follows the playhead.
+ */
+@Composable
+internal fun TripMap(
+    savedLines: List<List<TrackSample>>?, mode: ReplayMode?, modifier: Modifier, insets: WindowInsets, onBack: (() -> Unit)?,
 ) {
+    val player = mode?.player
+    val replay = player?.replay
     val format = rememberDisplayFormat()
     val names = momentNames()
-    val replay = player?.replay
     val moments = remember(replay, format, player?.heightOffset) {
         replay?.moments.orEmpty().mapNotNull { moment ->
             val latitude = moment.latitudeRadians ?: return@mapNotNull null
@@ -284,17 +249,34 @@ private fun ReplayMap(
             MapMoment(moment.number, latitude, longitude, names.map(moment.number, moment.kind, momentValue(moment, player, format)))
         }
     }
-    // The playhead position on the route line. In a GPS gap there is no position, so the map shows no marker.
-    val position = player?.values?.let { values ->
-        val fix = values.fix ?: return@let null
+    val time = player?.let { rememberMapTime(it) }
+    val values = if (player == null || time == null) null else if (time == player.playhead) player.values else player.replay.valuesAt(time)
+    // The position on the route line, with the direction of travel turned evenly between fixes.
+    // In a GPS gap there is no position, so the map shows no marker.
+    val position = values?.fix?.let { fix ->
         val latitude = values.latitudeRadians ?: return@let null
         val longitude = values.longitudeRadians ?: return@let null
-        LivePosition(fix.copy(latitudeRadians = latitude, longitudeRadians = longitude), fresh = true)
+        LivePosition(fix.copy(latitudeRadians = latitude, longitudeRadians = longitude, bearingRadians = values.bearingRadians), fresh = true)
     }
-    // The route after the playhead is muted. The map redraws the route only when the playhead passes a route point.
-    val played = replay?.let { replay -> replay.lines.indices.map { replay.playedPoints(it, player.playhead) } }
+    // The route after the playhead is muted. The map changes a line only when the playhead passes one of its points.
+    val played = if (replay == null || time == null) null else replay.lines.indices.map { replay.playedPoints(it, time) }
+    // One map for both modes. While the replay is calculated, the map keeps the saved route.
     MapSurface(replay?.lines ?: savedLines.orEmpty(), modifier, routeReady = replay != null || savedLines != null, insets = insets,
-        onBack = onBack, position = position, replay = true, moments = moments, played = played, startView = startView)
+        onBack = onBack, position = position, replay = mode != null, moments = moments, played = played)
+}
+
+/** The replay pane: the loading state, then the glance stop or the details. */
+@Composable
+internal fun ColumnScope.ReplayPane(actions: TrackingActions, mode: ReplayMode, single: Boolean, chartHeight: Dp) {
+    val load = mode.load
+    val replay = load.ready
+    when {
+        load is StoredRead.Failed -> ReadError(actions.vm::retryReads)
+        load is StoredRead.Loading -> Text(stringResource(R.string.replay_loading), Modifier.testTag("replay_loading"))
+        replay == null || replay.fixes.isEmpty() -> Text(stringResource(R.string.replay_none))
+    }
+    val player = mode.player ?: return
+    if (mode.details) ReplayDetails(player, mode.chart.takeIf { single }, mode.setChart, chartHeight) else ReplayPanel(player)
 }
 
 /**
@@ -302,7 +284,7 @@ private fun ReplayMap(
  * The button does the same, so a drag is not the only way.
  */
 @Composable
-private fun SheetHandle(details: Boolean, onChange: (Boolean) -> Unit) {
+internal fun SheetHandle(details: Boolean, onChange: (Boolean) -> Unit) {
     val change by rememberUpdatedState(onChange)
     val handleLabel = stringResource(if (details) R.string.replay_show_map else R.string.replay_show_charts)
     Row(Modifier.fillMaxWidth().padding(horizontal = Space.s2), verticalAlignment = Alignment.CenterVertically) {
@@ -323,7 +305,7 @@ private fun SheetHandle(details: Boolean, onChange: (Boolean) -> Unit) {
 
 /** Changes between the glance stop and the charts. */
 @Composable
-private fun StopButton(details: Boolean, onClick: () -> Unit) {
+internal fun StopButton(details: Boolean, onClick: () -> Unit) {
     TextButton(onClick = onClick, modifier = Modifier.heightIn(min = Size.touch).testTag("replay_stop")) {
         ButtonContent(if (details) R.drawable.ic_route else R.drawable.ic_chart, if (details) R.string.replay_map else R.string.replay_charts)
     }
