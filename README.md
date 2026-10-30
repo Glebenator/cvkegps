@@ -104,12 +104,31 @@ The app uses the owner's design language (My Design Language, touch dialect):
   slowly away from the disc and back (2.4 s each way). It stops off screen and when animations are off in the system.
 - The accuracy bar fill uses the functional blue-to-apricot gradient.
 
+## Map styles on 30 October 2026
+
+Settings > Maps > **Map style** changes the look of the **Default** map type:
+
+| Style | Look |
+| --- | --- |
+| Standard | The default. The Google map with all places. In dark mode it uses the dark map of the Maps SDK. |
+| Minimal | Roads, road names, road numbers, water, and parks in the neutral colours of the app. No places of business, other places, or transit. |
+| High contrast | Black or white text, strong road edges, darker built-up areas, and clearer water and parks. Places and transit stay. |
+
+- Minimal and High contrast each have a light and a dark version that follows the app theme.
+- Satellite and terrain maps do not use a style. The style applies again when the map type changes back to Default.
+- The current trip, saved trip, and replay maps use the style. Speed colours keep their outline: dark on a light map,
+  white on a dark map.
+- The styles are JSON styles in `app/src/main/res/raw`. They use no map ID, so they add no cost. The decision is in
+  [ADR 0006](docs/adr/0006-map-styles-as-json-styles-without-a-map-id.md). Results and limits are in
+  [the report](PROGRESS.html#map-styles).
+
 ## Map settings on 30 October 2026
 
 Settings > Maps has these choices. **Start with** applies when a map opens. The tilt and the zoom apply at the next fix. The others apply at once.
 
 | Setting | Default | Effect |
 | --- | --- | --- |
+| Map style | Standard | **Minimal** or **High contrast** changes the look of the Default map type. See [Map styles](#map-styles-on-30-october-2026). |
 | Labels on satellite | On | Off shows satellite images without road and place names. |
 | 3D buildings | On | Off gives a flat map. |
 | Keep routes blue | Off | With wallpaper colours, one-colour routes and the position stay electric blue. Disabled with other colour choices. |
@@ -537,7 +556,7 @@ app/src/main/java/com/example/cvkegps/
     LiveTripScreen.kt            Current trip with the live map
     SavedTripScreen.kt           Saved trip with its map and details
     TripComponents.kt            Shared trip controls, values, and labels
-    RouteMap.kt                  Google Maps route map, map type, speed colours and legend, and Play services recovery
+    RouteMap.kt                  Google Maps route map, map type, map style, speed colours and legend, and Play services recovery
     SpeedColours.kt              Speed smoothing, the speed range of a trip, and colour runs for the route line
 ```
 

@@ -67,6 +67,14 @@
     <string name="settings_colours_wallpaper_unavailable">Needs Android 12 or later.</string>
     <string name="settings_maps">Maps</string>
     <string name="settings_map_type">Map type</string>
+    <string name="settings_map_style">Map style</string>
+    <string name="settings_map_style_standard">Standard</string>
+    <string name="settings_map_style_standard_body">The Google map with all places.</string>
+    <string name="settings_map_style_minimal">Minimal</string>
+    <string name="settings_map_style_minimal_body">Roads, names, water, and parks in calm colours. No shops, other places, or transit. Less to read while moving.</string>
+    <string name="settings_map_style_high_contrast">High contrast</string>
+    <string name="settings_map_style_high_contrast_body">Strong lines and text. Easier to read in sunlight.</string>
+    <string name="settings_map_style_note">Map styles apply to the default map type, in light and dark mode. Satellite and terrain maps do not change.</string>
     <string name="settings_satellite_labels">Labels on satellite</string>
     <string name="settings_satellite_labels_body">Road and place names on the satellite map.</string>
     <string name="settings_3d_buildings">3D buildings</string>

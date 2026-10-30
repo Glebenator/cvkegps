@@ -106,6 +106,7 @@ class TrackingDeviceTest {
             app.settings.setMapSatelliteLabels(true)
             app.settings.setMapAccuracyCircle(true)
             app.settings.setRouteAppBlue(false)
+            app.settings.setMapStyle(com.example.cvkegps.settings.MapStyle.Standard)
         }
         device.wakeUp()
         manager.removeTestProvider(LocationManager.GPS_PROVIDER)
@@ -519,6 +520,14 @@ class TrackingDeviceTest {
         // The map draws the slow and the fast end colours of the speed scale.
         waitUntil { screenHas(0xFF440154.toInt()) && screenHas(0xFFFDE725.toInt()) }
         capture("speed-colours-map")
+        // The map styles keep both end colours visible. The Settings test checks that the styles show.
+        for (style in listOf(com.example.cvkegps.settings.MapStyle.Minimal, com.example.cvkegps.settings.MapStyle.HighContrast)) {
+            instrumentation.runOnMainSync { app.settings.setMapStyle(style) }
+            Thread.sleep(2_000)
+            waitUntil { screenHas(0xFF440154.toInt()) && screenHas(0xFFFDE725.toInt()) }
+            capture("speed-colours-${style.key}")
+        }
+        instrumentation.runOnMainSync { app.settings.setMapStyle(com.example.cvkegps.settings.MapStyle.Standard) }
         // On satellite images the outline is white. The end colours still show.
         compose.onNodeWithTag("map_layers").performClick()
         compose.onNodeWithTag("map_layer_satellite").performClick()

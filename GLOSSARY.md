@@ -106,3 +106,7 @@ _Avoid_: Pressure altitude, barometer altitude
 **Speed colours**:
 A saved trip or replay route line that shows speed as colour, from dark (slow) to yellow (fast). The colours use the speed range of that trip: the 5th and the 95th percentile of the moving speeds, averaged over 5 seconds. A legend on the map shows the speed at each end. A part without a usable speed is grey. The current trip map always uses one colour.
 _Avoid_: Heat map, speed heat line
+
+**Map style**:
+The look of the Default map type: Standard (the Google map), Minimal, or High contrast. Minimal and High contrast each have a light and a dark version that follows the app theme. Satellite and terrain maps do not use a style.
+_Avoid_: Map theme, map skin, map type (the map type is Default, Satellite, or Terrain)
