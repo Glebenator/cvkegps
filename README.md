@@ -104,6 +104,22 @@ The app uses the owner's design language (My Design Language, touch dialect):
   slowly away from the disc and back (2.4 s each way). It stops off screen and when animations are off in the system.
 - The accuracy bar fill uses the functional blue-to-apricot gradient.
 
+## Map settings on 30 October 2026
+
+Settings > Maps has these choices. **Start with** applies when a map opens. The tilt and the zoom apply at the next fix. The others apply at once.
+
+| Setting | Default | Effect |
+| --- | --- | --- |
+| Labels on satellite | On | Off shows satellite images without road and place names. |
+| 3D buildings | On | Off gives a flat map. |
+| Keep routes blue | Off | With wallpaper colours, one-colour routes and the position stay electric blue. Disabled with other colour choices. |
+| Start with | North up | **Travel direction up** starts the current trip and replay maps with the direction of travel at the top. The follow button still changes it. |
+| Tilt with travel direction up | On | Off keeps the map flat while the direction of travel is up. |
+| Zoom with speed | On | Off keeps the zoom that the zoom buttons set. The current trip map starts at about 300 m across. |
+| Accuracy circle | On | Off hides the circle around the position. |
+
+The map theme still follows the app theme. Results and limits are in [the report](PROGRESS.html#map-settings).
+
 ## Speed colours on saved routes on 30 October 2026
 
 Saved trip and replay maps show the route in speed colours by default, from dark (slow) to yellow (fast):

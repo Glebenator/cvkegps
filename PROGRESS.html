@@ -167,7 +167,7 @@
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-10-30">30 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>770aeba</code> plus speed colours and the three colour choices (branch <code>native-maps</code>, not committed)</dd></div>
+          <div><dt>App code baseline</dt><dd><code>c935bbb</code> plus the map settings (branch <code>native-maps</code>, not committed)</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
@@ -179,6 +179,7 @@
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, debug lint, and unsigned release build</span><span class="small">Release APK not installed or run</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#map-settings">Map settings · 30 Oct</a>
       <a href="#colour-choices">Colour choices · 30 Oct</a>
       <a href="#speed-colours">Speed colours · 30 Oct</a>
       <a href="#wallpaper-colours">Wallpaper colours · 30 Oct</a>
@@ -212,6 +213,50 @@
       <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
     </nav>
+
+    <section id="map-settings" aria-labelledby="map-settings-heading">
+      <div class="section-head"><h2 id="map-settings-heading">Map settings · 30 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
+      <p class="section-intro">Settings &gt; Maps has six new choices. The values that were fixed in <a href="app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt"><code>RouteMap.kt</code></a> now come from <a href="app/src/main/java/com/example/cvkegps/settings/AppSettings.kt"><code>AppSettings.kt</code></a>. The defaults keep the earlier behaviour. The map theme still follows the app theme, as the owner chose.</p>
+      <div class="table-wrap"><table class="wrap-cells">
+        <thead><tr><th scope="col">Setting</th><th scope="col">Default</th><th scope="col">Effect</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Labels on satellite</th><td>On</td><td>Off uses the satellite map type without road and place names, in place of the hybrid type.</td></tr>
+          <tr><th scope="row">3D buildings</th><td>On</td><td>Off gives a flat map.</td></tr>
+          <tr><th scope="row">Keep routes blue</th><td>Off</td><td>With wallpaper colours, one-colour routes, the position, and the moment markers keep the electric blue. The switch is disabled with the other colour choices, where the route is blue already.</td></tr>
+          <tr><th scope="row">Start with</th><td>North up</td><td><strong>Travel direction up</strong> starts the current trip and replay maps with the direction of travel at the top. The follow button still changes it. It applies when a map opens.</td></tr>
+          <tr><th scope="row">Tilt with travel direction up</th><td>On</td><td>Off keeps the camera flat while the direction of travel is up. It applies at the next fix.</td></tr>
+          <tr><th scope="row">Zoom with speed</th><td>On</td><td>Off keeps the zoom that the zoom buttons set. The current trip map starts at zoom 16, about 300 m across. It applies at the next fix.</td></tr>
+          <tr><th scope="row">Accuracy circle</th><td>On</td><td>Off hides the circle around the position on the current trip and replay maps.</td></tr>
+        </tbody>
+      </table></div>
+      <pre><code><a href="app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt">RouteMap.kt</a> · the zoom of a following map
+!placed -&gt; if (choice.mapZoomWithSpeed) speedZoom(last) ?: 15f else FIXED_ZOOM
+userZoomed || !choice.mapZoomWithSpeed -&gt; current.zoom.coerceIn(3f, 18f)
+else -&gt; speedZoom(last) ?: current.zoom.coerceIn(3f, 18f)</code></pre>
+      <h3 style="margin-top:24px">Pixel 10 Pro emulator, Android 17 (API 37)</h3>
+      <div class="screens">
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-map-settings-light.webp"><img src="docs/progress/images/2026-10-30-map-settings-light.webp" loading="lazy" alt="Settings, Maps card with wallpaper colours: Map type, Labels on satellite and 3D buildings off, Route colour on saved trips, Keep routes blue, then the label Current trip and replay maps with Start with set to Travel direction up, and the tilt, zoom with speed, and accuracy circle switches off."></a>
+      <figcaption><strong>Maps card</strong>30 October 2026. Baseline <code>c935bbb</code> plus the map settings. Pixel 10 Pro emulator, Android 17 (API 37). Default emulator wallpaper. The device test turned the switches off.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-map-settings-large-text.webp"><img src="docs/progress/images/2026-10-30-map-settings-large-text.webp" loading="lazy" alt="The lower part of the Maps card at 200% text: Travel direction up wraps to two lines in its segment, and each switch row wraps its text."></a>
+      <figcaption><strong>200% text</strong>30 October 2026. Baseline <code>c935bbb</code> plus the map settings. Pixel 10 Pro emulator, Android 17 (API 37). Display settings were restored after the test.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-map-settings-route-blue.webp"><img src="docs/progress/images/2026-10-30-map-settings-route-blue.webp" loading="lazy" alt="The current trip map with wallpaper colours: the position marker and its arrow in electric blue near the green start, while the buttons use the wallpaper colours."></a>
+      <figcaption><strong>Keep routes blue</strong>30 October 2026. Baseline <code>c935bbb</code> plus the map settings. Pixel 10 Pro emulator, Android 17 (API 37). Simulated GPS test locations at 10 m/s. The route is only a few metres long, so the position covers most of it.</figcaption></figure>
+      </div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li>New device test <code>mapSettingsChangeTheStartViewTiltZoomBuildingsLabelsAndRouteColour</code>: with Travel direction up, no tilt, no zoom with speed, no 3D buildings, and satellite without labels, the current trip map camera has a bearing of 90 degrees for fixes to the east, a tilt of 0, and zoom 16. The map type is satellite and buildings are off. After the switches change on an open map, the map type is normal with buildings, and the next fix gives a tilt of 45 degrees and zoom 15 from the speed. With wallpaper colours, the app blue is not on the screen until Keep routes blue is on.</li>
+          <li>New Settings device test <code>mapSwitchesSaveTheirChoicesAndKeepRoutesBlueNeedsWallpaperColours</code>: each switch and Start with change the stored value, Keep routes blue is disabled with app colours, and the choice stays after a new activity.</li>
+          <li>Also passed on the final code: all 6 Settings device tests, the map type and traffic test, the live tracker themes, large text, and rotation test, the speed colour test, the poor fixes test, and the replay test. 58 of 58 calculation tests passed. Debug lint found no issues. Raw captures: <code>artifacts/map-settings/</code> (not in Git).</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>The accuracy circle switch was checked as a stored value only. No test looks for the circle on the screen.</li>
+          <li>The satellite capture without labels was taken before the images loaded, so the report has no picture of it. The test checked the map type through the map.</li>
+          <li>Start with reads the setting when a map opens. If the settings are not read yet, the map starts north up. This was not seen in the tests.</li>
+          <li>The full device test suite was not run after this change. The release build was not checked. Nothing was checked on a real phone.</li>
+        </ul>
+      </article>
+    </section>
 
     <section id="colour-choices" aria-labelledby="colour-choices-heading">
       <div class="section-head"><h2 id="colour-choices-heading">Three colour choices, wallpaper colours by default · 30 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
@@ -2221,6 +2266,8 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-30">30 October 2026</time><div><h3>Map settings</h3>
+<p>Settings &gt; Maps adds labels on satellite, 3D buildings, keep routes blue, the start orientation, the tilt, zoom with speed, and the accuracy circle. The defaults keep the earlier behaviour. On a Pixel 10 Pro API 37 emulator, two new device tests and the affected map, replay, and Settings device tests, 58 of 58 calculation tests, and lint passed. See <a href="#map-settings">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-30">30 October 2026</time><div><h3>Three colour choices, wallpaper colours by default</h3>
 <p>The Colours card has App colours (no dynamic colour), Wallpaper backgrounds, and Wallpaper colours, which is now the default. On a Pixel 10 Pro API 37 emulator, 5 of 5 Settings device tests passed, and the colour test passed in light and dark. See <a href="#colour-choices">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-30">30 October 2026</time><div><h3>Speed colours on saved routes</h3>

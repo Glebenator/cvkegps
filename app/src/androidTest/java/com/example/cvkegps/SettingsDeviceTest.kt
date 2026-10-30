@@ -79,7 +79,16 @@ class SettingsDeviceTest {
         instrumentation.runOnMainSync { app.recorder.send(RecordingCommand.Finish()) }
         waitUntil { !app.recorder.state.value.needsService }
         scenario?.close()
-        instrumentation.runOnMainSync { app.settings.setColours(AppColours.Wallpaper) }
+        instrumentation.runOnMainSync {
+            app.settings.setColours(AppColours.Wallpaper)
+            app.settings.setMapStart(com.example.cvkegps.settings.MapStart.North)
+            app.settings.setMapTilt(true)
+            app.settings.setMapZoomWithSpeed(true)
+            app.settings.setMap3dBuildings(true)
+            app.settings.setMapSatelliteLabels(true)
+            app.settings.setMapAccuracyCircle(true)
+            app.settings.setRouteAppBlue(false)
+        }
         device.wakeUp()
         manager.removeTestProvider(LocationManager.GPS_PROVIDER)
         shell("appops set ${context.packageName} android:mock_location default")
@@ -228,6 +237,33 @@ class SettingsDeviceTest {
         compose.onNodeWithTag("settings_content").assertIsDisplayed()
         compose.onNodeWithTag("colours_app").performScrollTo().assertIsSelected()
         awaitColour("settings_content", fixed.bg)
+    }
+
+    @Test fun mapSwitchesSaveTheirChoicesAndKeepRoutesBlueNeedsWallpaperColours() {
+        launch()
+        openSettings()
+        for (tag in listOf("setting_satellite_labels", "setting_3d_buildings", "setting_map_tilt", "setting_zoom_speed", "setting_accuracy_circle")) {
+            compose.onNodeWithTag(tag).performScrollTo().performClick()
+        }
+        compose.onNodeWithTag("map_start_course").performScrollTo().performClick()
+        compose.waitForIdle()
+        app.settings.values.value.let {
+            assertEquals(com.example.cvkegps.settings.MapStart.Course, it.mapStart)
+            assertFalse(it.mapSatelliteLabels || it.map3dBuildings || it.mapTilt || it.mapZoomWithSpeed || it.mapAccuracyCircle)
+        }
+        capture("maps-following")
+        // Keep routes blue changes the route only with wallpaper colours, so it is off with app colours.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            compose.onNodeWithTag("setting_route_blue").performScrollTo().assertIsEnabled().performClick()
+            compose.waitForIdle()
+            assertTrue(app.settings.values.value.routeAppBlue)
+        }
+        compose.onNodeWithTag("colours_app").performScrollTo().performClick()
+        compose.onNodeWithTag("setting_route_blue").performScrollTo().assertIsNotEnabled()
+        capture("maps-route-blue-off")
+        // The choices stay after a new activity.
+        scenario!!.recreate()
+        compose.onNodeWithTag("map_start_course").performScrollTo().assertIsSelected()
     }
 
     @Test fun settingsFitThemesLargeTextAndRotation() {

@@ -75,6 +75,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.example.cvkegps.R
 import com.example.cvkegps.ui.theme.CvkeTheme
+import com.example.cvkegps.ui.theme.DarkTokens
+import com.example.cvkegps.ui.theme.LightTokens
 import com.example.cvkegps.ui.theme.SpeedRamp
 import com.example.cvkegps.ui.theme.mapButtonColors
 import com.example.cvkegps.ui.theme.mapButtonModifier
@@ -83,6 +85,7 @@ import com.example.cvkegps.ui.theme.Space
 import com.example.cvkegps.location.FixSource
 import com.example.cvkegps.location.TrackSample
 import com.example.cvkegps.settings.MapLayer
+import com.example.cvkegps.settings.MapStart
 import com.example.cvkegps.settings.RouteColour
 import com.example.cvkegps.ui.FloatingBackButton
 import com.example.cvkegps.ui.rememberDisplayFormat
@@ -121,6 +124,9 @@ private const val ROUTE_REDRAW_MILLIS = 5_000L
 
 /** The replay zoom: about 300 m across a phone screen. The zoom buttons change it. */
 private const val REPLAY_ZOOM = 16f
+
+/** The first zoom of the current trip map when the zoom does not follow the speed. The zoom buttons change it. */
+private const val FIXED_ZOOM = 16f
 
 /** The camera tilt while the map follows with the direction of travel up. It shows more of the road ahead. */
 private const val COURSE_TILT = 45f
@@ -179,8 +185,10 @@ private fun MapCanvas(
     val choice by settings.values.collectAsStateWithLifecycle()
     val description = stringResource(R.string.map_accessibility)
     val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    // The route uses the one accent, so it matches the app in both themes.
-    val routeColor = CvkeTheme.colors.accent
+    // The route uses the one accent, so it matches the app in both themes. A user can keep the app blue with wallpaper colours.
+    val routeColor = if (choice.routeAppBlue) (if (dark) DarkTokens.accent else LightTokens.accent) else CvkeTheme.colors.accent
+    // The follow mode at the start: north up, or the direction of travel up.
+    val startFollow = if (choice.mapStart == MapStart.Course) FollowMode.Course else FollowMode.North
     // Saved trip and replay maps can colour the route by speed. The current trip map keeps one colour.
     val bySpeed = !live && choice.routeColour == RouteColour.Speed
     // An outline keeps both ends of the speed colours visible: dark on a light map, white on a dark or satellite map.
@@ -202,8 +210,8 @@ private fun MapCanvas(
     // True after the camera first shows the route or the position. It is saved, so a recreated screen keeps the user's view.
     var placed by rememberSaveable { mutableStateOf(false) }
     var fitRequest by remember { mutableIntStateOf(0) }
-    var follow by rememberSaveable { mutableStateOf(if (follows) FollowMode.North else FollowMode.Off) }
-    // Zoom follows speed until the zoom buttons change it.
+    var follow by rememberSaveable { mutableStateOf(if (follows) startFollow else FollowMode.Off) }
+    // Zoom follows speed, when the user chose it, until the zoom buttons change it.
     var userZoomed by rememberSaveable { mutableStateOf(false) }
     // The first move to the playhead after the map changes to replay mode is one short animation, so the change is easy to follow.
     var replayStart by rememberSaveable { mutableStateOf(replay) }
@@ -211,7 +219,7 @@ private fun MapCanvas(
     LaunchedEffect(follows) {
         if (followsShown == follows) return@LaunchedEffect
         followsShown = follows
-        follow = if (follows) FollowMode.North else FollowMode.Off
+        follow = if (follows) startFollow else FollowMode.Off
         userZoomed = false
         replayStart = replay
     }
@@ -282,13 +290,13 @@ private fun MapCanvas(
             val zoom = when {
                 // A replay keeps one zoom, so the map does not jump in and out with the speed. The zoom buttons change it.
                 replay -> if (replayStart || !placed) REPLAY_ZOOM else current.zoom.coerceIn(3f, 21f)
-                !placed -> speedZoom(last) ?: 15f
-                userZoomed -> current.zoom.coerceIn(3f, 18f)
+                !placed -> if (choice.mapZoomWithSpeed) speedZoom(last) ?: 15f else FIXED_ZOOM
+                userZoomed || !choice.mapZoomWithSpeed -> current.zoom.coerceIn(3f, 18f)
                 else -> speedZoom(last) ?: current.zoom.coerceIn(3f, 18f)
             }
             val course = follow == FollowMode.Course
             val bearing = if (course) courseRadians(last)?.let { Math.toDegrees(it).toFloat() } ?: current.bearing else 0f
-            val update = CameraUpdateFactory.newCameraPosition(CameraPosition(last.latLng(), zoom, if (course) COURSE_TILT else 0f, bearing))
+            val update = CameraUpdateFactory.newCameraPosition(CameraPosition(last.latLng(), zoom, if (course && choice.mapTilt) COURSE_TILT else 0f, bearing))
             // One short camera move for each new fix. There is no continuous animation.
             // A playing replay moves the position on each display frame, so its camera moves with it.
             if (placed && (!replay || replayStart)) camera.animate(update, 800) else camera.move(update)
@@ -303,12 +311,12 @@ private fun MapCanvas(
             properties = MapProperties(
                 mapType = when (choice.mapLayer) {
                     MapLayer.Default -> MapType.NORMAL
-                    MapLayer.Satellite -> MapType.HYBRID
+                    MapLayer.Satellite -> if (choice.mapSatelliteLabels) MapType.HYBRID else MapType.SATELLITE
                     MapLayer.Terrain -> MapType.TERRAIN
                 },
                 // Traffic is current, so it shows only on the map of the current trip.
                 isTrafficEnabled = live && choice.mapTraffic,
-                isBuildingEnabled = true,
+                isBuildingEnabled = choice.map3dBuildings,
             ),
             // The app's 48 dp buttons replace the small SDK zoom controls. The marker toolbar opens a saved start or end in Google Maps.
             uiSettings = MapUiSettings(
@@ -321,7 +329,7 @@ private fun MapCanvas(
             contentPadding = padding,
             mapColorScheme = if (dark) ComposeMapColorScheme.DARK else ComposeMapColorScheme.LIGHT,
         ) {
-            RouteOverlay(route, lines, live, position, routeColor, outline, moments, played)
+            RouteOverlay(route, lines, live, position, routeColor, outline, moments, played, choice.mapAccuracyCircle)
         }
         // The controls stay inside the safe area.
         Box(Modifier.matchParentSize().windowInsetsPadding(insets)) {
@@ -397,7 +405,7 @@ private fun MapCanvas(
 @Composable
 private fun RouteOverlay(
     route: List<RouteLine>, lines: List<List<TrackSample>>, live: Boolean, position: LivePosition?, routeColor: Color, outline: Color,
-    moments: List<MapMoment>, played: List<Int>?,
+    moments: List<MapMoment>, played: List<Int>?, accuracyCircle: Boolean,
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -457,7 +465,7 @@ private fun RouteOverlay(
     // The live marker: an accuracy circle, a grey dot for an old fix, and a direction arrow only while moving with a current fix.
     if (position != null) {
         val at = position.sample.latLng()
-        val accuracy = position.sample.accuracyMeters?.takeIf { position.fresh && position.sample.usablePosition && it > 0f }
+        val accuracy = position.sample.accuracyMeters?.takeIf { accuracyCircle && position.fresh && position.sample.usablePosition && it > 0f }
         if (accuracy != null) Circle(at, fillColor = routeColor.copy(alpha = 0.18f), radius = accuracy.toDouble(),
             strokeWidth = 0f, zIndex = 2f)
         val course = position.sample.takeIf { position.fresh }?.let(::courseRadians)

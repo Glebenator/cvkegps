@@ -8,6 +8,7 @@ import android.hardware.SensorManager
 import android.location.Location
 import android.location.LocationManager
 import android.os.Build
+import androidx.compose.ui.graphics.toArgb
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -98,6 +99,13 @@ class TrackingDeviceTest {
         instrumentation.runOnMainSync {
             app.settings.setRouteColour(com.example.cvkegps.settings.RouteColour.Speed)
             app.settings.setMapLayer(com.example.cvkegps.settings.MapLayer.Default)
+            app.settings.setMapStart(com.example.cvkegps.settings.MapStart.North)
+            app.settings.setMapTilt(true)
+            app.settings.setMapZoomWithSpeed(true)
+            app.settings.setMap3dBuildings(true)
+            app.settings.setMapSatelliteLabels(true)
+            app.settings.setMapAccuracyCircle(true)
+            app.settings.setRouteAppBlue(false)
         }
         device.wakeUp()
         manager.removeTestProvider(LocationManager.GPS_PROVIDER)
@@ -525,6 +533,58 @@ class TrackingDeviceTest {
         compose.onNodeWithTag("speed_legend").assertDoesNotExist()
         waitUntil { !screenHas(0xFFFDE725.toInt()) }
         assertEquals(com.example.cvkegps.settings.RouteColour.Single, app.settings.values.value.routeColour)
+    }
+
+    @Test fun mapSettingsChangeTheStartViewTiltZoomBuildingsLabelsAndRouteColour() {
+        // Travel direction up without tilt, a fixed zoom, no 3D buildings, satellite images without labels, and no accuracy circle.
+        instrumentation.runOnMainSync {
+            app.settings.setMapStart(com.example.cvkegps.settings.MapStart.Course)
+            app.settings.setMapTilt(false)
+            app.settings.setMapZoomWithSpeed(false)
+            app.settings.setMap3dBuildings(false)
+            app.settings.setMapSatelliteLabels(false)
+            app.settings.setMapAccuracyCircle(false)
+            app.settings.setMapLayer(com.example.cvkegps.settings.MapLayer.Satellite)
+        }
+        launch()
+        startTrip()
+        val id = app.recorder.state.value.trip!!.id
+        // The test fixes move east at 10 m/s. With the zoom from speed, 10 m/s gives zoom 15. The fixed zoom is 16.
+        deliver(id, 3)
+        waitUntil { mapCamera()?.let { kotlin.math.abs(it.bearing - 90f) < 1f } == true }
+        val start = mapCamera()!!
+        assertEquals(0f, start.tilt, 0.5f)
+        assertEquals(16f, start.zoom, 0.01f)
+        assertEquals(com.google.android.gms.maps.GoogleMap.MAP_TYPE_SATELLITE, withMap { it.mapType })
+        assertEquals(false, withMap { it.isBuildingsEnabled })
+        capture("map-settings-satellite-no-labels")
+        // The changes apply to the open map at the next fix.
+        instrumentation.runOnMainSync {
+            app.settings.setMapTilt(true)
+            app.settings.setMapZoomWithSpeed(true)
+            app.settings.setMap3dBuildings(true)
+            app.settings.setMapSatelliteLabels(true)
+            app.settings.setMapLayer(com.example.cvkegps.settings.MapLayer.Default)
+        }
+        waitUntil { withMap { it.mapType == com.google.android.gms.maps.GoogleMap.MAP_TYPE_NORMAL && it.isBuildingsEnabled } == true }
+        waitFor(15_000) {
+            inject(); Thread.sleep(1_100)
+            mapCamera()?.let { kotlin.math.abs(it.tilt - 45f) < 0.5f && kotlin.math.abs(it.zoom - 15f) < 0.01f } == true
+        }
+        capture("map-settings-tilt-speed-zoom")
+        // With wallpaper colours the route takes the wallpaper accent. Keep routes blue brings back the app blue.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && app.settings.values.value.colours == com.example.cvkegps.settings.AppColours.Wallpaper) {
+            var dark = false
+            scenario!!.onActivity {
+                dark = it.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
+                    android.content.res.Configuration.UI_MODE_NIGHT_YES
+            }
+            val blue = (if (dark) com.example.cvkegps.ui.theme.DarkTokens else com.example.cvkegps.ui.theme.LightTokens).accent.toArgb()
+            assertFalse("The route used the app blue with wallpaper colours", screenHas(blue))
+            instrumentation.runOnMainSync { app.settings.setRouteAppBlue(true) }
+            waitUntil { screenHas(blue) }
+            capture("map-settings-route-blue")
+        }
     }
 
     /** True when a screenshot has a pixel near this colour. Anti-aliased edges differ a little, so the test allows a small difference. */

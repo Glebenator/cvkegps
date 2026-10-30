@@ -58,6 +58,7 @@ import com.example.cvkegps.settings.AppColours
 import com.example.cvkegps.settings.AppSettings
 import com.example.cvkegps.settings.DistanceUnit
 import com.example.cvkegps.settings.MapLayer
+import com.example.cvkegps.settings.MapStart
 import com.example.cvkegps.settings.RecordingAccuracy
 import com.example.cvkegps.settings.RouteColour
 import com.example.cvkegps.settings.ScreenOn
@@ -137,18 +138,44 @@ fun SettingsScreen(settings: AppSettings, onBack: () -> Unit) {
                 }
             }
             SettingsSection(R.string.settings_maps, changes[Section.Maps] ?: 0) {
+                fun maps(change: () -> Unit) = saved(Section.Maps, change)
                 Column(Modifier.padding(start = Space.s4, end = Space.s4, top = Space.s4), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
                     Text(stringResource(R.string.settings_map_type), style = MaterialTheme.typography.titleSmall)
                     SegmentedChoice(MapLayer.entries, values.mapLayer, { stringResource(it.title) },
-                        { saved(Section.Maps) { settings.setMapLayer(it) } }, tag = { "map_type_${it.key}" })
-                    Text(stringResource(R.string.settings_route_colour), Modifier.padding(top = Space.s2), style = MaterialTheme.typography.titleSmall)
+                        { maps { settings.setMapLayer(it) } }, tag = { "map_type_${it.key}" })
+                }
+                SwitchRow(R.string.settings_satellite_labels, R.string.settings_satellite_labels_body, values.mapSatelliteLabels,
+                    "setting_satellite_labels") { maps { settings.setMapSatelliteLabels(it) } }
+                SwitchRow(R.string.settings_3d_buildings, null, values.map3dBuildings, "setting_3d_buildings") {
+                    maps { settings.setMap3dBuildings(it) }
+                }
+                Column(Modifier.padding(horizontal = Space.s4, vertical = Space.s2), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
+                    Text(stringResource(R.string.settings_route_colour), style = MaterialTheme.typography.titleSmall)
                     SegmentedChoice(RouteColour.entries, values.routeColour, { stringResource(it.title) },
-                        { saved(Section.Maps) { settings.setRouteColour(it) } }, tag = { "route_colour_${it.key}" })
+                        { maps { settings.setRouteColour(it) } }, tag = { "route_colour_${it.key}" })
                     Text(stringResource(R.string.settings_route_colour_note), style = MaterialTheme.typography.bodySmall,
                         color = CvkeTheme.colors.inkMuted)
                 }
+                // Keeping the route blue changes something only while the app uses wallpaper colours.
+                val wallpaperAccent = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && values.colours == AppColours.Wallpaper
+                SwitchRow(R.string.settings_route_blue, R.string.settings_route_blue_body, values.routeAppBlue, "setting_route_blue",
+                    wallpaperAccent) { maps { settings.setRouteAppBlue(it) } }
+                Label(R.string.settings_maps_following)
+                Column(Modifier.padding(horizontal = Space.s4, vertical = Space.s2), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
+                    Text(stringResource(R.string.settings_map_start), style = MaterialTheme.typography.titleSmall)
+                    SegmentedChoice(MapStart.entries, values.mapStart, { stringResource(it.title) },
+                        { maps { settings.setMapStart(it) } }, tag = { "map_start_${it.key}" })
+                }
+                SwitchRow(R.string.settings_map_tilt, R.string.settings_map_tilt_body, values.mapTilt, "setting_map_tilt") {
+                    maps { settings.setMapTilt(it) }
+                }
+                SwitchRow(R.string.settings_zoom_speed, R.string.settings_zoom_speed_body, values.mapZoomWithSpeed, "setting_zoom_speed") {
+                    maps { settings.setMapZoomWithSpeed(it) }
+                }
+                SwitchRow(R.string.settings_accuracy_circle, R.string.settings_accuracy_circle_body, values.mapAccuracyCircle,
+                    "setting_accuracy_circle") { maps { settings.setMapAccuracyCircle(it) } }
                 SwitchRow(R.string.settings_traffic, R.string.settings_traffic_body, values.mapTraffic, "setting_traffic") {
-                    saved(Section.Maps) { settings.setMapTraffic(it) }
+                    maps { settings.setMapTraffic(it) }
                 }
             }
             SettingsSection(R.string.settings_recording, changes[Section.Recording] ?: 0) {
@@ -306,6 +333,11 @@ private fun transparent(enabled: Boolean = true) = CvkeTheme.colors.let {
     AppColours.App -> R.string.settings_colours_app_body
     AppColours.Backgrounds -> R.string.settings_colours_backgrounds_body
     AppColours.Wallpaper -> R.string.settings_colours_wallpaper_body
+}
+
+@get:StringRes private val MapStart.title get() = when (this) {
+    MapStart.North -> R.string.settings_map_start_north
+    MapStart.Course -> R.string.settings_map_start_course
 }
 
 @get:StringRes private val RouteColour.title get() = when (this) {

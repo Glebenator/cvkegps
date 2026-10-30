@@ -33,6 +33,20 @@ data class Settings(
     val mapTraffic: Boolean = false,
     /** The route colour on saved trip and replay maps. The current trip map always uses one colour. */
     val routeColour: RouteColour = RouteColour.Speed,
+    /** How the current trip and replay maps start to follow the position. */
+    val mapStart: MapStart = MapStart.North,
+    /** The map tilts 45 degrees while the direction of travel is up. */
+    val mapTilt: Boolean = true,
+    /** The current trip map zooms out at higher speeds until the zoom buttons are used. */
+    val mapZoomWithSpeed: Boolean = true,
+    /** 3D buildings on the trip maps. */
+    val map3dBuildings: Boolean = true,
+    /** Road and place names on the satellite map. */
+    val mapSatelliteLabels: Boolean = true,
+    /** The accuracy circle around the position on the current trip and replay maps. */
+    val mapAccuracyCircle: Boolean = true,
+    /** One-colour routes and position markers keep the app blue when the app uses wallpaper colours. */
+    val routeAppBlue: Boolean = false,
     /** How often a trip records a position. It applies to the next trip that starts or resumes. */
     val recordingAccuracy: RecordingAccuracy = RecordingAccuracy.Standard,
     /** A recording trip uses a network position while it has no GPS signal. It applies to the next trip that starts or resumes. */
@@ -61,6 +75,13 @@ enum class AppColours(override val key: String) : StoredChoice {
     Backgrounds("backgrounds"),
     /** The accent, text, and surfaces come from the wallpaper. */
     Wallpaper("wallpaper"),
+}
+
+/** How the current trip and replay maps start to follow the position. The follow button changes it while the map shows. */
+enum class MapStart(override val key: String) : StoredChoice {
+    North("north"),
+    /** The direction of travel at the top. */
+    Course("course"),
 }
 
 /** The route colour on saved trip and replay maps. */
@@ -114,6 +135,13 @@ class AppSettings(
                 mapLayer = pick(MAP_LAYER) { mapLayer },
                 mapTraffic = pick(MAP_TRAFFIC) { mapTraffic },
                 routeColour = pick(ROUTE_COLOUR) { routeColour },
+                mapStart = pick(MAP_START) { mapStart },
+                mapTilt = pick(MAP_TILT) { mapTilt },
+                mapZoomWithSpeed = pick(MAP_ZOOM_WITH_SPEED) { mapZoomWithSpeed },
+                map3dBuildings = pick(MAP_3D_BUILDINGS) { map3dBuildings },
+                mapSatelliteLabels = pick(MAP_SATELLITE_LABELS) { mapSatelliteLabels },
+                mapAccuracyCircle = pick(MAP_ACCURACY_CIRCLE) { mapAccuracyCircle },
+                routeAppBlue = pick(ROUTE_APP_BLUE) { routeAppBlue },
                 recordingAccuracy = pick(RECORDING_ACCURACY) { recordingAccuracy },
                 networkFallback = pick(NETWORK_FALLBACK) { networkFallback },
                 colours = pick(COLOURS) { colours },
@@ -136,6 +164,13 @@ class AppSettings(
     fun setMapLayer(value: MapLayer) = change(MAP_LAYER, { copy(mapLayer = value) }) { putString(MAP_LAYER, value.key) }
     fun setMapTraffic(value: Boolean) = change(MAP_TRAFFIC, { copy(mapTraffic = value) }) { putBoolean(MAP_TRAFFIC, value) }
     fun setRouteColour(value: RouteColour) = change(ROUTE_COLOUR, { copy(routeColour = value) }) { putString(ROUTE_COLOUR, value.key) }
+    fun setMapStart(value: MapStart) = change(MAP_START, { copy(mapStart = value) }) { putString(MAP_START, value.key) }
+    fun setMapTilt(value: Boolean) = change(MAP_TILT, { copy(mapTilt = value) }) { putBoolean(MAP_TILT, value) }
+    fun setMapZoomWithSpeed(value: Boolean) = change(MAP_ZOOM_WITH_SPEED, { copy(mapZoomWithSpeed = value) }) { putBoolean(MAP_ZOOM_WITH_SPEED, value) }
+    fun setMap3dBuildings(value: Boolean) = change(MAP_3D_BUILDINGS, { copy(map3dBuildings = value) }) { putBoolean(MAP_3D_BUILDINGS, value) }
+    fun setMapSatelliteLabels(value: Boolean) = change(MAP_SATELLITE_LABELS, { copy(mapSatelliteLabels = value) }) { putBoolean(MAP_SATELLITE_LABELS, value) }
+    fun setMapAccuracyCircle(value: Boolean) = change(MAP_ACCURACY_CIRCLE, { copy(mapAccuracyCircle = value) }) { putBoolean(MAP_ACCURACY_CIRCLE, value) }
+    fun setRouteAppBlue(value: Boolean) = change(ROUTE_APP_BLUE, { copy(routeAppBlue = value) }) { putBoolean(ROUTE_APP_BLUE, value) }
     fun setRecordingAccuracy(value: RecordingAccuracy) =
         change(RECORDING_ACCURACY, { copy(recordingAccuracy = value) }) { putString(RECORDING_ACCURACY, value.key) }
     fun setNetworkFallback(value: Boolean) = change(NETWORK_FALLBACK, { copy(networkFallback = value) }) { putBoolean(NETWORK_FALLBACK, value) }
@@ -170,6 +205,13 @@ class AppSettings(
         const val MAP_LAYER = "map_layer"
         const val MAP_TRAFFIC = "map_traffic"
         const val ROUTE_COLOUR = "route_colour"
+        const val MAP_START = "map_start"
+        const val MAP_TILT = "map_tilt"
+        const val MAP_ZOOM_WITH_SPEED = "map_zoom_with_speed"
+        const val MAP_3D_BUILDINGS = "map_3d_buildings"
+        const val MAP_SATELLITE_LABELS = "map_satellite_labels"
+        const val MAP_ACCURACY_CIRCLE = "map_accuracy_circle"
+        const val ROUTE_APP_BLUE = "route_app_blue"
         const val RECORDING_ACCURACY = "recording_accuracy"
         const val NETWORK_FALLBACK = "network_fallback"
         const val COLOURS = "colours"
@@ -189,6 +231,13 @@ class AppSettings(
             mapLayer = read.getString(MAP_LAYER, null).toChoice<MapLayer>() ?: MapLayer.Default,
             mapTraffic = read.getBoolean(MAP_TRAFFIC, false),
             routeColour = read.getString(ROUTE_COLOUR, null).toChoice<RouteColour>() ?: RouteColour.Speed,
+            mapStart = read.getString(MAP_START, null).toChoice<MapStart>() ?: MapStart.North,
+            mapTilt = read.getBoolean(MAP_TILT, true),
+            mapZoomWithSpeed = read.getBoolean(MAP_ZOOM_WITH_SPEED, true),
+            map3dBuildings = read.getBoolean(MAP_3D_BUILDINGS, true),
+            mapSatelliteLabels = read.getBoolean(MAP_SATELLITE_LABELS, true),
+            mapAccuracyCircle = read.getBoolean(MAP_ACCURACY_CIRCLE, true),
+            routeAppBlue = read.getBoolean(ROUTE_APP_BLUE, false),
             recordingAccuracy = read.getString(RECORDING_ACCURACY, null).toChoice<RecordingAccuracy>() ?: RecordingAccuracy.Standard,
             networkFallback = read.getBoolean(NETWORK_FALLBACK, true),
             colours = read.getString(COLOURS, null).toChoice<AppColours>() ?: AppColours.Wallpaper,
