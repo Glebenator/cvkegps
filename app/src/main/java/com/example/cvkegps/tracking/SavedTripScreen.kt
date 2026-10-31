@@ -61,8 +61,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import com.example.cvkegps.R
 import com.example.cvkegps.location.FixSource
 import androidx.compose.material3.ElevatedCard
@@ -227,7 +230,7 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
 @Composable
 private fun PortraitTripPanel(actions: TrackingActions, id: String, trip: TripRecord?, shown: TripDetail?) {
     SavedRow(actions, id, trip)
-    SavedTotals(trip, shown)
+    SavedTotals(trip, shown, withActivity = true)
     InterruptedActions(actions, id, trip)
 }
 
@@ -249,16 +252,25 @@ private fun ColumnScope.SavedTripContent(
 /**
  * "Trip saved" and Resume trip, in the panel above the values, while the recorder can still continue the trip
  * ([REOPEN_WINDOW_MILLIS] after Stop and save). This undoes an accidental stop. It covers nothing and fades out when the time ends.
+ * The time that remains shows beside Resume trip, so the row does not go away without warning.
  */
 @Composable
 private fun SavedRow(actions: TrackingActions, id: String, trip: TripRecord?) {
     val ended = trip?.endedMillis?.takeIf { trip.status == TripStatus.Finished }
-    var open by remember(id, ended) { mutableStateOf(ended != null && System.currentTimeMillis() - ended in 0 until REOPEN_WINDOW_MILLIS) }
-    // One wait for the end of the time. There is no countdown, so the screen does not change each second.
-    LaunchedEffect(id, ended) {
-        if (ended == null || !open) return@LaunchedEffect
-        delay(REOPEN_WINDOW_MILLIS - (System.currentTimeMillis() - ended))
-        open = false
+    fun left() = ended?.let { REOPEN_WINDOW_MILLIS - (System.currentTimeMillis() - it) } ?: 0L
+    var left by remember(id, ended) { mutableLongStateOf(left()) }
+    val open = left in 1..REOPEN_WINDOW_MILLIS
+    // The countdown changes once each second, and only while the screen is resumed. It stops at the end of the time.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(id, ended, lifecycle) {
+        if (ended == null) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (true) {
+                left = left()
+                if (left !in 1..REOPEN_WINDOW_MILLIS) break
+                delay((left - 1) % 1_000 + 1)
+            }
+        }
     }
     // Another trip that records or is paused cannot share the recorder.
     AnimatedVisibility(open && actions.activeTripId == null, enter = fadeIn(tween(Motion.ENTER_MILLIS, easing = Motion.standard)),
@@ -273,6 +285,11 @@ private fun SavedRow(actions: TrackingActions, id: String, trip: TripRecord?) {
             TextButton(onClick = { actions.reopen(id) }, modifier = Modifier.heightIn(min = Size.touch).testTag("saved_resume")) {
                 Text(stringResource(R.string.trip_resume))
             }
+            // Outside the live region, so screen readers do not announce each second.
+            val format = rememberDisplayFormat()
+            Text(stringResource(R.string.trip_resume_left, format.clock((left + 999) / 1_000 * 1_000_000_000L)),
+                Modifier.testTag("saved_resume_left"), style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -356,12 +373,12 @@ private fun TripMenu(actions: TrackingActions, id: String, trip: TripRecord, sho
     }
 }
 
-/** The route summary is exact. The stored distance shows until it arrives. */
+/** The route summary is exact. The stored distance shows until it arrives. [withActivity] is for places without an activity chip or title. */
 @Composable
-private fun SavedTotals(trip: TripRecord?, shown: TripDetail?) {
+private fun SavedTotals(trip: TripRecord?, shown: TripDetail?, withActivity: Boolean = false) {
     val distance = shown?.summary?.distanceMeters ?: trip?.distanceMeters
     TripTotals(distance, distancePending = trip == null || (distance == null && shown == null), durationNanos = trip?.durationNanos,
-        maximumSpeed = shown?.summary?.maximumSpeedMetersPerSecond, maximumPending = shown == null)
+        maximumSpeed = shown?.summary?.maximumSpeedMetersPerSecond, maximumPending = shown == null, activity = trip?.takeIf { withActivity }?.let { activityText(it) })
 }
 
 private fun replayable(trip: TripRecord, shown: TripDetail?) =

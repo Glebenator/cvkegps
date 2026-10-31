@@ -80,12 +80,11 @@
     <string name="trip_live_title">Current trip</string>
     <string name="trip_open_live">Open current trip</string>
     <string name="trip_activity">Activity</string>
-    <string name="trip_card_summary">%1$s · %2$s · %3$s</string>
+    <string name="trip_card_summary">%1$s · %2$s</string>
     <string name="mode_change_short">Change</string>
     <string name="more_options">More options</string>
     <string name="trip_share_gpx">Share as GPX</string>
     <string name="trip_privacy">Your trips stay on this device. Google Maps receives the map area that you look at. Share as GPX sends positions and times only to the app that you select.</string>
-    <string name="trip_average_speed">Average speed, including stops</string>
     <string name="trip_technical_details">Technical details</string>
     <string name="state_expanded">Expanded</string>
     <string name="state_collapsed">Collapsed</string>
@@ -170,4 +169,12 @@
     <string name="map_services_install">Get Google Play services</string>
     <string name="map_services_update">Update Google Play services</string>
     <string name="map_services_enable">Turn on Google Play services</string>
+    <string name="trip_speed">Speed</string>
+    <string name="trip_this_trip">This trip</string>
+    <string name="trip_average_title">Average speed</string>
+    <string name="trip_includes_stops">Includes stops</string>
+    <string name="trips_today">Today</string>
+    <string name="trips_yesterday">Yesterday</string>
+    <string name="trip_resume_left">%1$s left</string>
+    <string name="chart_steady">Steady at %1$s</string>
 </resources>

@@ -12,7 +12,13 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
+import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.semantics.contentDescription
+import com.example.cvkegps.ui.MetricCard
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -92,20 +98,66 @@ fun TripStartControls(actions: TrackingActions, canStartTrip: Boolean, landscape
     actions.error?.let { ProblemBanner(stringResource(it)) }
     val trip = actions.recording.trip
     if (trip == null && canStartTrip && actions.ready) {
-        Button(onClick = actions.start, enabled = !actions.recording.starting,
-            modifier = Modifier.fillMaxWidth().heightIn(min = Size.touch).testTag("trip_start")) {
-            Icon(painterResource(R.drawable.ic_record), contentDescription = null, Modifier.size(Size.iconSm))
-            Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-            Text(stringResource(if (actions.recording.starting) R.string.trip_starting else R.string.trip_start))
-        }
-        // The activity for the next trip. Automatic uses the estimate from recent GPS speed.
+        // The activity for the next trip. Automatic uses the estimate from recent GPS speed, and the icon shows that estimate.
+        // The chip shows the short name. Screen readers hear the full choice, with "estimate" for an automatic activity.
         val selected = actions.selectedMode
-        ActivityChip(when {
+        val chip = stringResource(selected?.title() ?: R.string.mode_auto)
+        val spoken = when {
             selected != null -> stringResource(R.string.mode_chip_manual, stringResource(selected.title()))
             actions.estimate != TripMode.Unknown -> stringResource(R.string.mode_chip_estimate, stringResource(actions.estimate.title()))
             else -> stringResource(R.string.mode_chip_auto)
-        }, onClick = { actions.chooseMode(null) }, tag = "activity_estimate")
+        }
+        val start = stringResource(if (actions.recording.starting) R.string.trip_starting else R.string.trip_start)
+        val activity: @Composable () -> Unit = {
+            ActivityChip(chip, onClick = { actions.chooseMode(null) }, tag = "activity_estimate", icon = (selected ?: actions.estimate).icon(),
+                trailing = R.drawable.ic_expand_more, spoken = spoken)
+        }
+        val button: @Composable (Modifier) -> Unit = { modifier ->
+            Button(onClick = actions.start, enabled = !actions.recording.starting, modifier = modifier.heightIn(min = Size.touch).testTag("trip_start")) {
+                Icon(painterResource(R.drawable.ic_record), contentDescription = null, Modifier.size(Size.iconSm))
+                Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+                Text(start)
+            }
+        }
+        // Choose, then start: the chip and the button share a row when both labels fit on one line. Otherwise they stack.
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val measurer = rememberTextMeasurer()
+            val density = LocalDensity.current
+            fun width(text: String, style: TextStyle) = with(density) { measurer.measure(text, style).size.width.toDp() }
+            // The chip adds two 18 dp icons and four 8 dp gaps. The button adds 24 dp padding on each side, an icon, and a gap.
+            val chipWidth = width(chip, MaterialTheme.typography.labelLarge) + 18.dp * 2 + Space.s2 * 4
+            val buttonWidth = width(start, MaterialTheme.typography.labelLarge) + Space.s6 * 2 + Size.iconSm + ButtonDefaults.IconSpacing
+            if (maxWidth >= chipWidth + buttonWidth + Space.s3) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.s3)) {
+                    activity()
+                    button(Modifier.weight(1f))
+                }
+            } else Column(horizontalAlignment = Alignment.Start, verticalArrangement = Arrangement.spacedBy(Space.s2)) {
+                activity()
+                button(Modifier.fillMaxWidth())
+            }
+        }
     } else if (trip != null && landscape) TripSummaryCard(actions, trip, onOpenTrip)
+}
+
+/**
+ * Narrow portrait Speed tab while a trip is active: the trip's distance and average speed take the place of altitude and
+ * maximum speed. The recording bar below shows the time. Without a trip, [otherwise] shows the usual cards.
+ */
+@Composable
+fun TripMetricCards(actions: TrackingActions, otherwise: @Composable () -> Unit) {
+    val trip = actions.recording.trip ?: return otherwise()
+    val format = rememberDisplayFormat()
+    val elapsed = rememberElapsed(actions.recording)
+    val missing = stringResource(R.string.no_value)
+    val distance = trip.distanceMeters?.let(format::distanceAmount)
+    val average = averageSpeed(trip.distanceMeters, elapsed)
+    Row(Modifier.height(IntrinsicSize.Min).testTag("trip_cards"), horizontalArrangement = Arrangement.spacedBy(Space.s3)) {
+        MetricCard(R.string.trip_distance, distance?.let(format::number) ?: missing, distance?.unit.orEmpty(), "trip_card_distance",
+            Modifier.weight(1f).fillMaxHeight(), stringResource(R.string.trip_this_trip))
+        MetricCard(R.string.trip_average_title, average?.let(format::speedNumber) ?: missing, format.speedUnit, "trip_card_average",
+            Modifier.weight(1f).fillMaxHeight(), stringResource(R.string.trip_includes_stops))
+    }
 }
 
 /** Landscape Speed tab: the recording trip's values. Pause and Stop are in the navigation rail. */
@@ -130,14 +182,27 @@ private fun TripSummaryCard(actions: TrackingActions, trip: TripRecord, onOpenTr
     }
 }
 
-/** A pill chip that opens the activity choice: `surface`, a `border-control` outline, and `ink` text. */
+/**
+ * A pill chip that opens the activity choice: `surface`, a `border-control` outline, and `ink` text.
+ * The optional [icon] shows the activity. [spoken] replaces the visible text for screen readers when the text is short.
+ */
 @Composable
-internal fun ActivityChip(text: String, onClick: () -> Unit, tag: String = "change_activity") {
+internal fun ActivityChip(
+    text: String,
+    onClick: () -> Unit,
+    tag: String = "change_activity",
+    @DrawableRes icon: Int? = null,
+    @DrawableRes trailing: Int = R.drawable.ic_edit,
+    spoken: String? = null,
+) {
     val colors = CvkeTheme.colors
-    AssistChip(onClick = onClick, label = { Text(text, Modifier.testTag(tag)) },
-        trailingIcon = { Icon(painterResource(R.drawable.ic_edit), contentDescription = null, Modifier.size(Size.iconSm)) },
+    AssistChip(onClick = onClick,
+        label = { Text(text, Modifier.testTag(tag).then(if (spoken != null) Modifier.semantics { contentDescription = spoken } else Modifier)) },
+        leadingIcon = icon?.let { { Icon(painterResource(it), contentDescription = null, Modifier.size(Size.iconSm)) } },
+        trailingIcon = { Icon(painterResource(trailing), contentDescription = null, Modifier.size(Size.iconSm)) },
         shape = CircleShape,
-        colors = AssistChipDefaults.assistChipColors(containerColor = colors.surface, labelColor = colors.ink, trailingIconContentColor = colors.inkMuted),
+        colors = AssistChipDefaults.assistChipColors(containerColor = colors.surface, labelColor = colors.ink,
+            leadingIconContentColor = colors.ink, trailingIconContentColor = colors.inkMuted),
         border = AssistChipDefaults.assistChipBorder(enabled = true, borderColor = colors.borderControl),
         modifier = Modifier.heightIn(min = Size.touch))
 }
@@ -346,18 +411,20 @@ internal fun ReadError(onRetry: () -> Unit, modifier: Modifier = Modifier) {
     }
 }
 
-/** A pending value keeps its space and fades in, so the layout does not jump and no status message shows. */
+/** A pending value keeps its space and fades in, so the layout does not jump and no status message shows. [note] qualifies the value. */
 @Composable
-internal fun Metric(@StringRes title: Int, value: String?, pending: Boolean = false, tag: String? = null) {
+internal fun Metric(@StringRes title: Int, value: String?, pending: Boolean = false, tag: String? = null, note: String? = null) {
     Column {
         Text(stringResource(title), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         PendingText(if (pending) null else value ?: stringResource(R.string.no_value),
-            if (tag == null) Modifier else Modifier.testTag(tag), style = MaterialTheme.typography.titleMedium)
+            if (tag == null) Modifier else Modifier.testTag(tag), style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"))
+        if (note != null) Text(note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 /**
- * The everyday trip values: distance, recording time, average speed, and maximum speed.
+ * The everyday trip values. Distance is the main value, with the [activity] on its line. Recording time, average speed,
+ * and maximum speed follow in equal columns, so one long label does not set the layout. With large text they wrap.
  * A missing value shows as unavailable. A pending value keeps its space until it is known.
  */
 @Composable
@@ -367,14 +434,36 @@ internal fun TripTotals(
     durationNanos: Long?,
     maximumSpeed: Float?,
     maximumPending: Boolean,
+    activity: String? = null,
 ) {
     val format = rememberDisplayFormat()
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.s6), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
-        Metric(R.string.trip_distance, distanceMeters?.let(format::distance), distancePending, "trip_distance")
-        Metric(R.string.trip_duration, durationNanos?.let(format::duration), durationNanos == null)
-        Metric(R.string.trip_average_speed, durationNanos?.let { averageSpeed(distanceMeters, it) }?.let(format::speed),
-            distancePending || durationNanos == null, "average_speed")
-        Metric(R.string.maximum_speed, maximumSpeed?.let(format::speed), maximumPending)
+    val amount = distanceMeters?.let(format::distanceAmount)
+    Column(verticalArrangement = Arrangement.spacedBy(Space.s3)) {
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(Space.s3)) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.trip_distance), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(Space.s1)) {
+                    PendingText(if (distancePending) null else amount?.let(format::number) ?: stringResource(R.string.no_value),
+                        Modifier.alignByBaseline().testTag("trip_distance"),
+                        style = MaterialTheme.typography.headlineMedium.copy(fontFeatureSettings = "tnum"))
+                    if (amount != null && !distancePending) Text(amount.unit, Modifier.alignByBaseline(), style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            if (activity != null) Text(activity, Modifier.padding(bottom = Space.s1), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        val values = listOf<@Composable () -> Unit>(
+            { Metric(R.string.trip_duration, durationNanos?.let(format::duration), durationNanos == null) },
+            { Metric(R.string.trip_average_title, durationNanos?.let { averageSpeed(distanceMeters, it) }?.let(format::speed),
+                distancePending || durationNanos == null, "average_speed", note = stringResource(R.string.trip_includes_stops)) },
+            { Metric(R.string.maximum_speed, maximumSpeed?.let(format::speed), maximumPending) },
+        )
+        if (LocalDensity.current.fontScale > 1.5f) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.s6), verticalArrangement = Arrangement.spacedBy(Space.s2)) { values.forEach { it() } }
+        } else Row(horizontalArrangement = Arrangement.spacedBy(Space.s3)) {
+            values.forEach { Box(Modifier.weight(1f)) { it() } }
+        }
     }
 }
 
@@ -418,6 +507,14 @@ internal fun PendingText(value: String?, modifier: Modifier = Modifier, style: T
     TripMode.Plane -> R.string.mode_plane
     TripMode.Bike -> R.string.mode_bike
     TripMode.Ski -> R.string.mode_ski
+}
+
+/** The activity icon. Combined activities use the icon of the first one. An unknown activity has the route icon. */
+@DrawableRes internal fun TripMode.icon() = when (this) {
+    TripMode.Unknown -> R.drawable.ic_route
+    TripMode.CarOrTransit, TripMode.Car, TripMode.Transit -> R.drawable.ic_car
+    TripMode.BikeOrSki, TripMode.Bike, TripMode.Ski -> R.drawable.ic_bike
+    TripMode.Plane -> R.drawable.ic_plane
 }
 
 @StringRes internal fun TripStatus.title() = when (this) {

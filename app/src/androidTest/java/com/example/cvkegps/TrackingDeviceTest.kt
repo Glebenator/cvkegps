@@ -15,6 +15,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.performScrollTo
@@ -257,9 +258,11 @@ class TrackingDeviceTest {
         val distance = format.distance(saved)
         compose.waitUntil(5_000) {
             runCatching {
-                compose.onNodeWithTag("trip_card_summary", useUnmergedTree = true).assertTextContains(distance, substring = true)
+                compose.onNodeWithTag("trip_row_distance", useUnmergedTree = true).assertTextEquals(distance)
             }.isSuccess
         }
+        // The trip shows under the day on which it started.
+        compose.onNodeWithTag("trip_day").assertTextEquals(context.getString(R.string.trips_today))
         val font = shell("settings get system font_scale").trim()
         val rotation = shell("settings get system user_rotation").trim()
         val auto = shell("settings get system accelerometer_rotation").trim()
@@ -268,7 +271,7 @@ class TrackingDeviceTest {
             for ((name, scale, dark) in listOf(Triple("light", 1f, false), Triple("dark", 1f, true), Triple("large-text", 2f, false))) {
                 for (landscape in listOf(false, true)) {
                     setDisplay(scale, landscape, dark)
-                    compose.onNodeWithTag("trip_card_summary", useUnmergedTree = true).assertIsDisplayed()
+                    compose.onNodeWithTag("trip_row_distance", useUnmergedTree = true).assertIsDisplayed()
                     capture("trips-distance-$name-$landscape")
                 }
             }
@@ -293,10 +296,10 @@ class TrackingDeviceTest {
 
     @Test fun automaticActivityUsesLiveEvidenceAndManualCorrectionSurvivesResume() {
         launch()
-        compose.onNodeWithTag("activity_estimate", useUnmergedTree = true).assertTextEquals("Activity: automatic")
+        compose.onNodeWithTag("activity_estimate", useUnmergedTree = true).assertContentDescriptionEquals("Activity: automatic")
         val deadline = SystemClock.elapsedRealtime() + 18_000
         while (SystemClock.elapsedRealtime() < deadline) { inject(); Thread.sleep(1_100) }
-        compose.onNodeWithTag("activity_estimate", useUnmergedTree = true).assertTextEquals("Activity: Bike or ski (estimate)")
+        compose.onNodeWithTag("activity_estimate", useUnmergedTree = true).assertContentDescriptionEquals("Activity: Bike or ski (estimate)")
         Thread.sleep(400)
         shell("screencap -p /sdcard/Download/cvkegps-home-estimate-light.png")
         startTrip()
@@ -385,6 +388,12 @@ class TrackingDeviceTest {
         compose.onNodeWithTag("gps_compact").assertIsDisplayed()
         compose.onNodeWithTag("recording_status", useUnmergedTree = true).assertTextEquals("Recording")
         compose.onNodeWithTag("route_map").assertDoesNotExist()
+        // A narrow portrait Speed tab shows the trip's distance and average speed in place of altitude and maximum speed.
+        if (compose.onAllNodesWithTag("trip_summary").fetchSemanticsNodes().isEmpty()) {
+            compose.onNodeWithTag("trip_cards").assertIsDisplayed()
+            compose.onNodeWithTag("trip_card_distance", useUnmergedTree = true).assertIsDisplayed()
+            compose.onNodeWithTag("altitude").assertDoesNotExist()
+        }
         assertEquals(1, requestCount())
         capture("home-light")
         scenario!!.recreate()
@@ -777,6 +786,9 @@ class TrackingDeviceTest {
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("saved_resume").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("trip_saved").assertIsDisplayed()
         compose.onNodeWithText(context.getString(R.string.trip_saved_message)).assertIsDisplayed()
+        // The time that remains shows beside Resume trip, from 2:00 down.
+        compose.onNodeWithTag("saved_resume_left", useUnmergedTree = true).assert(SemanticsMatcher("time left") { node ->
+            node.config[SemanticsProperties.Text].joinToString().matches(Regex("[12]:\\d\\d left")) })
         // The row is in the panel, so the values stay visible below it.
         val row = compose.onNodeWithTag("trip_saved").getUnclippedBoundsInRoot()
         val distance = compose.onNodeWithText(context.getString(R.string.trip_distance)).getUnclippedBoundsInRoot()
@@ -1030,7 +1042,8 @@ class TrackingDeviceTest {
         Thread.sleep(5_200)
         injectNetwork(0.004)
         waitFor(10_000) { networkCount(id) >= 2 }
-        assertEquals(2, app.recorder.route.value!!.summary.lines.last().size)
+        // The recorder saves the positions before it updates the live route, so the route can be one position behind.
+        waitFor(5_000) { app.recorder.route.value?.summary?.lines?.last()?.size == 2 }
         // A live route redraws at most every 5 seconds. That wait uses the test clock, so the test moves the clock.
         compose.mainClock.advanceTimeBy(5_500)
         compose.onAllNodesWithTag("recording_status", useUnmergedTree = true)[0].assertTextEquals("No GPS: approximate position")
@@ -1179,12 +1192,17 @@ class TrackingDeviceTest {
             showVisible("replay_moments")
             showVisible("moment_FastestSpeed")
             compose.onNodeWithTag("chart_selector").assertDoesNotExist()
-            for (chart in listOf("chart_Speed", "chart_Height", "chart_Acceleration")) showVisible(chart)
+            // A series that does not change, such as the constant air pressure of the emulator, shows as one line of text.
+            for (chart in listOf("chart_Speed", chartOrSteady("Height"), chartOrSteady("Acceleration"))) showVisible(chart)
+            // Each chart title shows the value at the cursor. One time axis under the last chart serves all charts.
+            compose.onNodeWithTag("chart_title_Speed").assertIsDisplayed()
+            compose.onNodeWithTag("replay_speed", useUnmergedTree = true).assertIsDisplayed()
+            showVisible("chart_time_axis")
             compose.onNodeWithTag("chart_Speed").assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo))
             compose.onNodeWithTag("chart_Speed").assert(SemanticsMatcher("has a summary") { node ->
                 SemanticsProperties.ContentDescription in node.config && node.config[SemanticsProperties.ContentDescription].any { it.startsWith("Speed from") } })
-            // A tap on the height chart moves the shared cursor and the values.
-            compose.onNodeWithTag("chart_Height").performTouchInput { click(androidx.compose.ui.geometry.Offset(width * 0.3f, height / 2f)) }
+            // A tap on a chart moves the shared cursor and the values.
+            compose.onNodeWithTag("chart_Speed").performTouchInput { click(androidx.compose.ui.geometry.Offset(width * 0.3f, height / 2f)) }
             compose.onNodeWithTag("replay_time", useUnmergedTree = true).assert(SemanticsMatcher("cursor moved") { node ->
                 node.config[SemanticsProperties.Text].joinToString() != "$end / $end" })
             capture("replay-details-light")
@@ -1219,9 +1237,10 @@ class TrackingDeviceTest {
                         // A landscape phone and the largest text show one chart with a selector. The shown chart is the slider.
                         showVisible("chart_pick_Height")
                         compose.onNodeWithTag("chart_pick_Height").performClick()
-                        showVisible("chart_Height")
+                        val height = chartOrSteady("Height")
+                        showVisible(height)
                         compose.onNodeWithTag("chart_Speed").assertDoesNotExist()
-                        compose.onNodeWithTag("chart_Height").assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo))
+                        if (height == "chart_Height") compose.onNodeWithTag(height).assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo))
                         capture("replay-details-$name-$landscape")
                         // A moment chip also selects the chart of its moment.
                         showVisible("replay_moments")
@@ -1233,7 +1252,7 @@ class TrackingDeviceTest {
                         compose.onNodeWithTag("chart_selector").assertDoesNotExist()
                         showVisible("chart_Speed")
                         capture("replay-details-$name-$landscape")
-                        for (chart in listOf("chart_Height", "chart_Acceleration")) showVisible(chart)
+                        for (chart in listOf(chartOrSteady("Height"), chartOrSteady("Acceleration"))) showVisible(chart)
                     }
                     showVisible("replay_stop")
                     compose.onNodeWithTag("replay_stop").performClick()
@@ -1253,7 +1272,7 @@ class TrackingDeviceTest {
             compose.onNodeWithTag("replay_stop").performClick()
             compose.onNodeWithTag("route_map").assertIsDisplayed()
             compose.onNodeWithTag("chart_selector").assertDoesNotExist()
-            for (chart in listOf("chart_Speed", "chart_Height", "chart_Acceleration")) showVisible(chart)
+            for (chart in listOf("chart_Speed", chartOrSteady("Height"), chartOrSteady("Acceleration"))) showVisible(chart)
             capture("replay-details-wide")
         } finally {
             shell("wm size reset")
@@ -1267,10 +1286,10 @@ class TrackingDeviceTest {
 
     @Test fun activityChosenBeforeTheTripApplies() {
         launch()
-        compose.onNodeWithTag("activity_estimate", useUnmergedTree = true).assertTextEquals("Activity: automatic")
+        compose.onNodeWithTag("activity_estimate", useUnmergedTree = true).assertContentDescriptionEquals("Activity: automatic")
         compose.onNodeWithTag("activity_estimate", useUnmergedTree = true).performClick()
         compose.onNodeWithTag("mode_Bike").performClick()
-        compose.onNodeWithTag("activity_estimate", useUnmergedTree = true).assertTextEquals("Activity: Bike")
+        compose.onNodeWithTag("activity_estimate", useUnmergedTree = true).assertContentDescriptionEquals("Activity: Bike")
         startTrip()
         val trip = app.recorder.state.value.trip!!
         assertEquals(TripMode.Bike, trip.mode)
@@ -1424,6 +1443,10 @@ class TrackingDeviceTest {
         }
         assertTrue("Saved route did not receive the requested positions", savedCount(id) >= count)
     }
+
+    /** The chart of a replay series, or its one line of text when the values do not change. */
+    private fun chartOrSteady(kind: String) =
+        if (compose.onAllNodesWithTag("chart_$kind").fetchSemanticsNodes().isNotEmpty()) "chart_$kind" else "chart_steady_$kind"
 
     private fun inject(accuracyMeters: Float = 3f, speed: Float = 10f) {
         sampleIndex++

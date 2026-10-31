@@ -25,6 +25,12 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.IconButton
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.shadow
+import com.example.cvkegps.ui.theme.Size
 import androidx.compose.material3.FilledTonalIconToggleButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -347,7 +353,7 @@ private fun MapCanvas(
                 SpeedLegend(scale, Modifier.align(Alignment.TopStart).padding(start = Space.s2,
                     top = if (onBack != null || shortMap) CONTROL_SPACE else Space.s2, end = if (shortMap) Space.s2 else CONTROL_SPACE))
             }
-            val controls: @Composable () -> Unit = {
+            val controls: @Composable (vertical: Boolean) -> Unit = { vertical ->
                 val hasRoute = lines.any { it.isNotEmpty() }
                 MapTypeButton(choice.mapLayer, choice.mapTraffic.takeIf { live }, choice.routeColour.takeIf { !live },
                     settings::setMapLayer, settings::setMapTraffic, settings::setRouteColour)
@@ -372,18 +378,13 @@ private fun MapCanvas(
                     modifier = mapButtonModifier.testTag("map_fit")) {
                     Icon(painterResource(R.drawable.ic_fit_route), contentDescription = stringResource(R.string.map_fit))
                 }
-                FilledTonalIconButton(onClick = { userZoomed = true; scope.launch { camera.animate(CameraUpdateFactory.zoomIn()) } },
-                    colors = mapButtonColors(), modifier = mapButtonModifier.testTag("map_zoom_in")) {
-                    Icon(painterResource(R.drawable.ic_add), contentDescription = stringResource(R.string.map_zoom_in))
-                }
-                FilledTonalIconButton(onClick = { userZoomed = true; scope.launch { camera.animate(CameraUpdateFactory.zoomOut()) } },
-                    colors = mapButtonColors(), modifier = mapButtonModifier.testTag("map_zoom_out")) {
-                    Icon(painterResource(R.drawable.ic_remove), contentDescription = stringResource(R.string.map_zoom_out))
-                }
+                ZoomControls(vertical,
+                    onZoomIn = { userZoomed = true; scope.launch { camera.animate(CameraUpdateFactory.zoomIn()) } },
+                    onZoomOut = { userZoomed = true; scope.launch { camera.animate(CameraUpdateFactory.zoomOut()) } })
             }
             if (servicesProblem == null) {
-                if (!shortMap) Column(Modifier.align(Alignment.TopEnd).padding(Space.s2), verticalArrangement = Arrangement.spacedBy(Space.s2)) { controls() }
-                else Row(Modifier.align(Alignment.TopEnd).padding(Space.s2), horizontalArrangement = Arrangement.spacedBy(Space.s2)) { controls() }
+                if (!shortMap) Column(Modifier.align(Alignment.TopEnd).padding(Space.s2), verticalArrangement = Arrangement.spacedBy(Space.s2)) { controls(true) }
+                else Row(Modifier.align(Alignment.TopEnd).padding(Space.s2), horizontalArrangement = Arrangement.spacedBy(Space.s2)) { controls(false) }
             }
             // A route that is still loading is not reported as empty. The map loads at the same time.
             val noPoints = routeReady && lines.all { it.isEmpty() }
@@ -498,6 +499,38 @@ private fun RouteOverlay(
         val icon = remember(icons, moment.number) { icons.numbered(moment.number) }
         Marker(rememberUpdatedMarkerState(LatLng(Math.toDegrees(moment.latitudeRadians), Math.toDegrees(moment.longitudeRadians))),
             contentDescription = moment.description, anchor = Offset(0.5f, 0.5f), icon = icon, zIndex = 3f, onClick = { true })
+    }
+}
+
+/**
+ * Zoom in and zoom out as one floating control, so the map has fewer separate buttons. Each half keeps a 48 dp touch target.
+ * The control is a column beside the map, or a row on a short map.
+ */
+@Composable
+private fun ZoomControls(vertical: Boolean, onZoomIn: () -> Unit, onZoomOut: () -> Unit) {
+    val colors = CvkeTheme.colors
+    val shape = RoundedCornerShape(Size.touch / 2)
+    val zoomIn: @Composable () -> Unit = {
+        IconButton(onClick = onZoomIn, modifier = Modifier.size(Size.touch).testTag("map_zoom_in")) {
+            Icon(painterResource(R.drawable.ic_add), contentDescription = stringResource(R.string.map_zoom_in))
+        }
+    }
+    val zoomOut: @Composable () -> Unit = {
+        IconButton(onClick = onZoomOut, modifier = Modifier.size(Size.touch).testTag("map_zoom_out")) {
+            Icon(painterResource(R.drawable.ic_remove), contentDescription = stringResource(R.string.map_zoom_out))
+        }
+    }
+    // The same overlay shadow as the round map buttons, so the control reads on every map type.
+    Surface(Modifier.shadow(6.dp, shape), shape = shape, color = colors.surface, contentColor = colors.ink) {
+        if (vertical) Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            zoomIn()
+            Box(Modifier.width(Space.s6).height(1.dp).background(colors.border))
+            zoomOut()
+        } else Row(verticalAlignment = Alignment.CenterVertically) {
+            zoomIn()
+            Box(Modifier.width(1.dp).height(Space.s6).background(colors.border))
+            zoomOut()
+        }
     }
 }
 

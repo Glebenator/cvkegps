@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Column
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -182,23 +183,24 @@ fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> 
                     map = { modifier, _ -> MapSurface(lines.orEmpty(), modifier, live = true, routeReady = lines != null, position = position) },
                     edgeToEdge = false, bottom = buttons, pane = pane,
                 ) else MapWorkspace(lines, live = true, position = position) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom,
-                        horizontalArrangement = Arrangement.spacedBy(Space.s4)) {
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
-                            TripStatusChip(trip.status, noSignal, approximate = approximate)
-                            // One line: a long value gets smaller instead of breaking between the number and the unit.
-                            BasicText(reading?.speedMetersPerSecond?.let(format::speed) ?: stringResource(R.string.no_value),
-                                Modifier.testTag("tracking_speed"), maxLines = 1,
-                                style = MaterialTheme.typography.headlineMedium.copy(color = MaterialTheme.colorScheme.onSurface),
-                                autoSize = TextAutoSize.StepBased(minFontSize = 14.sp, maxFontSize = MaterialTheme.typography.headlineMedium.fontSize))
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text(format.duration(elapsed), style = MaterialTheme.typography.titleMedium, maxLines = 1)
-                            // The recorder updates the distance with each save, so it does not wait for the route.
-                            Text(trip.distanceMeters?.let(format::distance) ?: stringResource(R.string.no_value),
-                                Modifier.testTag("live_distance"), style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                        }
+                    // The status and the activity. The activity chip wraps below a long status, such as an approximate position.
+                    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.s2, Alignment.Start),
+                        verticalArrangement = Arrangement.spacedBy(Space.s2), itemVerticalAlignment = Alignment.CenterVertically) {
+                        TripStatusChip(trip.status, noSignal, approximate = approximate)
+                        Spacer(Modifier.weight(1f))
+                        ActivityChip(stringResource(trip.mode.title()), onClick = { actions.chooseMode(trip.id) }, icon = trip.mode.icon(),
+                            trailing = R.drawable.ic_expand_more, spoken = activityText(trip))
+                    }
+                    // Speed, time, and distance as three labelled values. Speed is the widest column and the largest value.
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(Space.s3)) {
+                        val speed = reading?.speedMetersPerSecond
+                        LiveValue(R.string.trip_speed, speed?.let(format::speedNumber), speed?.let { format.speedUnit }, "tracking_speed",
+                            Modifier.weight(1.3f), large = true, spoken = speed?.let(format::spokenSpeed) ?: stringResource(R.string.speed_unavailable_accessibility))
+                        LiveValue(R.string.recording_metric_time, format.clock(elapsed), null, "live_time", Modifier.weight(1f),
+                            spoken = format.duration(elapsed))
+                        // The recorder updates the distance with each save, so it does not wait for the route.
+                        val distance = trip.distanceMeters?.let(format::distanceAmount)
+                        LiveValue(R.string.trip_distance, distance?.let(format::number), distance?.unit, "live_distance", Modifier.weight(1f))
                     }
                     TripActions(trip, actions.pause, { actions.resume(trip.id) }, { actions.stop(trip.id) })
                 }
@@ -206,6 +208,28 @@ fun LiveTripScreen(actions: TrackingActions, onBack: () -> Unit, onEnded: () -> 
         }
     }
     if (!wideTrip) detailsSheet()
+}
+
+/**
+ * A portrait panel value: a label, then the number and its [unit] on one line. A long value gets smaller instead of breaking.
+ * A missing value shows as unavailable, without a unit. [spoken] replaces the visible value for screen readers.
+ */
+@Composable
+private fun LiveValue(@StringRes label: Int, value: String?, unit: String?, tag: String, modifier: Modifier, large: Boolean = false, spoken: String? = null) {
+    val style = if (large) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.titleLarge
+    val title = stringResource(label)
+    val text = value ?: stringResource(R.string.no_value)
+    val description = "$title: ${spoken ?: listOfNotNull(text, unit.takeIf { value != null }).joinToString(" ")}"
+    Column(modifier.testTag(tag).clearAndSetSemantics { contentDescription = description }) {
+        Text(title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        Row(horizontalArrangement = Arrangement.spacedBy(Space.s1)) {
+            BasicText(text, Modifier.weight(1f, fill = false).alignByBaseline(), maxLines = 1,
+                style = style.copy(color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum"),
+                autoSize = TextAutoSize.StepBased(minFontSize = 14.sp, maxFontSize = style.fontSize))
+            if (value != null && unit != null) Text(unit, Modifier.alignByBaseline(), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        }
+    }
 }
 
 /** The landscape speed: the largest value in the pane. The number gets smaller instead of breaking. */

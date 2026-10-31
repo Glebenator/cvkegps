@@ -319,12 +319,15 @@ internal fun StopButton(details: Boolean, onClick: () -> Unit) {
 private fun ReplayDetails(player: ReplayPlayer, chart: ReplayChartKind?, onChart: (ReplayChartKind) -> Unit, chartHeight: Dp) {
     val format = rememberDisplayFormat()
     val replay = player.replay
-    ReplayValues(player, format)
+    // With all charts, each chart title shows its value at the cursor, so the values row shows only the time.
+    // One chart at a time keeps all values in the row, because the other charts do not show.
+    ReplayValues(player, format, timeOnly = chart == null)
     ReplayControls(player)
     MomentChips(player, format) { moment -> if (chart != null) onChart(moment.kind.chart) }
     ReplayCharts(replay, player.playhead, format, player.heightOffset,
         if (player.heightReference == AltitudeReference.SeaLevel) R.string.trip_altitude else R.string.trip_gps_height,
-        timelineState(player, format), player.seek, player.pauseAt, chart, onChart, chartHeight)
+        timelineState(player, format), player.seek, player.pauseAt, chart, onChart, chartHeight,
+        value = if (chart == null) { kind -> ChartValue(kind, player, format) } else null)
     if (!replay.accelerationFromSensors && replay.acceleration.isNotEmpty()) {
         Text(stringResource(R.string.replay_acceleration_gps), style = MaterialTheme.typography.bodySmall, color = CvkeTheme.colors.inkMuted)
     }
@@ -352,27 +355,49 @@ private fun ColumnScope.ReplayPanel(player: ReplayPlayer) {
 }
 
 @Composable
-private fun ReplayValues(player: ReplayPlayer, format: DisplayFormat) {
-    val values = player.values
+private fun ReplayValues(player: ReplayPlayer, format: DisplayFormat, timeOnly: Boolean = false) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.s6), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
         Metric(R.string.replay_time_label, stringResource(R.string.replay_time, format.clock(player.playhead), format.clock(player.replay.durationNanos)),
             tag = "replay_time")
-        // A network position or a gap has no speed. The text says why.
-        Metric(R.string.replay_speed_label, when {
-            values.fix == null -> stringResource(R.string.replay_no_gps)
-            values.fix.source == FixSource.Network -> stringResource(R.string.replay_approximate)
-            else -> values.speedMetersPerSecond?.let(format::speed)
-        }, tag = "replay_speed")
+        if (timeOnly) return@FlowRow
+        Metric(R.string.replay_speed_label, replaySpeed(player, format), tag = "replay_speed")
         if (player.replay.heightSource != HeightSource.None) {
             Metric(if (player.heightReference == AltitudeReference.SeaLevel) R.string.trip_altitude else R.string.trip_gps_height,
-                values.heightMeters?.let { format.altitude(it - player.heightOffset) }, tag = "replay_height")
+                replayHeight(player, format), tag = "replay_height")
         }
         if (player.replay.acceleration.isNotEmpty()) {
-            Metric(R.string.replay_acceleration_label, values.accelerationMetersPerSecondSquared?.let { format.acceleration(it.toDouble()) },
-                tag = "replay_acceleration")
+            Metric(R.string.replay_acceleration_label, replayAcceleration(player, format), tag = "replay_acceleration")
         }
     }
 }
+
+/** The value of one chart at the cursor, beside the chart title. It has the same test tag as in the values row. */
+@Composable
+private fun ChartValue(kind: ReplayChartKind, player: ReplayPlayer, format: DisplayFormat) {
+    val (value, tag) = when (kind) {
+        ReplayChartKind.Speed -> replaySpeed(player, format) to "replay_speed"
+        ReplayChartKind.Height -> replayHeight(player, format) to "replay_height"
+        ReplayChartKind.Acceleration -> replayAcceleration(player, format) to "replay_acceleration"
+    }
+    Text(value ?: stringResource(R.string.no_value), Modifier.testTag(tag),
+        style = MaterialTheme.typography.titleSmall.copy(fontFeatureSettings = "tnum"), maxLines = 1)
+}
+
+/** A network position or a gap has no speed. The text says why. */
+@Composable
+private fun replaySpeed(player: ReplayPlayer, format: DisplayFormat): String? = player.values.let { values ->
+    when {
+        values.fix == null -> stringResource(R.string.replay_no_gps)
+        values.fix.source == FixSource.Network -> stringResource(R.string.replay_approximate)
+        else -> values.speedMetersPerSecond?.let(format::speed)
+    }
+}
+
+private fun replayHeight(player: ReplayPlayer, format: DisplayFormat): String? =
+    player.values.heightMeters?.let { format.altitude(it - player.heightOffset) }
+
+private fun replayAcceleration(player: ReplayPlayer, format: DisplayFormat): String? =
+    player.values.accelerationMetersPerSecondSquared?.let { format.acceleration(it.toDouble()) }
 
 /**
  * The difference between the GPS height and sea level near the start of the trip, and the reference that applies.
