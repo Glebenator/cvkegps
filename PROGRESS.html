@@ -167,18 +167,19 @@
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-10-30">30 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>d14442b</code> plus the saved row (branch <code>native-maps</code>, not committed)</dd></div>
+          <div><dt>App code baseline</dt><dd><code>3d8033b</code> (saved row) merged with the map styles <code>26ee98b</code> (branch <code>native-maps</code>)</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
       </aside>
     </div>
     <div class="metrics" aria-label="Last verified results">
-      <div class="metric"><strong>42 / 48</strong><span>Device tests passed in one run with the replay mode</span><span class="small">Pixel 10 Pro emulator, API 37, on a slow emulator; the 6 others passed one by one after a cold start</span></div>
-      <div class="metric"><strong>58 / 58</strong><span>Calculation tests passed</span><span class="small">New: speed colour smoothing, scale, and runs</span></div>
+      <div class="metric"><strong>51 / 53</strong><span>Device tests passed in one run with the saved row and the map styles</span><span class="small">Pixel 10 Pro emulator, API 37; the sky map test and the location-on test passed alone</span></div>
+      <div class="metric"><strong>58 / 58</strong><span>Calculation tests passed</span><span class="small">On the merged code</span></div>
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, debug lint, and unsigned release build</span><span class="small">Release APK not installed or run</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#map-styles">Map styles · 30 Oct</a>
       <a href="#trip-saved-row">Trip saved row · 30 Oct</a>
       <a href="#map-settings">Map settings · 30 Oct</a>
       <a href="#colour-choices">Colour choices · 30 Oct</a>
@@ -215,6 +216,64 @@
       <a href="#history">Change history</a>
     </nav>
 
+    <section id="map-styles" aria-labelledby="map-styles-heading">
+      <div class="section-head"><h2 id="map-styles-heading">Map styles · 30 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
+      <p class="section-intro">Settings &gt; Maps &gt; Map style changes the look of the Default map type. It is the first Group A feature of the <a href="docs/google-maps-features-research.md">Google Maps features research</a>: free, in the Maps SDK, and with no new data to Google. The owner chose Minimal and High contrast. The styles are JSON styles in <a href="app/src/main/res/raw"><code>res/raw</code></a> without a map ID, so they add no cost (<a href="docs/adr/0006-map-styles-as-json-styles-without-a-map-id.md">ADR 0006</a>).</p>
+      <div class="table-wrap"><table class="wrap-cells">
+        <thead><tr><th scope="col">Style</th><th scope="col">Look</th><th scope="col">Light and dark</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Standard (default)</th><td>The Google map with all places, as before.</td><td>The dark map of the Maps SDK.</td></tr>
+          <tr><th scope="row">Minimal</th><td>Roads, road names, road numbers, water, and parks in the neutral design tokens. No places of business, other places, transit, neighbourhood names, or land parcels.</td><td>Two files from the light and the dark tokens. Text has a halo in the land colour: 5.6:1 in light, 7.6:1 in dark, and 4.5:1 or more on water.</td></tr>
+          <tr><th scope="row">High contrast</th><td>Black or white text, black or white road edges, built-up areas at 2:1 to the roads, and clearer water and parks. Places and transit stay.</td><td>White land in light, black land in dark. Black text with a white halo, or white text with a black halo: 9.5:1 or more, also on water.</td></tr>
+        </tbody>
+      </table></div>
+      <div class="table-wrap" style="margin-top:18px"><table class="wrap-cells">
+        <thead><tr><th scope="col">Other map setting</th><th scope="col">With a style</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Map type menu</th><td>The Maps SDK styles the normal map type only. Satellite and terrain keep the Google look, and the style applies again on Default.</td></tr>
+          <tr><th scope="row">Labels on satellite</th><td>No change. The satellite labels are the Google labels.</td></tr>
+          <tr><th scope="row">Speed colours</th><td>No change. Each light file is light and each dark file is dark, so the outline is dark on a light map and white on a dark map. Both end colours show on both styles.</td></tr>
+          <tr><th scope="row">3D buildings</th><td>Buildings use the built-up area colour of the style.</td></tr>
+        </tbody>
+      </table></div>
+      <pre><code><a href="app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt">RouteMap.kt</a> · the style of the map
+// Styles work only on the default map type. A style replaces the dark map of the SDK, so each style has a dark version.
+val style = rememberMapStyle(choice.mapStyle.takeIf { choice.mapLayer == MapLayer.Default }?.resource(dark))</code></pre>
+      <h3 style="margin-top:24px">Pixel 10 Pro emulator, Android 17 (API 37)</h3>
+      <div class="screens">
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-map-style-minimal-light.webp"><img src="docs/progress/images/2026-10-30-map-style-minimal-light.webp" loading="lazy" alt="The current trip map in Minimal, light: grey blocks, white roads, light blue water, pale green parks, street names, and no place icons."></a>
+      <figcaption><strong>Minimal, light</strong>30 October 2026. Baseline <code>d14442b</code> plus the map styles. Pixel 10 Pro emulator, Android 17 (API 37). Current trip map with simulated GPS test locations in Vancouver at 10 m/s. Wallpaper colours.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-map-style-minimal-dark.webp"><img src="docs/progress/images/2026-10-30-map-style-minimal-dark.webp" loading="lazy" alt="The current trip map in Minimal, dark: near-black land, dark grey roads, muted grey street names, and no place icons."></a>
+      <figcaption><strong>Minimal, dark</strong>30 October 2026. Baseline <code>d14442b</code> plus the map styles. Pixel 10 Pro emulator, Android 17 (API 37). Simulated GPS test locations in Vancouver. Dark theme set by the test.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-map-style-high-contrast-light.webp"><img src="docs/progress/images/2026-10-30-map-style-high-contrast-light.webp" loading="lazy" alt="The current trip map in High contrast, light: grey blocks, white roads with black edges, black street names, blue water, green parks, and place icons."></a>
+      <figcaption><strong>High contrast, light</strong>30 October 2026. Baseline <code>d14442b</code> plus the map styles. Pixel 10 Pro emulator, Android 17 (API 37). Simulated GPS test locations in Vancouver.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-map-style-high-contrast-dark.webp"><img src="docs/progress/images/2026-10-30-map-style-high-contrast-dark.webp" loading="lazy" alt="The current trip map in High contrast, dark: black land and roads with white edges, grey blocks, white street names, dark blue water, and dark green parks."></a>
+      <figcaption><strong>High contrast, dark</strong>30 October 2026. Baseline <code>d14442b</code> plus the map styles. Pixel 10 Pro emulator, Android 17 (API 37). Simulated GPS test locations in Vancouver. Dark theme set by the test.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-map-style-speed-colours.webp"><img src="docs/progress/images/2026-10-30-map-style-speed-colours.webp" loading="lazy" alt="A saved trip map in High contrast at street zoom: white roads between grey blocks, and the route from the green start to the red end in speed colours from dark purple to yellow with a dark outline, below the speed legend."></a>
+      <figcaption><strong>Speed colours on High contrast</strong>30 October 2026. Baseline <code>d14442b</code> plus the map styles. Pixel 10 Pro emulator, Android 17 (API 37). Saved trip from simulated GPS test locations, 2 to 30 m/s.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-map-style-settings-light.webp"><img src="docs/progress/images/2026-10-30-map-style-settings-light.webp" loading="lazy" alt="Settings, Maps card: Map type, then the label Map style with radio rows for Standard, Minimal, and High contrast, each with a short description, and a note that map styles apply to the default map type."></a>
+      <figcaption><strong>Map style in Settings</strong>30 October 2026. Baseline <code>d14442b</code> plus the map styles. Pixel 10 Pro emulator, Android 17 (API 37). Default emulator wallpaper.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-map-style-settings-large-text.webp"><img src="docs/progress/images/2026-10-30-map-style-settings-large-text.webp" loading="lazy" alt="The Map style rows at 200% text: each title and description wraps inside its row, the radio buttons stay beside the titles, and the note about the default map type wraps above Labels on satellite."></a>
+      <figcaption><strong>200% text</strong>30 October 2026. Baseline <code>d14442b</code> plus the map styles. Pixel 10 Pro emulator, Android 17 (API 37). Display settings were restored after the test.</figcaption></figure>
+      </div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li>New Settings device test <code>mapStylesChangeTheDefaultMapInLightAndDarkAndStayAfterRecreation</code>: on the current trip map, the most common map colour is the land or built-up area colour of Minimal light, then Minimal dark after the theme changes, also after a new activity, then High contrast dark and light. With satellite, and after a change back to Standard, no style colour is the most common colour. The test reads the screen pixels, because the map draws on its own surface.</li>
+          <li>The speed colour device test now also changes the saved trip map to Minimal and High contrast. Both end colours of the speed scale show on each style.</li>
+          <li>The settings unit test reads an unknown stored style as Standard and stores a style choice.</li>
+          <li>Full device suite on the Pixel 10 Pro API 37 emulator: 52 of 53 tests passed in one run of 34 minutes. The other test, <code>highAccuracyRecordsEachFastFixAndStandardKeepsOnePerSecond</code>, does not use maps and passed alone. After the last High contrast colour change and the note spacing change, the style test, the speed colour test, and the Settings layout test passed again. 58 of 58 calculation tests passed. The debug build, the test build, the unsigned release build, and debug lint passed with no issues. Raw captures: <code>artifacts/map-styles/</code> (not in Git). The report section was checked at 1024 px and 360 px: no page overflow, and the tables scroll inside their frame.</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>All map checks used one place, downtown Vancouver, from simulated GPS test locations. Rural roads, motorways, and other countries were not checked.</li>
+          <li>The style test needs map tiles from the network. Without them it fails.</li>
+          <li>High contrast was not checked in sunlight. Readability outdoors and with low vision needs a real phone.</li>
+          <li>Traffic on a styled map and the terrain map with a style choice were not captured. A new map can show the Standard map for a moment before the style file loads. This was not measured.</li>
+          <li>The release build was not checked. Nothing was checked on a real phone.</li>
+        </ul>
+      </article>
+    </section>
+
     <section id="trip-saved-row" aria-labelledby="trip-saved-row-heading">
       <div class="section-head"><h2 id="trip-saved-row-heading">Trip saved row in place of the snackbar · 30 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
       <p class="section-intro">Stop and save showed a "Trip saved" snackbar with Resume trip. It covered the trip values, it closed after about 10 seconds while the recorder accepts Resume for 2 minutes, and the design language allows no toasts. The owner chose an inline row from four options.
@@ -246,7 +305,7 @@
         <h3 style="margin-top:18px">Known limits</h3>
         <ul>
           <li>The end of the time uses the device clock, as the recorder does. A clock change can move it.</li>
-          <li>TalkBack was not used on the row. The full device test suite was not run after this change. The release build was not checked.</li>
+          <li>TalkBack was not used on the row. The release build was not checked. The full device test suite ran after the merge with the map styles: see the <a href="#history">change history</a>.</li>
         </ul>
       </article>
     </section>
@@ -2291,6 +2350,7 @@ val angle = azimuthRadians - headingRadians</code></pre>
             <li>GPX import, or GPX altitude converted to height above sea level. GPX export and sharing are <a href="#gpx-export">implemented</a>.</li>
             <li>A route line coloured by speed (the Maps SDK supports gradient line spans). It needs a legend and colours that do not carry meaning alone.</li>
             <li>Update Kotlin to 2.4, then <code>maps-compose</code> to 9.x and Play services Maps to 20.1.</li>
+            <li>The other Group A features of the <a href="docs/google-maps-features-research.md">Google Maps features research</a>, one at a time: an all-trips map, a planned route overlay, trip list thumbnails after a list performance measurement, and a share card drawn by the app. <a href="#map-styles">Map styles</a> are implemented. The transit layer waits for support in the map: on 30 October 2026, Google Play services 26.41.31 on the API 37 emulator logged "setTransitEnabled is not yet supported", and the map kept transit off.</li>
             <li>Automatic pause and improved activity classification, after field validation.</li>
             <li>Volume-button controls and a larger speed display mode.</li>
           </ul>
@@ -2303,6 +2363,10 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-30">30 October 2026</time><div><h3>Saved row and map styles together on native-maps</h3>
+<p>The <a href="#trip-saved-row">Trip saved row</a> is committed on <code>native-maps</code> as <code>3d8033b</code>, and the <a href="#map-styles">map styles</a> branch is merged into it. Only this report had conflicts. On a Pixel 10 Pro API 37 emulator, 51 of 53 device tests passed in one run of 26 minutes. <code>skyMapHandlesAnglesThemesRotationLargeTextAndOldReports</code> did not find the sky map after the turn to landscape at large text, and <code>locationTurnedOnWhileTheAppShowsBringsBackStartTrip</code> did not see Start trip again within 10 seconds. Both use code that the merge did not change, and both passed alone. 58 of 58 calculation tests, the debug build, the test build, and debug lint passed. The release build was not checked. Raw results: <code>artifacts/merge-native-maps/</code> (not in Git).</p></div></li>
+<li><time datetime="2026-10-30">30 October 2026</time><div><h3>Map styles</h3>
+<p>Settings &gt; Maps &gt; Map style adds Minimal and High contrast beside Standard. Each has a light and a dark version that follows the app theme. They are JSON styles without a map ID and apply to the Default map type. The Google Maps features research of 30 October 2026 is now in the repository. On a Pixel 10 Pro API 37 emulator, 52 of 53 device tests passed in one run and the other one passed alone. 58 of 58 calculation tests, lint, and the release build passed. See <a href="#map-styles">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-30">30 October 2026</time><div><h3>Trip saved row in place of the snackbar</h3>
 <p>After Stop and save, a row above the trip values says that the trip is saved and offers Resume trip for the full 2 minutes, then fades out. It replaces the snackbar, which covered the values and closed after about 10 seconds. On a Pixel 10 Pro API 37 emulator, the three resume tests and five saved-trip layout tests, 58 of 58 calculation tests, and lint passed. See <a href="#trip-saved-row">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-30">30 October 2026</time><div><h3>Map settings</h3>

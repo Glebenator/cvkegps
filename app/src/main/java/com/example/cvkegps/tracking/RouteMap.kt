@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.text.format.DateUtils
 import androidx.activity.compose.LocalActivity
+import androidx.annotation.RawRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -54,6 +55,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -86,6 +88,7 @@ import com.example.cvkegps.location.FixSource
 import com.example.cvkegps.location.TrackSample
 import com.example.cvkegps.settings.MapLayer
 import com.example.cvkegps.settings.MapStart
+import com.example.cvkegps.settings.MapStyle
 import com.example.cvkegps.settings.RouteColour
 import com.example.cvkegps.ui.FloatingBackButton
 import com.example.cvkegps.ui.rememberDisplayFormat
@@ -99,6 +102,7 @@ import com.google.android.gms.maps.model.Dash
 import com.google.android.gms.maps.model.Gap
 import com.google.android.gms.maps.model.JointType
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.android.gms.maps.model.RoundCap
 import com.google.android.gms.maps.model.StrokeStyle
 import com.google.android.gms.maps.model.StyleSpan
@@ -193,6 +197,8 @@ private fun MapCanvas(
     val bySpeed = !live && choice.routeColour == RouteColour.Speed
     // An outline keeps both ends of the speed colours visible: dark on a light map, white on a dark or satellite map.
     val outline = if (dark || choice.mapLayer == MapLayer.Satellite) SpeedRamp.outlineOnDark else SpeedRamp.outlineOnLight
+    // Styles work only on the default map type. A style replaces the dark map of the SDK, so each style has a dark version.
+    val style = rememberMapStyle(choice.mapStyle.takeIf { choice.mapLayer == MapLayer.Default }?.resource(dark))
     // A missing or old Google Play services result. Null while the check runs or when the services are ready.
     val servicesProblem = rememberPlayServices()?.takeIf { it != ConnectionResult.SUCCESS }
     val scope = rememberCoroutineScope()
@@ -317,6 +323,7 @@ private fun MapCanvas(
                 // Traffic is current, so it shows only on the map of the current trip.
                 isTrafficEnabled = live && choice.mapTraffic,
                 isBuildingEnabled = choice.map3dBuildings,
+                mapStyleOptions = style,
             ),
             // The app's 48 dp buttons replace the small SDK zoom controls. The marker toolbar opens a saved start or end in Google Maps.
             uiSettings = MapUiSettings(
@@ -561,6 +568,24 @@ private fun speedSpans(positions: List<Float?>, alpha: Float): List<StyleSpan> =
     val to = (run.to?.let(SpeedRamp::at) ?: SpeedRamp.noSpeed).copy(alpha = alpha).toArgb()
     val style = if (from == to) StrokeStyle.colorBuilder(from) else StrokeStyle.gradientBuilder(from, to)
     StyleSpan(style.build(), run.segments.toDouble())
+}
+
+/** The JSON style file of this style in the light or the dark theme. Null for the Google map. */
+@RawRes private fun MapStyle.resource(dark: Boolean): Int? = when (this) {
+    MapStyle.Standard -> null
+    MapStyle.Minimal -> if (dark) R.raw.map_style_minimal_dark else R.raw.map_style_minimal_light
+    MapStyle.HighContrast -> if (dark) R.raw.map_style_high_contrast_dark else R.raw.map_style_high_contrast_light
+}
+
+/** The map style in [resource], read off the main thread. Null without a resource. The previous style stays while a new one loads. */
+@Composable
+private fun rememberMapStyle(@RawRes resource: Int?): MapStyleOptions? {
+    val resources = LocalResources.current
+    return produceState<MapStyleOptions?>(null, resource, resources) {
+        value = resource?.let {
+            withContext(Dispatchers.IO) { MapStyleOptions(resources.openRawResource(it).bufferedReader().use { file -> file.readText() }) }
+        }
+    }.value
 }
 
 /** Opens the Google Play services dialog that installs, updates, or turns on the services that the map needs. */

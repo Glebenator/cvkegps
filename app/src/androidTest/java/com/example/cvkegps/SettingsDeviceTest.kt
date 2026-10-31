@@ -31,6 +31,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
 import com.example.cvkegps.settings.AppColours
+import com.example.cvkegps.settings.MapStyle
 import com.example.cvkegps.tracking.RecordingCommand
 import com.example.cvkegps.tracking.TrackingApplication
 import com.example.cvkegps.tracking.TripStatus
@@ -88,6 +89,7 @@ class SettingsDeviceTest {
             app.settings.setMapSatelliteLabels(true)
             app.settings.setMapAccuracyCircle(true)
             app.settings.setRouteAppBlue(false)
+            app.settings.setMapStyle(MapStyle.Standard)
         }
         device.wakeUp()
         manager.removeTestProvider(LocationManager.GPS_PROVIDER)
@@ -266,6 +268,58 @@ class SettingsDeviceTest {
         compose.onNodeWithTag("map_start_course").performScrollTo().assertIsSelected()
     }
 
+    @Test fun mapStylesChangeTheDefaultMapInLightAndDarkAndStayAfterRecreation() {
+        val night = shell("cmd uimode night").substringAfter(":").trim()
+        try {
+            setNight(false)
+            launch()
+            openSettings()
+            compose.onNodeWithTag("map_style_standard").performScrollTo().assertIsSelected()
+            compose.onNodeWithTag("map_style_minimal").performScrollTo().performClick()
+            compose.onNodeWithTag("map_style_minimal").assertIsSelected()
+            capture("map-style-minimal-selected")
+            compose.onNodeWithTag("settings_back").performClick()
+            // Each style has a light and a dark version that follows the theme. Land or built-up area is the most common map colour.
+            startTrip()
+            awaitMapColour(MINIMAL_LIGHT)
+            capture("map-style-minimal-light")
+            setNight(true)
+            awaitMapColour(MINIMAL_DARK)
+            capture("map-style-minimal-dark")
+            scenario!!.recreate()
+            awaitMapColour(MINIMAL_DARK)
+            device.pressBack()
+            openSettings()
+            compose.onNodeWithTag("map_style_high_contrast").performScrollTo().performClick()
+            compose.onNodeWithTag("settings_back").performClick()
+            compose.onNodeWithTag("show_route").performClick()
+            awaitMapColour(HIGH_CONTRAST_DARK)
+            capture("map-style-high-contrast-dark")
+            setNight(false)
+            awaitMapColour(HIGH_CONTRAST_LIGHT)
+            capture("map-style-high-contrast-light")
+            // Styles work only on the default map type. The satellite map shows the images.
+            compose.onNodeWithTag("map_layers").performClick()
+            compose.onNodeWithTag("map_layer_satellite").performClick()
+            compose.waitUntil(30_000) { inject(); mapColour() !in STYLE_COLOURS }
+            capture("map-style-satellite")
+            compose.onNodeWithTag("map_layers").performClick()
+            compose.onNodeWithTag("map_layer_default").performClick()
+            awaitMapColour(HIGH_CONTRAST_LIGHT)
+            // The standard map is the Google map again.
+            device.pressBack()
+            openSettings()
+            compose.onNodeWithTag("map_style_standard").performScrollTo().performClick()
+            compose.onNodeWithTag("settings_back").performClick()
+            compose.onNodeWithTag("show_route").performClick()
+            compose.waitUntil(30_000) { inject(); mapColour() !in STYLE_COLOURS }
+            capture("map-style-standard-light")
+        } finally {
+            instrumentation.runOnMainSync { app.settings.setMapLayer(com.example.cvkegps.settings.MapLayer.Default) }
+            shell("cmd uimode night $night")
+        }
+    }
+
     @Test fun settingsFitThemesLargeTextAndRotation() {
         val font = shell("settings get system font_scale").trim()
         val rotation = shell("settings get system user_rotation").trim()
@@ -282,6 +336,10 @@ class SettingsDeviceTest {
                     capture("$name-$landscape-units")
                     compose.onNodeWithTag("screen_on_always").performScrollTo().assertIsDisplayed()
                     capture("$name-$landscape-screen")
+                    compose.onNodeWithTag("map_style_high_contrast").performScrollTo().assertIsDisplayed()
+                    // The note below the styles shows above the next row.
+                    compose.onNodeWithTag("setting_satellite_labels").performScrollTo()
+                    capture("$name-$landscape-map-style")
                     compose.onNodeWithTag("setting_traffic").performScrollTo().assertIsDisplayed()
                     capture("$name-$landscape-maps")
                 }
@@ -310,6 +368,45 @@ class SettingsDeviceTest {
             ready
         }
         compose.waitForIdle()
+    }
+
+    private fun setNight(dark: Boolean) {
+        shell("cmd uimode night ${if (dark) "yes" else "no"}")
+        val activity = scenario ?: return
+        compose.waitUntil(5_000) {
+            var ready = false
+            activity.onActivity {
+                ready = (it.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
+                    android.content.res.Configuration.UI_MODE_NIGHT_YES) == dark
+            }
+            ready
+        }
+        compose.waitForIdle()
+    }
+
+    /** The most common colour in the middle of the trip map, from a screenshot, because the map draws on its own surface. */
+    private fun mapColour(): Int? {
+        compose.waitForIdle()
+        val bounds = compose.onAllNodesWithTag("route_map").fetchSemanticsNodes().firstOrNull()?.boundsInWindow ?: return null
+        val shot = instrumentation.uiAutomation.takeScreenshot()?.let { it.copy(android.graphics.Bitmap.Config.ARGB_8888, false) } ?: return null
+        val counts = HashMap<Int, Int>()
+        val left = (bounds.left + bounds.width * 0.2f).toInt().coerceIn(0, shot.width - 1)
+        val right = (bounds.right - bounds.width * 0.2f).toInt().coerceIn(left + 1, shot.width)
+        val top = (bounds.top + bounds.height * 0.2f).toInt().coerceIn(0, shot.height - 1)
+        val bottom = (bounds.bottom - bounds.height * 0.2f).toInt().coerceIn(top + 1, shot.height)
+        for (x in left until right step 4) for (y in top until bottom step 4) counts.merge(shot.getPixel(x, y), 1, Int::plus)
+        shot.recycle()
+        return counts.maxByOrNull { it.value }?.key
+    }
+
+    /** Sends fixes until the most common colour of the trip map is one of [colours], so the map has loaded with that style. */
+    private fun awaitMapColour(colours: List<Int>) {
+        var last: Int? = null
+        runCatching { compose.waitUntil(30_000) { inject(); mapColour().also { last = it } in colours } }.onFailure {
+            capture("map-style-failure")
+            throw AssertionError("The most common map colour is ${last?.let { "%08X".format(it) }}, " +
+                "not one of ${colours.joinToString { "%08X".format(it) }}", it)
+        }
     }
 
     private fun launch() {
@@ -413,5 +510,11 @@ class SettingsDeviceTest {
 
     private companion object {
         const val SPEED = 10f
+        /** The land and the built-up area colours of the map style files. */
+        val MINIMAL_LIGHT = listOf(0xFFF6F7F9, 0xFFECEEF1).map(Long::toInt)
+        val MINIMAL_DARK = listOf(0xFF12161B, 0xFF1A2027).map(Long::toInt)
+        val HIGH_CONTRAST_LIGHT = listOf(0xFFFFFFFF, 0xFFB4B9C0).map(Long::toInt)
+        val HIGH_CONTRAST_DARK = listOf(0xFF000000, 0xFF3C434C).map(Long::toInt)
+        val STYLE_COLOURS = MINIMAL_LIGHT + MINIMAL_DARK + HIGH_CONTRAST_LIGHT + HIGH_CONTRAST_DARK
     }
 }
