@@ -2242,6 +2242,15 @@ val angle = azimuthRadians - headingRadians</code></pre>
       </article>
       <p class="section-intro">The first tracking scope is implemented.
         The items below remain open. They are a plan for later work, not implemented features.</p>
+      <article id="performance-review" class="panel" style="margin-bottom:18px">
+        <span class="tag pending">Proposed · 30 October 2026 · Waiting for the owner's choice</span>
+        <h3>Performance fixes from the review of 30 October 2026</h3>
+        <p>On the owner's Pixel 7 Pro, the Replay tap on a 36 minute trip takes 0.93 s in a release-like build and 2.18 s in the debug build before the replay is ready.
+          The replay reads 13.7 MB of sensor data and analyses it first. The map does not zoom until the replay has a position, and on that trip not until Play.
+          During the first play, the replay camera starts an 800 ms animation on each frame. The review ranks seven findings and proposes fixes F1 to F9 with their risks.
+          None is implemented.</p>
+        <p><a href="docs/performance-review-2026-10-30.md">Open the performance review</a>.</p>
+      </article>
       <article id="favicon-proposal" class="panel" style="margin-bottom:18px">
         <span class="tag done">Applied · 23 October 2026</span>
         <h3>Signal dial favicon</h3>
@@ -2363,6 +2372,8 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-30">30 October 2026</time><div><h3>Performance review</h3>
+<p>Measured the app start, the trip open, and the Replay tap on the owner's Pixel 7 Pro with a real 36 minute trip, in the debug build and in a release-like build (<code>benchmarkRelease</code>, compiled with the Baseline Profile). Cold start is 161 ms (release-like) and 715 ms (debug). The Replay tap needs 0.93 s and 2.18 s before the replay is ready, and the map does not zoom at once. Temporary timing marks, StrictMode, gfxinfo, and Perfetto traces gave the evidence. No app code changed, and no device tests ran. The emulator was not used. See the <a href="docs/performance-review-2026-10-30.md">review</a> and the <a href="#performance-review">proposed fixes</a>.</p></div></li>
 <li><time datetime="2026-10-30">30 October 2026</time><div><h3>Saved row and map styles together on native-maps</h3>
 <p>The <a href="#trip-saved-row">Trip saved row</a> is committed on <code>native-maps</code> as <code>3d8033b</code>, and the <a href="#map-styles">map styles</a> branch is merged into it. Only this report had conflicts. On a Pixel 10 Pro API 37 emulator, 51 of 53 device tests passed in one run of 26 minutes. <code>skyMapHandlesAnglesThemesRotationLargeTextAndOldReports</code> did not find the sky map after the turn to landscape at large text, and <code>locationTurnedOnWhileTheAppShowsBringsBackStartTrip</code> did not see Start trip again within 10 seconds. Both use code that the merge did not change, and both passed alone. 58 of 58 calculation tests, the debug build, the test build, and debug lint passed. The release build was not checked. Raw results: <code>artifacts/merge-native-maps/</code> (not in Git).</p></div></li>
 <li><time datetime="2026-10-30">30 October 2026</time><div><h3>Map styles</h3>
