@@ -94,6 +94,7 @@ import com.example.cvkegps.ui.FloatingBackButton
 import com.example.cvkegps.ui.rememberDisplayFormat
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
+import com.google.android.gms.maps.CameraUpdate
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
@@ -117,8 +118,12 @@ import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.google.maps.android.compose.rememberUpdatedMarkerState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -219,7 +224,7 @@ private fun MapCanvas(
     var follow by rememberSaveable { mutableStateOf(if (follows) startFollow else FollowMode.Off) }
     // Zoom follows speed, when the user chose it, until the zoom buttons change it.
     var userZoomed by rememberSaveable { mutableStateOf(false) }
-    // The first move to the playhead after the map changes to replay mode is one short animation, so the change is easy to follow.
+    // True from the change to replay mode until the first replay move ends. That move is one short animation, so the change is easy to follow.
     var replayStart by rememberSaveable { mutableStateOf(replay) }
     var followsShown by rememberSaveable { mutableStateOf(follows) }
     LaunchedEffect(follows) {
@@ -275,8 +280,8 @@ private fun MapCanvas(
                 }
                 route = built
                 speedScale = scale
-                // Review fits once. Route updates must not reset a user pan. A live map that follows the position places the camera itself.
-                if (!placed && !(live && follow != FollowMode.Off)) {
+                // Review fits once. Route updates must not reset a user pan. A live or replay map that follows the position places the camera itself.
+                if (!placed && !(follows && follow != FollowMode.Off)) {
                     val (width, height) = fitArea
                     val frame = withContext(Dispatchers.Default) { RouteMath.frame(lines.flatten(), width, height) }
                     if (frame != null) {
@@ -288,26 +293,47 @@ private fun MapCanvas(
                 if (live) delay(ROUTE_REDRAW_MILLIS)
             }
         }
+        /** The camera on [sample] at [zoom]. With the direction of travel up, the map turns to the course and can tilt. */
+        fun followUpdate(sample: TrackSample, zoom: Float): CameraUpdate {
+            val course = follow == FollowMode.Course
+            val bearing = if (course) courseRadians(sample)?.let { Math.toDegrees(it).toFloat() } ?: camera.position.bearing else 0f
+            return CameraUpdateFactory.newCameraPosition(CameraPosition(sample.latLng(), zoom, if (course && choice.mapTilt) COURSE_TILT else 0f, bearing))
+        }
         // A live map that follows moves to each new position. The route line can update later.
-        LaunchedEffect(position?.sample, follow) {
+        // A replay map follows its playhead after its first move ends.
+        LaunchedEffect(position?.sample, follow, replayStart) {
             val last = position?.sample ?: return@LaunchedEffect
-            if (!follows || follow == FollowMode.Off) return@LaunchedEffect
+            if (!follows || follow == FollowMode.Off || (replay && replayStart)) return@LaunchedEffect
             val current = camera.position
             val zoom = when {
                 // A replay keeps one zoom, so the map does not jump in and out with the speed. The zoom buttons change it.
-                replay -> if (replayStart || !placed) REPLAY_ZOOM else current.zoom.coerceIn(3f, 21f)
+                replay -> if (!placed) REPLAY_ZOOM else current.zoom.coerceIn(3f, 21f)
                 !placed -> if (choice.mapZoomWithSpeed) speedZoom(last) ?: 15f else FIXED_ZOOM
                 userZoomed || !choice.mapZoomWithSpeed -> current.zoom.coerceIn(3f, 18f)
                 else -> speedZoom(last) ?: current.zoom.coerceIn(3f, 18f)
             }
-            val course = follow == FollowMode.Course
-            val bearing = if (course) courseRadians(last)?.let { Math.toDegrees(it).toFloat() } ?: current.bearing else 0f
-            val update = CameraUpdateFactory.newCameraPosition(CameraPosition(last.latLng(), zoom, if (course && choice.mapTilt) COURSE_TILT else 0f, bearing))
+            val update = followUpdate(last, zoom)
             // One short camera move for each new fix. There is no continuous animation.
             // A playing replay moves the position on each display frame, so its camera moves with it.
-            if (placed && (!replay || replayStart)) camera.animate(update, 800) else camera.move(update)
+            if (placed && !replay) camera.animate(update, 800) else camera.move(update)
             placed = true
-            replayStart = false
+        }
+        // The first replay move goes to the playhead at the replay zoom. It does not wait for the replay calculation:
+        // until the playhead has a position, it goes to the start of the saved route, which is already on the map.
+        // The target changes at most once, when the playhead position arrives during the move.
+        val latestPosition by rememberUpdatedState(position)
+        LaunchedEffect(replayStart) {
+            if (!replayStart) return@LaunchedEffect
+            snapshotFlow { (latestPosition != null) to latestLines.any { it.isNotEmpty() } }.collectLatest {
+                val start = latestPosition?.sample ?: latestLines.firstOrNull { it.isNotEmpty() }?.first() ?: return@collectLatest
+                if (follow != FollowMode.Off) {
+                    // A gesture or a zoom button stops the move. A new target or the end of replay mode cancels this coroutine instead.
+                    try { camera.animate(followUpdate(start, REPLAY_ZOOM), 800) }
+                    catch (stopped: CancellationException) { currentCoroutineContext().ensureActive() }
+                }
+                placed = true
+                replayStart = false
+            }
         }
 
         if (servicesProblem == null) GoogleMap(

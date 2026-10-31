@@ -179,6 +179,7 @@
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, debug lint, and unsigned release build</span><span class="small">Release APK not installed or run</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#replay-zoom">Replay zoom · 30 Oct</a>
       <a href="#map-styles">Map styles · 30 Oct</a>
       <a href="#trip-saved-row">Trip saved row · 30 Oct</a>
       <a href="#map-settings">Map settings · 30 Oct</a>
@@ -215,6 +216,31 @@
       <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
     </nav>
+
+    <section id="replay-zoom" aria-labelledby="replay-zoom-heading">
+      <div class="section-head"><h2 id="replay-zoom-heading">Replay zooms at once, and its camera animates once · 30 October 2026</h2><span class="tag pending">Implemented · Device tests not run</span></div>
+      <p class="section-intro">Fixes F1 and F5 of the <a href="docs/performance-review-2026-10-30.md">performance review</a>, which the owner approved.
+      The change is in the replay camera effects of <a href="app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt"><code>RouteMap.kt</code></a>. The screens look the same, so this section has no screenshots.</p>
+      <div class="table-wrap"><table class="wrap-cells">
+        <thead><tr><th scope="col">Part</th><th scope="col">Behaviour</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Replay tap (F1)</th><td>The map moves in one 800 ms animation to the replay zoom at the start of the saved route, which is already on the map. It does not wait for the replay calculation. When the playhead position arrives during the move, the move goes to the playhead instead. Before, the camera waited for the calculation (0.93 s release-like, 2.18 s debug on a 36 minute trip), and a trip without a fix at 0:00 did not zoom until Play.</td></tr>
+          <tr><th scope="row">Replay play (F5)</th><td>Only the first replay move animates. Then the camera moves with the playhead on each display frame without an animation. Before, each frame of the first play started a new 800 ms animation and stopped the previous one, so the camera stayed behind the position marker.</td></tr>
+          <tr><th scope="row">Stops</th><td>A gesture or a zoom button stops the first move, and the camera then follows as before. A replay map that follows the playhead no longer fits the whole route first.</td></tr>
+        </tbody>
+      </table></div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li>New device test <code>replayZoomsToTheRouteStartAtOnceWhenTheFirstFixIsLate</code>: a trip whose first fix comes 11 seconds after the start, so the replay shows No GPS signal at 0:00. The camera must reach zoom 16 at the first fix without Play. The test was written but has not run.</li>
+          <li>Passed: the debug build, the test build, debug lint with no issues, and 58 of 58 calculation tests.</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>No device test ran on this change, because the emulator was in use by another session. Run the new test, <code>replayFindsTheFastestMomentPlaysAndFitsThemesLargeTextAndRotation</code>, and the map follow tests before this change is marked as checked.</li>
+          <li>The Replay tap was not measured again on the phone after the change.</li>
+        </ul>
+      </article>
+    </section>
 
     <section id="map-styles" aria-labelledby="map-styles-heading">
       <div class="section-head"><h2 id="map-styles-heading">Map styles · 30 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
@@ -2248,7 +2274,7 @@ val angle = azimuthRadians - headingRadians</code></pre>
         <p>On the owner's Pixel 7 Pro, the Replay tap on a 36 minute trip takes 0.93 s in a release-like build and 2.18 s in the debug build before the replay is ready.
           The replay reads 13.7 MB of sensor data and analyses it first. The map does not zoom until the replay has a position, and on that trip not until Play.
           During the first play, the replay camera starts an 800 ms animation on each frame. The review ranks seven findings and proposes fixes F1 to F9 with their risks.
-          None is implemented.</p>
+          F1 and F5 are implemented: see <a href="#replay-zoom">Replay zoom</a>. F2, F3, F4, and F6 to F9 are open.</p>
         <p><a href="docs/performance-review-2026-10-30.md">Open the performance review</a>.</p>
       </article>
       <article id="favicon-proposal" class="panel" style="margin-bottom:18px">
@@ -2372,6 +2398,8 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-30">30 October 2026</time><div><h3>Replay zooms at once</h3>
+<p>The Replay tap now moves the map to the start of the route at the replay zoom without waiting for the replay calculation, and only the first replay move animates (fixes F1 and F5 of the performance review). The debug build, the test build, lint, and 58 of 58 calculation tests passed. A new device test is written but has not run. See <a href="#replay-zoom">behaviour and limits</a>.</p></div></li>
 <li><time datetime="2026-10-30">30 October 2026</time><div><h3>Performance review</h3>
 <p>Measured the app start, the trip open, and the Replay tap on the owner's Pixel 7 Pro with a real 36 minute trip, in the debug build and in a release-like build (<code>benchmarkRelease</code>, compiled with the Baseline Profile). Cold start is 161 ms (release-like) and 715 ms (debug). The Replay tap needs 0.93 s and 2.18 s before the replay is ready, and the map does not zoom at once. Temporary timing marks, StrictMode, gfxinfo, and Perfetto traces gave the evidence. No app code changed, and no device tests ran. The emulator was not used. See the <a href="docs/performance-review-2026-10-30.md">review</a> and the <a href="#performance-review">proposed fixes</a>.</p></div></li>
 <li><time datetime="2026-10-30">30 October 2026</time><div><h3>Saved row and map styles together on native-maps</h3>

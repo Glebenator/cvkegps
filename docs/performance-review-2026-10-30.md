@@ -1,7 +1,10 @@
 # Performance review, 30 October 2026
 
 This review finds the slow parts of the app, measures them, and gives the causes and the proposed fixes.
-It changes no app code. The owner selects the fixes.
+The review itself changed no app code. The owner selects the fixes.
+
+**Status of the fixes:** F1 and F5 are implemented (see `PROGRESS.html`, section "Replay zoom"). Their device test has not run,
+and the phone was not measured again after the change. All other fixes are open.
 
 - **App baseline:** branch `native-maps` at `27b5508` (map styles merged).
 - **Main complaint of the owner:** "Clicking the Replay button is particularly slow. Clicking that button should zoom in as soon as possible."

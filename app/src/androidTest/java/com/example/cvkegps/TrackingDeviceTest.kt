@@ -1265,6 +1265,32 @@ class TrackingDeviceTest {
         }
     }
 
+    @Test fun replayZoomsToTheRouteStartAtOnceWhenTheFirstFixIsLate() {
+        launch()
+        startTrip()
+        val id = app.recorder.state.value.trip!!.id
+        // The first fix comes more than 10 seconds after the start, so the replay has no position at 0:00.
+        Thread.sleep(11_000)
+        deliver(id, 3)
+        clickVisible("trip_stop")
+        waitUntil { !app.recorder.state.value.needsService }
+        compose.onNodeWithTag("trip_review").assertExists()
+        compose.waitUntil(15_000) { mapView() != null }
+        val first = runBlocking { app.database.trips().savedPoints(id) }.minBy { it.sample.elapsedNanos }.sample
+        compose.onNodeWithTag("open_replay").performClick()
+        // The camera goes to the start of the route at the replay zoom without Play, also before the replay is calculated.
+        waitUntil {
+            mapCamera()?.let { camera ->
+                kotlin.math.abs(camera.zoom - 16f) < 0.01f &&
+                    kotlin.math.abs(camera.target.latitude - Math.toDegrees(first.latitudeRadians)) < 0.00001 &&
+                    kotlin.math.abs(camera.target.longitude - Math.toDegrees(first.longitudeRadians)) < 0.00001
+            } == true
+        }
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("replay_speed", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("replay_speed", useUnmergedTree = true).assertTextEquals(context.getString(R.string.replay_no_gps))
+        capture("replay-late-first-fix")
+    }
+
     @Test fun activityChosenBeforeTheTripApplies() {
         launch()
         compose.onNodeWithTag("activity_estimate", useUnmergedTree = true).assertTextEquals("Activity: automatic")
