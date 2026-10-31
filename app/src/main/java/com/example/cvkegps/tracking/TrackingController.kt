@@ -68,10 +68,6 @@ class TrackingController(
     /** True after the first permission request. Android can then refuse to show its dialog, so settings are also offered. */
     var asked by mutableStateOf(asked)
         private set
-    /** The trip that Stop and save ended in this screen session. The saved trip offers Resume for a short time. */
-    var justSaved by mutableStateOf<String?>(null)
-        private set
-
     val permissions: Array<String> get() = buildList {
         add(Manifest.permission.ACCESS_COARSE_LOCATION)
         add(Manifest.permission.ACCESS_FINE_LOCATION)
@@ -99,12 +95,7 @@ class TrackingController(
     fun stop(id: String) = send(RecordingService.STOP, id)
 
     /** Continues a trip that Stop and save ended a moment ago. */
-    fun reopen(id: String) {
-        justSaved = null
-        send(RecordingService.RESUME, id, reopen = true)
-    }
-
-    fun consumeJustSaved() { justSaved = null }
+    fun reopen(id: String) = send(RecordingService.RESUME, id, reopen = true)
 
     /** The user read the explanation. Start or resume the trip. */
     fun confirmAccess() {
@@ -165,10 +156,7 @@ class TrackingController(
             pending = PendingStart()
             // A resumed saved trip continues on the live map after the recorder resumes it. Other resumes stay on the current screen.
             if (action == RecordingService.RESUME && navigator.backStack.last() is Destination.SavedTrip) awaitedResume = id
-            if (action == RecordingService.STOP && id != null) {
-                justSaved = id
-                navigator.open(Tab.Trips, Destination.SavedTrip(id))
-            }
+            if (action == RecordingService.STOP && id != null) navigator.open(Tab.Trips, Destination.SavedTrip(id))
         } catch (_: RuntimeException) {
             vm.recorder.send(RecordingCommand.Interrupt(RecordingError.Service))
         }

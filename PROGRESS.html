@@ -167,7 +167,7 @@
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-10-30">30 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>c935bbb</code> plus the map settings (branch <code>native-maps</code>, not committed)</dd></div>
+          <div><dt>App code baseline</dt><dd><code>d14442b</code> plus the saved row (branch <code>native-maps</code>, not committed)</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
@@ -179,6 +179,7 @@
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, debug lint, and unsigned release build</span><span class="small">Release APK not installed or run</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#trip-saved-row">Trip saved row · 30 Oct</a>
       <a href="#map-settings">Map settings · 30 Oct</a>
       <a href="#colour-choices">Colour choices · 30 Oct</a>
       <a href="#speed-colours">Speed colours · 30 Oct</a>
@@ -213,6 +214,42 @@
       <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
     </nav>
+
+    <section id="trip-saved-row" aria-labelledby="trip-saved-row-heading">
+      <div class="section-head"><h2 id="trip-saved-row-heading">Trip saved row in place of the snackbar · 30 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
+      <p class="section-intro">Stop and save showed a "Trip saved" snackbar with Resume trip. It covered the trip values, it closed after about 10 seconds while the recorder accepts Resume for 2 minutes, and the design language allows no toasts. The owner chose an inline row from four options.
+      The row is <code>SavedRow</code> in <a href="app/src/main/java/com/example/cvkegps/tracking/SavedTripScreen.kt"><code>SavedTripScreen.kt</code></a>.</p>
+      <div class="table-wrap"><table class="wrap-cells">
+        <thead><tr><th scope="col">Part</th><th scope="col">Behaviour</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Place</th><td>The first row of the trip panel, above the values: a success check, "Trip saved", and a Resume trip text button with a 48 dp touch target. It covers nothing. Portrait, landscape, the wide pane, and the short window all show it.</td></tr>
+          <tr><th scope="row">Time</th><td>It shows while the recorder can still continue the trip: a finished trip that ended less than 2 minutes ago, while no other trip records or is paused. One wait hides it at the end, with a 240 ms fade. There is no countdown, so the screen does not change each second.</td></tr>
+          <tr><th scope="row">Rule</th><td>The row follows the recorder rule, not the Stop button. A trip that ends from the notification also shows it when it opens within 2 minutes. The controller no longer keeps the "just saved" trip.</td></tr>
+          <tr><th scope="row">Access</th><td>"Trip saved" is a polite live region, so a screen reader announces it once.</td></tr>
+        </tbody>
+      </table></div>
+      <h3 style="margin-top:24px">Pixel 10 Pro emulator, Android 17 (API 37)</h3>
+      <div class="screens">
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-trip-saved-row-light.webp"><img src="docs/progress/images/2026-10-30-trip-saved-row-light.webp" loading="lazy" alt="A saved trip just after Stop and save: the map, then the panel with a green check, Trip saved, and a Resume trip button on one row, and the distance, recording time, average speed, and maximum speed below it."></a>
+      <figcaption><strong>Trip saved row</strong>30 October 2026. Baseline <code>d14442b</code> plus the saved row. Pixel 10 Pro emulator, Android 17 (API 37). Simulated GPS test locations. Some map tiles were still loading.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-trip-saved-row-large-text.webp"><img src="docs/progress/images/2026-10-30-trip-saved-row-large-text.webp" loading="lazy" alt="The same panel at 200% text: Trip saved and Resume trip stay on one row above the values."></a>
+      <figcaption><strong>200% text</strong>30 October 2026. Baseline <code>d14442b</code> plus the saved row. Pixel 10 Pro emulator, Android 17 (API 37). The map tiles had not loaded at the capture. Display settings were restored after the test.</figcaption></figure>
+      <figure class="shot landscape"><a href="docs/progress/images/2026-10-30-trip-saved-row-dark-landscape.webp"><img src="docs/progress/images/2026-10-30-trip-saved-row-dark-landscape.webp" loading="lazy" alt="Landscape in the dark theme: the map on the left and the side pane with the title, the Trip saved row with Resume trip, the activity chip, and the values."></a>
+      <figcaption><strong>Landscape, dark</strong>30 October 2026. Baseline <code>d14442b</code> plus the saved row. Pixel 10 Pro emulator, Android 17 (API 37). The map tiles had not loaded at the capture.</figcaption></figure>
+      </div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li><code>undoAfterStopContinuesTheSameTripAsANewSegment</code> now checks the row and its text, that the row ends above the Distance label, and that Resume trip continues the same trip as a new segment.</li>
+          <li><code>undoAfterTheTimeLimitShowsARefusalOnTheSavedTrip</code> now also checks that the row goes away when the stored end time is more than 2 minutes old. <code>undoAfterLocationRecoveryContinuesTheSameTrip</code> resumes from the row.</li>
+          <li>Also passed on the final code: the saved map themes, large text, and rotation test, the saved map camera test, the short narrow window test, the wide window test, and the GPX share test, which still uses a snackbar for an export error. Debug lint found no issues. 58 of 58 calculation tests passed. Raw captures: <code>artifacts/saved-row/</code> (not in Git).</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>The end of the time uses the device clock, as the recorder does. A clock change can move it.</li>
+          <li>TalkBack was not used on the row. The full device test suite was not run after this change. The release build was not checked.</li>
+        </ul>
+      </article>
+    </section>
 
     <section id="map-settings" aria-labelledby="map-settings-heading">
       <div class="section-head"><h2 id="map-settings-heading">Map settings · 30 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
@@ -2266,6 +2303,8 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-10-30">30 October 2026</time><div><h3>Trip saved row in place of the snackbar</h3>
+<p>After Stop and save, a row above the trip values says that the trip is saved and offers Resume trip for the full 2 minutes, then fades out. It replaces the snackbar, which covered the values and closed after about 10 seconds. On a Pixel 10 Pro API 37 emulator, the three resume tests and five saved-trip layout tests, 58 of 58 calculation tests, and lint passed. See <a href="#trip-saved-row">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-30">30 October 2026</time><div><h3>Map settings</h3>
 <p>Settings &gt; Maps adds labels on satellite, 3D buildings, keep routes blue, the start orientation, the tilt, zoom with speed, and the accuracy circle. The defaults keep the earlier behaviour. On a Pixel 10 Pro API 37 emulator, two new device tests and the affected map, replay, and Settings device tests, 58 of 58 calculation tests, and lint passed. See <a href="#map-settings">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-30">30 October 2026</time><div><h3>Three colour choices, wallpaper colours by default</h3>

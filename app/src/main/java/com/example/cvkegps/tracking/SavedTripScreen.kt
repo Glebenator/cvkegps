@@ -6,6 +6,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -16,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -28,13 +33,12 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -50,6 +54,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -65,6 +72,8 @@ import com.example.cvkegps.ui.theme.CvkeTheme
 import com.example.cvkegps.ui.theme.ProblemBanner
 import com.example.cvkegps.ui.theme.SecondaryButton
 import com.example.cvkegps.ui.theme.Size
+import com.example.cvkegps.ui.theme.Motion
+import kotlinx.coroutines.delay
 import com.example.cvkegps.ui.theme.Space
 import com.example.cvkegps.ui.MapWithPane
 import com.example.cvkegps.ui.PaneHeader
@@ -101,19 +110,6 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
     val largeText = LocalDensity.current.fontScale >= LARGE_TEXT_SCALE
     val chartsOpen = mode?.details == true
     val stopButton: @Composable () -> Unit = { if (mode?.player != null) StopButton(mode.details) { mode.setDetails(!mode.details) } }
-
-    // Stop and save opens this screen. For a short time the trip can continue, which undoes an accidental stop.
-    val savedMessage = stringResource(R.string.trip_saved_message)
-    val resumeLabel = stringResource(R.string.trip_resume)
-    LaunchedEffect(actions.justSaved) {
-        if (actions.justSaved == id) {
-            val result = snackbar.showSnackbar(savedMessage, resumeLabel, withDismissAction = true, duration = SnackbarDuration.Long)
-            actions.consumeJustSaved()
-            if (result == SnackbarResult.ActionPerformed) actions.reopen(id)
-        }
-    }
-    // The replay shows the saved trip, so it closes the offer to continue the trip.
-    LaunchedEffect(replaying) { if (replaying) snackbar.currentSnackbarData?.dismiss() }
 
     if (isCompactHeight()) {
         Box(Modifier.fillMaxSize().testTag("trip_review")) {
@@ -230,6 +226,7 @@ fun SavedTripScreen(actions: TrackingActions, id: String, onBack: () -> Unit) {
 /** Portrait content: the totals and, for an interrupted trip, its actions. The details sheet shows the rest. */
 @Composable
 private fun PortraitTripPanel(actions: TrackingActions, id: String, trip: TripRecord?, shown: TripDetail?) {
+    SavedRow(actions, id, trip)
     SavedTotals(trip, shown)
     InterruptedActions(actions, id, trip)
 }
@@ -241,11 +238,43 @@ private fun ColumnScope.SavedTripContent(
 ) {
     if (showError) actions.error?.let { ProblemBanner(stringResource(it)) }
     if (readFailed) ReadError(actions.vm::retryReads)
+    SavedRow(actions, id, trip)
     if (trip != null) ActivityChip(activityText(trip), onClick = { actions.chooseMode(id) })
     SavedTotals(trip, shown)
     InterruptedActions(actions, id, trip)
     if (shown != null) SavedTechnicalDetails(shown)
     PrivacyNote()
+}
+
+/**
+ * "Trip saved" and Resume trip, in the panel above the values, while the recorder can still continue the trip
+ * ([REOPEN_WINDOW_MILLIS] after Stop and save). This undoes an accidental stop. It covers nothing and fades out when the time ends.
+ */
+@Composable
+private fun SavedRow(actions: TrackingActions, id: String, trip: TripRecord?) {
+    val ended = trip?.endedMillis?.takeIf { trip.status == TripStatus.Finished }
+    var open by remember(id, ended) { mutableStateOf(ended != null && System.currentTimeMillis() - ended in 0 until REOPEN_WINDOW_MILLIS) }
+    // One wait for the end of the time. There is no countdown, so the screen does not change each second.
+    LaunchedEffect(id, ended) {
+        if (ended == null || !open) return@LaunchedEffect
+        delay(REOPEN_WINDOW_MILLIS - (System.currentTimeMillis() - ended))
+        open = false
+    }
+    // Another trip that records or is paused cannot share the recorder.
+    AnimatedVisibility(open && actions.activeTripId == null, enter = fadeIn(tween(Motion.ENTER_MILLIS, easing = Motion.standard)),
+        exit = fadeOut(tween(Motion.EXIT_MILLIS, easing = Motion.standard))) {
+        Row(Modifier.fillMaxWidth().testTag("trip_saved"), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Space.s2)) {
+            Row(Modifier.weight(1f).semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.s1)) {
+                Icon(painterResource(R.drawable.ic_check), contentDescription = null, Modifier.size(Size.iconSm), tint = CvkeTheme.colors.success)
+                Text(stringResource(R.string.trip_saved_message), style = MaterialTheme.typography.bodyMedium, color = CvkeTheme.colors.ink)
+            }
+            TextButton(onClick = { actions.reopen(id) }, modifier = Modifier.heightIn(min = Size.touch).testTag("saved_resume")) {
+                Text(stringResource(R.string.trip_resume))
+            }
+        }
+    }
 }
 
 @Composable

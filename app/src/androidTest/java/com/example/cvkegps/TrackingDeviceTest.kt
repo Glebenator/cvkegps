@@ -764,10 +764,16 @@ class TrackingDeviceTest {
         deliver(id, 2)
         clickVisible("trip_stop")
         waitUntil { !app.recorder.state.value.needsService }
-        // Stop and save opens the saved trip. Its message offers Resume for a short time.
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("Resume trip").fetchSemanticsNodes().isNotEmpty() }
-        capture("undo-snackbar")
-        compose.onNodeWithText("Resume trip").performClick()
+        // Stop and save opens the saved trip. A row above the values says that the trip is saved and offers Resume for 2 minutes.
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("saved_resume").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("trip_saved").assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.trip_saved_message)).assertIsDisplayed()
+        // The row is in the panel, so the values stay visible below it.
+        val row = compose.onNodeWithTag("trip_saved").getUnclippedBoundsInRoot()
+        val distance = compose.onNodeWithText(context.getString(R.string.trip_distance)).getUnclippedBoundsInRoot()
+        assertTrue("The saved row covers the values", row.bottom <= distance.top)
+        capture("trip-saved-row")
+        compose.onNodeWithTag("saved_resume").performClick()
         waitUntil { app.recorder.state.value.trip?.status == TripStatus.Recording }
         assertEquals(id, app.recorder.state.value.trip!!.id)
         deliver(id, 4)
@@ -934,6 +940,8 @@ class TrackingDeviceTest {
         val refused = context.getString(R.string.trip_resume_refused)
         compose.waitUntil(10_000) { compose.onAllNodesWithText(refused).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("trip_review").assertIsDisplayed()
+        // The saved trip no longer offers Resume after the time ends.
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("trip_saved").fetchSemanticsNodes().isEmpty() }
         compose.onAllNodesWithText(context.getString(R.string.trip_starting)).assertCountEquals(0)
         assertEquals(null, app.recorder.state.value.trip)
         assertEquals(TripStatus.Finished, runBlocking { app.database.trips().trip(id) }!!.status)
@@ -941,7 +949,7 @@ class TrackingDeviceTest {
         capture("resume-refused")
     }
 
-    /** Stops a trip, turns location off, and selects Resume trip in the saved-trip message. Returns the trip ID. */
+    /** Stops a trip, turns location off, and selects Resume trip in the saved row. Returns the trip ID. */
     private fun stopAndAskToResumeWithLocationOff(): String {
         launch()
         startTrip()
@@ -949,9 +957,9 @@ class TrackingDeviceTest {
         deliver(id, 2)
         clickVisible("trip_stop")
         waitUntil { !app.recorder.state.value.needsService }
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("Resume trip").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("saved_resume").fetchSemanticsNodes().isNotEmpty() }
         manager.setTestProviderEnabled(LocationManager.GPS_PROVIDER, false)
-        compose.onNodeWithText("Resume trip").performClick()
+        compose.onNodeWithTag("saved_resume").performClick()
         compose.onNodeWithTag("confirm_start").assertIsNotEnabled()
         compose.onNodeWithTag("confirm_start").assertTextEquals("Resume trip")
         return id

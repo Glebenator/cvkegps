@@ -27,8 +27,9 @@ Update the report with each completed change, as specified in `AGENTS.md`.
    The map type button selects **Default**, **Satellite**, or **Terrain**, and turns **Traffic** on or off.
 6. In **Current trip**, select the activity chip, or the information button and then **Change**, to correct the activity.
    The correction applies to the whole trip.
-7. **Stop and save** opens the saved trip with the message **Trip saved**. Select **Resume trip** in that message to
-   continue the same trip as a new segment. This undoes an accidental stop.
+7. **Stop and save** opens the saved trip. A **Trip saved** row above the values offers **Resume trip** for 2 minutes.
+   Select it to continue the same trip as a new segment. This undoes an accidental stop. The row covers nothing and
+   goes away when the 2 minutes end.
 8. Select the **Trips** tab, then select a trip. Pan, pinch, turn, or tilt its map, use the zoom buttons, or select **Fit route**.
    Select the start or end marker to see its time and to open that place in Google Maps.
    The information button opens trip details. The menu button contains **Change activity**, **Share as GPX**, and **Delete trip**.
