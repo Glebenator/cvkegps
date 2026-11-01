@@ -23,3 +23,11 @@ keystore.properties
 .env
 .env.*
 !.env.example
+
+# iOS: Swift package build output, the project that XcodeGen generates, and Xcode user state.
+.build/
+.swiftpm/
+/ios/CVKEGPS.xcodeproj/
+DerivedData/
+xcuserdata/
+*.xcresult
