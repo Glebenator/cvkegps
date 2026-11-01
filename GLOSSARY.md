@@ -13,6 +13,8 @@ _Avoid_: Location, update, point
 The receiver that measured a fix. A **GPS fix** comes from the GNSS receiver. A **network position** comes from Android's
 network location service, which uses nearby Wi-Fi access points and mobile network cells. A network position has a position
 and an accuracy only. The app stores no speed, direction, or height for it.
+On iOS, Core Location does not name the receiver. The iOS app treats a fix as a network position when it has no valid
+speed or course accuracy and its horizontal accuracy is worse than 20 m.
 _Avoid_: Provider, Wi-Fi fix, cell fix
 
 **Raw fix**:
@@ -28,11 +30,14 @@ The altitude that the GPS receiver reports, above the WGS 84 ellipsoid. It can d
 _Avoid_: GPS altitude, ellipsoid altitude
 
 **Sea-level altitude**:
-The altitude above mean sea level. Android 14 and later calculate it from the GPS height and a geoid model. Trips do not store it.
+The altitude above mean sea level. Android 14 and later calculate it from the GPS height and a geoid model. Core Location
+reports it with each fix. Trips do not store it. An iOS trip stores one difference between the GPS height and sea level
+near its start, so its replay can show heights above sea level.
 _Avoid_: MSL, elevation, real altitude
 
 **Track sample**:
 One fix as a trip stores it, with its coordinates, its fix source, and the number of satellites in the fix when the receiver reports it.
+Core Location does not report satellites, so an iOS track sample has no satellite count.
 _Avoid_: Point, location, reading
 
 **Sensor record**:
@@ -72,6 +77,7 @@ _Avoid_: Fallback fix, estimated position
 The user's choice of how a trip uses the GPS receiver. **Standard** asks for one fix each second and lets Android deliver them
 in groups while no screen shows. **High accuracy** asks for up to 10 fixes each second, delivered at once, and turns off the
 receiver's duty cycling. It uses much more battery. A segment stores the choice that applied to it.
+On iOS, both choices give about one fix each second. **High accuracy** asks for the navigation accuracy of Core Location.
 _Avoid_: Precision mode, performance mode
 
 **Resume after Stop**:

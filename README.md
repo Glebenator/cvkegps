@@ -7,6 +7,22 @@ Open [PROGRESS.html](PROGRESS.html) in a browser for the current status, screens
 code excerpts, verification results, and required and optional future work.
 Update the report with each completed change, as specified in `AGENTS.md`.
 
+## iOS app on 1 November 2026
+
+The native iOS app is in [`ios/`](ios/README.md). It uses SwiftUI, Apple Maps, and the Liquid Glass design of iOS 26,
+and keeps the Android measurement rules and product behaviour. The decisions and platform differences are in
+[ADR 0006](docs/adr/0006-build-the-ios-app-with-apple-maps-and-a-shared-swift-core.md).
+
+- **Same rules.** The Swift package `ios/CVKEGPSCore` has the usability rules, route math, activity estimate, GPX,
+  sensor record, speed colours, replay calculations, display format, trip recorder, and an SQLite store with the Room
+  tables. Its tests repeat the Android calculation tests.
+- **Native features.** Apple Maps with glass map controls; the Liquid Glass tab bar with a recording accessory; a Live
+  Activity on the Lock Screen and in the Dynamic Island with Pause, Resume, and Stop; Siri and Shortcuts; a Control Center
+  Start trip button; Swift Charts in the replay; swipe to delete; and dark and tinted app icons.
+- **Not on iOS.** iOS reports no satellites, so the satellite ring, the sky map, and the satellite details are Android
+  only. iOS has no wallpaper colours and Apple Maps has no terrain map. High accuracy gives about one fix each second.
+- **Status.** Not checked on a real iPhone. See [the report](PROGRESS.html#ios-app) for the build and test results.
+
 ## Trip recording
 
 1. Open the app. Allow precise location when requested. Speed starts without a GPS button.
