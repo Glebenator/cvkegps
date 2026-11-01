@@ -34,7 +34,6 @@ final class AppModel {
     var showSettings = false
 
     @ObservationIgnored private let liveActivity: LiveActivityController
-    @ObservationIgnored private var observers: [Task<Void, Never>] = []
 
     init() {
         let settings = SettingsStore()
@@ -79,14 +78,18 @@ final class AppModel {
     }
 
     private func observe() {
-        observers.append(Task { [weak self] in
-            guard let recorder = self?.recorder else { return }
-            for await state in Observations({ @MainActor in recorder.state }) { self?.recordingChanged(state) }
-        })
-        observers.append(Task { [weak self] in
-            guard let location = self?.location else { return }
-            for await event in Observations({ @MainActor in location.event }) { self?.speed.update(event) }
-        })
+        track({ [recorder] in recorder.state }) { [weak self] state in self?.recordingChanged(state) }
+        track({ [location] in location.event }) { [weak self] event in self?.speed.update(event) }
+    }
+
+    /// Calls `apply` with the value now and after each change, on the main actor. The tracking ends with the app.
+    /// Swift 6.3.3 crashes when it compiles `Observations` with these closures, so the app uses `withObservationTracking`.
+    private func track<Value>(_ read: @escaping @MainActor @Sendable () -> Value,
+                              _ apply: @escaping @MainActor @Sendable (Value) -> Void) {
+        let value = withObservationTracking { read() } onChange: {
+            Task { @MainActor [weak self] in self?.track(read, apply) }
+        }
+        apply(value)
     }
 
     private func recordingChanged(_ state: RecordingState) {

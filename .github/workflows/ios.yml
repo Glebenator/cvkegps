@@ -51,8 +51,11 @@ jobs:
                    [d for d in devices if d["name"].startswith("iPhone")]
           print(phones[-1]["udid"])')
           xcrun simctl list devices | grep "$UDID"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
       - name: Build
+        id: build
         working-directory: ios
         run: |
           set -o pipefail
@@ -63,18 +66,21 @@ jobs:
       - name: Show build errors
         if: failure()
         working-directory: ios
-        run: grep -E "error:" build.log | sort -u | head -150 || true
+        run: |
+          grep -E "error:" build.log | sort -u | head -150 || true
+          # A compiler crash has no error line. Its stack dump names the file and the function.
+          grep -E "While (evaluating|emitting|type-checking)|Apple Swift version" build.log | head -20 || true
       - name: Run the UI flow in light mode
+        id: flow
         working-directory: ios
         run: |
           set -o pipefail
-          xcrun simctl boot "${{ steps.sim.outputs.udid }}" || true
           xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance light
           xcodebuild test-without-building -project CVKEGPS.xcodeproj -scheme CVKEGPS \
             -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build \
             -only-testing:CVKEGPSUITests/TripFlowUITests/test1RecordAndReplayTrip -resultBundlePath light.xcresult | tail -40
       - name: Run the screens in dark mode
-        if: always()
+        if: always() && steps.build.outcome == 'success'
         working-directory: ios
         run: |
           set -o pipefail
@@ -83,7 +89,7 @@ jobs:
             -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build \
             -only-testing:CVKEGPSUITests/TripFlowUITests/test2Screens -resultBundlePath dark.xcresult | tail -40
       - name: Run the screens with the largest text
-        if: always()
+        if: always() && steps.build.outcome == 'success'
         working-directory: ios
         run: |
           set -o pipefail
