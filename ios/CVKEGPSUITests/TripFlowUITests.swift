@@ -4,15 +4,13 @@ import XCTest
 /// End-to-end flows on the simulator. They use the production Core Location path with simulated locations from XCTest,
 /// so they prove functional behaviour only. GPS accuracy and battery use need a real iPhone.
 /// Each capture is an attachment, so the report can show real app screens. All locations in the captures are simulated.
+@MainActor
 final class TripFlowUITests: XCTestCase {
-    private let app = XCUIApplication()
-    private let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+    // XCUITest objects belong to the main actor, so they are made at first use.
+    private lazy var app = XCUIApplication()
+    private lazy var springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
     /// A street in Vancouver, moving east.
     private let start = CLLocationCoordinate2D(latitude: 49.2827, longitude: -123.1207)
-
-    override func setUp() {
-        continueAfterFailure = false
-    }
 
     /// A simulated fix `metres` east of the start, at `speed` m/s.
     private func fix(east metres: Double, speed: Double, accuracy: Double = 4) -> XCUILocation {
@@ -52,6 +50,7 @@ final class TripFlowUITests: XCTestCase {
     /// Grants access, shows live readings, records a trip along a simulated street, stops and saves it,
     /// replays it, and opens Settings. Captures are in the light theme unless the run changes the simulator appearance.
     func test1RecordAndReplayTrip() throws {
+        continueAfterFailure = false
         app.launch()
         XCUIDevice.shared.location = fix(east: 0, speed: 0)
         let action = element("gps_action")
@@ -120,6 +119,7 @@ final class TripFlowUITests: XCTestCase {
 
     /// The main screens again with the trip that the first test saved, for a second appearance or text size.
     func test2Screens() throws {
+        continueAfterFailure = false
         app.launch()
         XCUIDevice.shared.location = fix(east: 0, speed: 9)
         allowLocation()
