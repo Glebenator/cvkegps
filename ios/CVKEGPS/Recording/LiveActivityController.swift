@@ -14,7 +14,9 @@ final class LiveActivityController {
         var noSignal: Bool
     }
 
-    private var activity: Activity<TripActivityAttributes>?
+    /// The shown activity and its trip. `Activity` is not `Sendable`, so the tasks that update it look it up by its ID.
+    private var activityId: String?
+    private var activityTrip: String?
     private var shownKey: Key?
     private var shownValues: [String?] = []
     private var shownAt: Int64 = 0
@@ -25,9 +27,7 @@ final class LiveActivityController {
     init(format: @escaping @MainActor () -> DisplayFormat) {
         self.format = format
         // A Live Activity of an ended app process shows a trip that no longer records.
-        for old in Activity<TripActivityAttributes>.activities {
-            Task { await old.end(nil, dismissalPolicy: .immediate) }
-        }
+        Task { await Self.end(nil) }
     }
 
     /// Live Activities are on for this app in the iOS settings.
@@ -41,15 +41,18 @@ final class LiveActivityController {
                       noSignal: state.signalLost(at: now))
         let content = content(state, trip, now, key)
         let values = [content.distanceText, content.averageText]
-        if activity?.attributes.tripId != trip.id { end() }
-        if activity == nil {
+        if activityTrip != trip.id { end() }
+        if let id = activityId {
+            if key != shownKey || (values != shownValues && now - shownAt >= Self.valueIntervalNanos) {
+                Task { await Self.update(id, content) }
+                remember(key, values, now)
+            }
+        } else {
             guard enabled else { return }
-            activity = try? Activity.request(attributes: TripActivityAttributes(tripId: trip.id),
-                                             content: ActivityContent(state: content, staleDate: nil), pushType: nil)
-            remember(key, values, now)
-        } else if key != shownKey || (values != shownValues && now - shownAt >= Self.valueIntervalNanos) {
-            let shown = activity
-            Task { await shown?.update(ActivityContent(state: content, staleDate: nil)) }
+            let activity = try? Activity.request(attributes: TripActivityAttributes(tripId: trip.id),
+                                                 content: ActivityContent(state: content, staleDate: nil), pushType: nil)
+            activityId = activity?.id
+            activityTrip = activity == nil ? nil : trip.id
             remember(key, values, now)
         }
         // A new fix can move the time of the signal loss, so each state change starts a new wait.
@@ -83,9 +86,23 @@ final class LiveActivityController {
 
     private func end() {
         signalWatch?.cancel()
-        guard let ended = activity else { return }
-        activity = nil
+        guard let id = activityId else { return }
+        activityId = nil
+        activityTrip = nil
         shownKey = nil
-        Task { await ended.end(nil, dismissalPolicy: .immediate) }
+        Task { await Self.end(id) }
+    }
+
+    @concurrent private static func update(_ id: String, _ state: TripActivityAttributes.ContentState) async {
+        for activity in Activity<TripActivityAttributes>.activities where activity.id == id {
+            await activity.update(ActivityContent(state: state, staleDate: nil))
+        }
+    }
+
+    /// Ends the activity with this ID, or all activities of the app for nil.
+    @concurrent private static func end(_ id: String?) async {
+        for activity in Activity<TripActivityAttributes>.activities where id == nil || activity.id == id {
+            await activity.end(nil, dismissalPolicy: .immediate)
+        }
     }
 }
