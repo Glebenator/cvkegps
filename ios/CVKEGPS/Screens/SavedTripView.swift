@@ -73,8 +73,10 @@ struct SavedTripView: View {
         .sheet(isPresented: $details) {
             if let shown { SavedDetailsSheet(detail: shown).presentationDetents([.medium, .large]) }
         }
-        .task(id: model.library.revision) { await read() }
-        .task(id: model.recorder.state.trip?.distanceMeters) { if model.recorder.state.trip?.id == id { await read() } }
+        // The trip reads again after a delete, and when the recorder starts, pauses, or ends a trip. Stop and save opens
+        // this screen before the recorder has closed the trip.
+        .task(id: ReadKey(revision: model.library.revision, activeTrip: model.recorder.state.trip?.id,
+                          status: model.recorder.state.trip?.status)) { await read() }
         .task(id: replaying) { if replaying { await replay.load(from: model.library) } }
         .onChange(of: scenePhase) { _, phase in if phase != .active { replay.pause() } }
         .onChange(of: replaying) { _, active in
@@ -93,6 +95,12 @@ struct SavedTripView: View {
             showSaved = false
             if model.trips.justSaved == id { model.trips.justSaved = nil }
         }
+    }
+
+    private struct ReadKey: Equatable {
+        var revision: Int
+        var activeTrip: String?
+        var status: TripStatus?
     }
 
     private var singleChart: Bool { verticalSize == .compact || typeSize >= .accessibility1 }

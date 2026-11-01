@@ -63,7 +63,8 @@ final class TripFlowUITests: XCTestCase {
         XCUIDevice.shared.location = fix(east: 0, speed: 12)
         let speed = element("current_speed")
         waitFor(speed)
-        let live = NSPredicate(format: "label CONTAINS '43.2'")
+        // 12 m/s is 43.2 km/h, or 26.8 mph in a United States region.
+        let live = NSPredicate(format: "label CONTAINS '43.2' OR label CONTAINS '26.8'")
         expectation(for: live, evaluatedWith: speed)
         waitForExpectations(timeout: 20)
         capture("speed-live")
