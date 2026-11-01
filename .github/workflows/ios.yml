@@ -1,0 +1,122 @@
+# Builds the iOS app with Xcode, runs the Swift package tests, and runs the UI flow on a simulator.
+# The UI flow uses simulated locations. Its screenshots are an artifact for the progress report.
+name: iOS
+
+on:
+  push:
+    branches: [claude/android-to-ios-port-g3ohdc]
+    paths: ["ios/**", ".github/workflows/ios.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show the toolchain
+        run: xcodebuild -version && swift --version
+      - name: Test the measurement rules
+        working-directory: ios/CVKEGPSCore
+        run: swift test
+
+  app:
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show Xcode and the simulators
+        run: |
+          xcodebuild -version
+          xcrun simctl list runtimes
+      - name: Generate the project
+        working-directory: ios
+        run: |
+          brew install xcodegen
+          xcodegen generate
+      - name: Choose a simulator
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          devices = [d for runtime, list_ in json.load(sys.stdin)["devices"].items() if "iOS" in runtime for d in list_]
+          phones = [d for d in devices if d["name"].startswith("iPhone") and "Pro" in d["name"] and "Max" not in d["name"]] or \
+                   [d for d in devices if d["name"].startswith("iPhone")]
+          print(phones[-1]["udid"])')
+          xcrun simctl list devices | grep "$UDID"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+      - name: Build
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild build-for-testing -project CVKEGPS.xcodeproj -scheme CVKEGPS \
+            -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build CODE_SIGNING_ALLOWED=NO \
+            | tee build.log | grep -E "error:|warning:|BUILD|\*\*" || true
+          grep -q "TEST BUILD SUCCEEDED" build.log
+      - name: Show build errors
+        if: failure()
+        working-directory: ios
+        run: grep -E "error:" build.log | sort -u | head -150 || true
+      - name: Run the UI flow in light mode
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcrun simctl boot "${{ steps.sim.outputs.udid }}" || true
+          xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance light
+          xcodebuild test-without-building -project CVKEGPS.xcodeproj -scheme CVKEGPS \
+            -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build \
+            -only-testing:CVKEGPSUITests/TripFlowUITests/test1RecordAndReplayTrip -resultBundlePath light.xcresult | tail -40
+      - name: Run the screens in dark mode
+        if: always()
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance dark
+          xcodebuild test-without-building -project CVKEGPS.xcodeproj -scheme CVKEGPS \
+            -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build \
+            -only-testing:CVKEGPSUITests/TripFlowUITests/test2Screens -resultBundlePath dark.xcresult | tail -40
+      - name: Run the screens with the largest text
+        if: always()
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance light
+          xcrun simctl ui "${{ steps.sim.outputs.udid }}" content_size accessibility-extra-extra-extra-large
+          xcodebuild test-without-building -project CVKEGPS.xcodeproj -scheme CVKEGPS \
+            -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build \
+            -only-testing:CVKEGPSUITests/TripFlowUITests/test2Screens -resultBundlePath large.xcresult | tail -40
+          xcrun simctl ui "${{ steps.sim.outputs.udid }}" content_size large
+      - name: Export the screenshots
+        if: always()
+        working-directory: ios
+        run: |
+          for run in light dark large; do
+            if [ -d "$run.xcresult" ]; then
+              xcrun xcresulttool export attachments --path "$run.xcresult" --output-path "attachments-$run" || true
+              [ -f "attachments-$run/manifest.json" ] && python3 scripts/export-captures.py "attachments-$run" captures "$run" || true
+            fi
+          done
+          ls -la captures || true
+      - name: Upload the screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-captures
+          path: ios/captures
+          if-no-files-found: warn
+      - name: Upload the test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-results
+          path: |
+            ios/*.xcresult
+            ios/build.log
+          if-no-files-found: ignore

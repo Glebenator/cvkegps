@@ -31,3 +31,8 @@ keystore.properties
 DerivedData/
 xcuserdata/
 *.xcresult
+/ios/CVKEGPS/Info.plist
+/ios/CVKEGPSWidgets/Info.plist
+/ios/build/
+/ios/captures/
+/ios/attachments-*/

@@ -1,0 +1,123 @@
+# XcodeGen project for the iOS app. Run `xcodegen generate` in this folder to make CVKEGPS.xcodeproj.
+# The generated project is not in Git. See ios/README.md.
+name: CVKEGPS
+options:
+  bundleIdPrefix: com.example
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+    SWIFT_EMIT_LOC_STRINGS: YES
+    DEAD_CODE_STRIPPING: YES
+packages:
+  CVKEGPSCore:
+    path: CVKEGPSCore
+targets:
+  CVKEGPS:
+    type: application
+    platform: iOS
+    sources:
+      - path: CVKEGPS
+      - path: Shared
+    dependencies:
+      - package: CVKEGPSCore
+      - target: CVKEGPSWidgets
+        embed: true
+    info:
+      path: CVKEGPS/Info.plist
+      properties:
+        CFBundleDisplayName: CVKE GPS
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        UILaunchScreen:
+          UIColorName: ""
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        # A trip that the user starts records with the screen locked. Location runs in the background only then.
+        UIBackgroundModes:
+          - location
+        NSSupportsLiveActivities: true
+        NSLocationWhenInUseUsageDescription: CVKE GPS uses precise location to show your speed and altitude, and to record the trips that you start. Your trips stay on this device.
+        NSLocationTemporaryUsageDescriptionDictionary:
+          TripRecording: A trip needs precise location to record its route and speed.
+        NSMotionUsageDescription: Trips record the air pressure sensor to show height changes in the trip replay. This data stays on this device.
+        ITSAppUsesNonExemptEncryption: false
+        UTImportedTypeDeclarations:
+          - UTTypeIdentifier: com.topografix.gpx
+            UTTypeDescription: GPX file
+            UTTypeConformsTo:
+              - public.xml
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - gpx
+              public.mime-type:
+                - application/gpx+xml
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.cvkegps
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: NO
+  CVKEGPSWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: CVKEGPSWidgets
+      - path: Shared
+    info:
+      path: CVKEGPSWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: CVKE GPS
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.cvkegps.widgets
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SKIP_INSTALL: YES
+  CVKEGPSUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: CVKEGPSUITests
+    dependencies:
+      - target: CVKEGPS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.cvkegps.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: CVKEGPS
+schemes:
+  CVKEGPS:
+    build:
+      targets:
+        CVKEGPS: all
+        CVKEGPSUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - name: CVKEGPSUITests
+    archive:
+      config: Release
