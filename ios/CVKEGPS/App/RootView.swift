@@ -25,7 +25,7 @@ struct RootView: View {
             }
         }
         .tabBarMinimizeBehavior(.onScrollDown)
-        .modifier(RecordingAccessory(active: model.recorder.state.active))
+        .modifier(RecordingAccessory(active: model.recorder.state.active, onTripScreen: onTripScreen))
         .environment(\.displayFormat, format)
         .sheet(isPresented: $model.showSettings) { SettingsView().environment(\.displayFormat, format) }
         .sheet(isPresented: Binding(get: { model.trips.accessShown }, set: { if !$0 { model.trips.dismissAccess() } })) {
@@ -69,6 +69,11 @@ struct RootView: View {
         }
     }
 
+    /// The current trip screen has its own panel with the same values and actions.
+    private var onTripScreen: Bool {
+        (model.tab == .speed ? model.speedPath : model.tripsPath).last == .liveTrip
+    }
+
     /// The screen stays on only where and when the user chose it: the Speed tab and the current trip map.
     private var keepOn: Bool {
         let settings = model.settings.values
@@ -86,13 +91,15 @@ struct RootView: View {
     }
 }
 
-/// The recording bar above the tab bar. iOS 26.1 and later keep the tab view and only hide the accessory without a trip.
+/// The recording bar above the tab bar. iOS 26.1 and later keep the tab view and only hide the accessory without a trip,
+/// and on the current trip screen. iOS 26.0 must make the tab view again to remove it, so there it stays on that screen.
 private struct RecordingAccessory: ViewModifier {
     var active: Bool
+    var onTripScreen: Bool
 
     func body(content: Content) -> some View {
         if #available(iOS 26.1, *) {
-            content.tabViewBottomAccessory(isEnabled: active) { RecordingBar() }
+            content.tabViewBottomAccessory(isEnabled: active && !onTripScreen) { RecordingBar() }
         } else if active {
             content.tabViewBottomAccessory { RecordingBar() }
         } else {

@@ -19,6 +19,7 @@ struct SavedTripView: View {
     @State private var replay: ReplayModel
     @State private var details = false
     @State private var panelHeight: CGFloat = 0
+    @State private var contentHeight: CGFloat = 0
     @State private var showSaved = false
 
     init(id: String) {
@@ -41,7 +42,6 @@ struct SavedTripView: View {
                             played: replayTrip.map { trip in trip.lines.indices.map { trip.playedPoints(line: $0, at: replay.playhead) } },
                             playing: replay.playing,
                             bottomInset: panelHeight)
-                    .ignoresSafeArea()
                 let panel = VStack(alignment: .leading, spacing: Space.s3) {
                     if replaying {
                         handle
@@ -52,19 +52,23 @@ struct SavedTripView: View {
                 }
                 .padding(Space.s4)
                 // The panel takes the height of its content. Content that is too tall scrolls inside the panel.
-                ViewThatFits(in: .vertical) {
-                    panel
-                    ScrollView { panel }
+                let limit = geometry.size.height * (replay.details && replaying ? 0.72 : 0.55)
+                VStack(spacing: Space.s2) {
+                    // Near the panel, so it does not cover the map controls at the top.
+                    if showSaved { savedBanner }
+                    ScrollView {
+                        panel.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 }
+                    }
+                    .scrollBounceBehavior(.basedOnSize)
+                    .frame(height: min(max(contentHeight, 1), limit))
+                    .glassEffect(.regular, in: .rect(cornerRadius: 32))
                 }
-                .frame(maxHeight: geometry.size.height * (replay.details && replaying ? 0.72 : 0.48))
-                .glassEffect(.regular, in: .rect(cornerRadius: 32))
                 .padding(.horizontal, Space.s3)
                 .padding(.bottom, Space.s2)
                 .frame(maxWidth: 640)
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { panelHeight = $0 + Space.s4 }
             }
         }
-        .overlay(alignment: .top) { if showSaved { savedBanner } }
         .navigationTitle(replaying ? String(localized: "Trip replay") : trip.map { tripTime($0.startedMillis) } ?? "")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
@@ -161,10 +165,16 @@ struct SavedTripView: View {
                 Button {
                     withAnimation(.snappy) { replay.details.toggle() }
                 } label: {
-                    Label(replay.details ? "Map" : "Charts", systemImage: replay.details ? "map" : "chart.xyaxis.line")
+                    // At the largest text sizes, the word does not fit beside the handle. The symbol keeps the same label.
+                    if typeSize.isAccessibilitySize {
+                        Image(systemName: replay.details ? "map" : "chart.xyaxis.line")
+                    } else {
+                        Label(replay.details ? "Map" : "Charts", systemImage: replay.details ? "map" : "chart.xyaxis.line")
+                    }
                 }
                 .buttonStyle(.glass)
-                .accessibilityIdentifier("replay_stop")
+                .accessibilityLabel(replay.details ? Text("Map") : Text("Charts"))
+                .accessibilityIdentifier("replay_charts")
             }
         }
     }
@@ -231,9 +241,7 @@ struct SavedTripView: View {
         .padding(.horizontal, Space.s4)
         .padding(.vertical, Space.s2)
         .glassEffect(.regular, in: .capsule)
-        .padding(.horizontal, Space.s3)
-        .padding(.top, Space.s2)
-        .transition(.move(edge: .top).combined(with: .opacity))
+        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 
     @ToolbarContentBuilder private func toolbar(_ trip: TripRecord?, _ shown: TripDetail?) -> some ToolbarContent {

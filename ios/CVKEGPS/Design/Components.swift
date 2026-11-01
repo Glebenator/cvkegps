@@ -168,27 +168,31 @@ struct TripActionsView: View {
 
     var body: some View {
         GlassEffectContainer(spacing: Space.s3) {
+            // In a row, Pause or Resume takes the width of its label and Stop and save takes the rest, so no label is cut.
+            // When the labels do not fit in one row, the buttons stack with the full width.
             ViewThatFits(in: .horizontal) {
-                HStack(spacing: Space.s3) { buttons }
-                VStack(spacing: Space.s2) { buttons }
+                HStack(spacing: Space.s3) { buttons(row: true) }
+                VStack(spacing: Space.s2) { buttons(row: false) }
             }
         }
     }
 
-    @ViewBuilder private var buttons: some View {
+    @ViewBuilder private func buttons(row: Bool) -> some View {
         if trip.status == .recording {
             Button(action: pause) {
-                Label("Pause trip", systemImage: "pause.fill").frame(maxWidth: .infinity, minHeight: 30)
+                Label("Pause trip", systemImage: "pause.fill").frame(maxWidth: row ? nil : .infinity, minHeight: 30)
             }
             .buttonStyle(.glass)
             .controlSize(.large)
+            .fixedSize(horizontal: row, vertical: false)
             .accessibilityIdentifier("trip_pause")
         } else {
             Button(action: resume) {
-                Label("Resume trip", systemImage: "play.fill").frame(maxWidth: .infinity, minHeight: 30)
+                Label("Resume trip", systemImage: "play.fill").frame(maxWidth: row ? nil : .infinity, minHeight: 30)
             }
             .buttonStyle(.glass)
             .controlSize(.large)
+            .fixedSize(horizontal: row, vertical: false)
             .accessibilityIdentifier("trip_resume")
         }
         Button(action: stop) {

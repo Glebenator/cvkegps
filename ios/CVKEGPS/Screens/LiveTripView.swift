@@ -23,7 +23,6 @@ struct LiveTripView: View {
             ZStack(alignment: .bottom) {
                 TripMapView(lines: lines ?? [], routeReady: lines != nil, mode: .live, position: shown.map { MapPosition(sample: $0, fresh: fresh) },
                             bottomInset: panelHeight)
-                    .ignoresSafeArea()
                 if let trip = state.trip {
                     panel(trip, state, now)
                         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { panelHeight = $0 + Space.s4 }

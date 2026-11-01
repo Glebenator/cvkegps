@@ -62,6 +62,8 @@ struct TripMapView: View {
     private var bySpeed: Bool { mode != .live && settings.routeColour == .speed }
 
     var body: some View {
+        // Only the map goes under the status bar, the navigation bar, and the home indicator. The overlays stay in the
+        // safe area, so they do not cover the clock or the toolbar buttons. The size is the free area for the route fit.
         GeometryReader { geometry in
             Map(position: $camera) { content }
                 .mapStyle(style)
@@ -70,11 +72,9 @@ struct TripMapView: View {
                     MapScaleView()
                 }
                 .safeAreaPadding(.bottom, bottomInset)
+                .ignoresSafeArea()
                 .onMapCameraChange(frequency: .continuous) { context in cameraState.camera = context.camera }
                 .onChange(of: camera.positionedByUser) { _, byUser in if byUser { follow = .off } }
-                .overlay(alignment: .topTrailing) { controls.padding(.trailing, Space.s3).padding(.top, Space.s2) }
-                .overlay(alignment: .topLeading) { legend.padding(.leading, Space.s3).padding(.top, Space.s2) }
-                .overlay(alignment: .bottom) { note.padding(.bottom, bottomInset + Space.s6) }
                 .onAppear {
                     size = geometry.size
                     if follows { follow = settings.mapStart == .course ? .course : .north }
@@ -82,6 +82,15 @@ struct TripMapView: View {
                 }
                 .onChange(of: geometry.size) { _, new in size = new }
         }
+        // The map controls and the legend stop growing at the largest standard text size, as in Apple Maps, so they do
+        // not cover each other and the route. Their VoiceOver labels give the same information.
+        .overlay(alignment: .topTrailing) {
+            controls.padding(.trailing, Space.s3).padding(.top, Space.s2).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+        }
+        .overlay(alignment: .topLeading) {
+            legend.padding(.leading, Space.s3).padding(.top, Space.s2).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+        }
+        .overlay(alignment: .bottom) { note.padding(.bottom, bottomInset + Space.s6) }
         .onChange(of: lines) { _, new in route.set(new, bySpeed: bySpeed, throttled: mode == .live) }
         .onChange(of: bySpeed) { _, speed in route.set(lines, bySpeed: speed, throttled: false) }
         .onChange(of: route.builds) { _, _ in fitOnce() }
@@ -235,14 +244,19 @@ struct TripMapView: View {
 
     private func fit() {
         let points = lines.flatMap { $0 }
-        let width = max(size.width - 2 * 48 - 64, 48)
-        let height = max(size.height - bottomInset - 2 * 48 - 64, 48)
-        guard let frame = RouteMath.frame(points, width: width, height: height) else { return }
-        // The world is 256 points wide at zoom 0. The visible rect has the size of the free map area at the frame's zoom.
+        // The free map area is between the navigation bar and the panel. The route keeps a margin on each side that is
+        // wider than the map controls, so the controls and the speed legend do not cover it.
+        let freeWidth = max(size.width, 1)
+        let freeHeight = max(size.height - bottomInset, 1)
+        let margin = 2 * 48 + 64.0
+        guard let frame = RouteMath.frame(points, width: max(freeWidth - margin, 48), height: max(freeHeight - margin, 48)) else { return }
+        // The world is 256 points wide at zoom 0. MapKit fills the free area with the rect, so the rect has the size of
+        // the whole free area at the frame's zoom, not the size of the route. Then the margins stay.
         let scale = MKMapSize.world.width / (256 * pow(2, frame.zoom))
         let centre = MKMapPoint(CLLocationCoordinate2D(latitude: frame.latitudeRadians * 180 / .pi,
                                                        longitude: frame.longitudeRadians * 180 / .pi))
-        let rect = MKMapRect(x: centre.x - width * scale / 2, y: centre.y - height * scale / 2, width: width * scale, height: height * scale)
+        let rect = MKMapRect(x: centre.x - freeWidth * scale / 2, y: centre.y - freeHeight * scale / 2,
+                             width: freeWidth * scale, height: freeHeight * scale)
         withAnimation(placed ? .easeInOut(duration: 0.5) : nil) { camera = .rect(rect) }
         placed = true
     }

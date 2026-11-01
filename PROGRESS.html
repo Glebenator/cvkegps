@@ -166,10 +166,10 @@
       </div>
       <aside class="meta" aria-label="Report details">
         <dl>
-          <div><dt>Report updated</dt><dd><time datetime="2026-10-30">30 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>c935bbb</code> plus the map settings (branch <code>native-maps</code>, not committed)</dd></div>
+          <div><dt>Report updated</dt><dd><time datetime="2026-11-01">1 November 2026</time></dd></div>
+          <div><dt>App code baseline</dt><dd>Android: <code>c935bbb</code> plus the map settings (branch <code>native-maps</code>, not committed). iOS: <code>4c887b1</code> plus the fixes in the iOS entry</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
-          <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
+          <div><dt>iOS app</dt><dd><a href="#ios-app">UI flow passed on a simulator</a> · Real iPhone not tested</dd></div>
         </dl>
       </aside>
     </div>
@@ -179,6 +179,7 @@
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, debug lint, and unsigned release build</span><span class="small">Release APK not installed or run</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#ios-app">iOS app · 1 Nov</a>
       <a href="#map-settings">Map settings · 30 Oct</a>
       <a href="#colour-choices">Colour choices · 30 Oct</a>
       <a href="#speed-colours">Speed colours · 30 Oct</a>
@@ -213,6 +214,87 @@
       <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
     </nav>
+
+    <section id="ios-app" aria-labelledby="ios-app-heading">
+      <div class="section-head"><h2 id="ios-app-heading">iOS app on the simulator · 1 November 2026</h2><span class="tag pending">UI flow passed on a simulator · Real iPhone not tested</span></div>
+      <p class="section-intro">The native iOS app is in <a href="ios/README.md"><code>ios/</code></a>: SwiftUI with Liquid Glass, Apple Maps, Core Location, Core Motion, Swift Charts, a Live Activity, and a Control Center button. The Swift package <code>CVKEGPSCore</code> has the measurement rules, the trip recorder, and an SQLite store with the Room tables. <a href="docs/adr/0006-build-the-ios-app-with-apple-maps-and-a-shared-swift-core.md">ADR 0006</a> gives the decisions and the platform differences. iOS reports no satellites, so the satellite ring, the sky map, and the satellite details are Android only.</p>
+      <p>App baseline: <code>4c887b1</code> plus the layout and test fixes that this entry adds. The first UI flow run found these problems, and this change fixes them:</p>
+      <ul>
+        <li>The map legend and the map buttons were under the status bar and the navigation bar buttons. Now only the map goes to the screen edges.</li>
+        <li>The saved trip map did not keep a margin around the route. MapKit fills the map with the rect, so the rect now has the size of the free map area.</li>
+        <li>The panel of a saved trip was taller than its content, and the replay panel hid Play below its edge. The panel now has the height of its content. The replay values use two columns.</li>
+        <li>"Stop and save" was cut. Pause now has the width of its label, and Stop and save takes the rest.</li>
+        <li>The recording accessory showed again on the current trip screen. On iOS 26.1 and later, it is off on that screen.</li>
+        <li>At the largest text size, the dial label was cut, the value cards were too narrow, the map buttons covered each other, and Play had no visible label. These now fit. The map buttons and the legend stop growing at the largest standard size, as in Apple Maps.</li>
+        <li>The UI test now selects the first of two elements with the same identifier. In iOS 26, a toolbar item has a container and a button with the same identifier. The CI export now copies only screenshots, because the artifact upload refused a debug file name with quotes.</li>
+      </ul>
+      <pre><code><a href="ios/CVKEGPS/Map/TripMapView.swift">TripMapView.swift</a> · the saved trip map fit
+guard let frame = RouteMath.frame(points, width: max(freeWidth - margin, 48), height: max(freeHeight - margin, 48)) else { return }
+let rect = MKMapRect(x: centre.x - freeWidth * scale / 2, y: centre.y - freeHeight * scale / 2,
+                     width: freeWidth * scale, height: freeHeight * scale)</code></pre>
+      <h3 style="margin-top:24px">iPhone 17 Pro simulator, iOS 26.2</h3>
+      <p class="small">All locations are simulated with <code>XCUIDevice.shared.location</code>: a street in Vancouver, 12 m/s to the east with an accuracy of 4 m, then a stop. The app receives them through its production Core Location path.</p>
+      <div class="screens">
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-speed-permission.webp"><img src="docs/progress/images/2026-11-01-ios-speed-permission.webp" loading="lazy" alt="Speed tab before location access: a dash in the speed dial, dashes for altitude and maximum speed, a Location access card that says Use precise location for speed and altitude, and an Allow precise location button."></a>
+      <figcaption><strong>Before location access</strong>1 November 2026. Baseline <code>4c887b1</code> plus this change. iPhone 17 Pro simulator, iOS 26.2. New installation with location access reset.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-speed-live.webp"><img src="docs/progress/images/2026-11-01-ios-speed-live.webp" loading="lazy" alt="Speed tab with a current speed of 43.2 km/h in the glass dial, altitude 70 m, maximum speed 43.2 km/h, the accuracy bar, Start trip, and the Activity: automatic chip above the Speed and Trips tab bar."></a>
+      <figcaption><strong>Live speed</strong>1 November 2026. Baseline <code>4c887b1</code> plus this change. iPhone 17 Pro simulator, iOS 26.2. Simulated fix at 12 m/s, which shows as 43.2 km/h.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-trip-notice.webp"><img src="docs/progress/images/2026-11-01-ios-trip-notice.webp" loading="lazy" alt="Record a trip sheet with Cancel and Start trip. It explains that the app uses precise location also when the screen is locked, that a Live Activity shows Pause and Stop, that trips record motion and air pressure sensors, and that Apple Maps receives the map area."></a>
+      <figcaption><strong>Recording notice</strong>1 November 2026. Baseline <code>4c887b1</code> plus this change. iPhone 17 Pro simulator, iOS 26.2. Shown before the first trip. Simulated location.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-gps-details.webp"><img src="docs/progress/images/2026-11-01-ios-gps-details.webp" loading="lazy" alt="GPS details: position estimate plus or minus 4 m on the accuracy bar, source Core Location, requested accuracy Best, location access Precise, 2 readings, speed check Accepted for display, horizontal accuracy plus or minus 4 m, speed uncertainty plus or minus 0.4 m/s."></a>
+      <figcaption><strong>GPS details</strong>1 November 2026. Baseline <code>4c887b1</code> plus this change. iPhone 17 Pro simulator, iOS 26.2. The simulated fix gives speed accuracy and course to the app.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-speed-recording.webp"><img src="docs/progress/images/2026-11-01-ios-speed-recording.webp" loading="lazy" alt="Speed tab during a trip: speed 0 km/h, and above the tab bar the recording accessory with a red record symbol, Recording, 0:42 and 442 m, and Pause and Stop buttons."></a>
+      <figcaption><strong>Recording accessory</strong>1 November 2026. Baseline <code>4c887b1</code> plus this change. iPhone 17 Pro simulator, iOS 26.2. Simulated trip after the stop at the end.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-live-trip.webp"><img src="docs/progress/images/2026-11-01-ios-live-trip.webp" loading="lazy" alt="Current trip: a full-screen Apple map with the blue route and the position, the layers, follow, zoom in and zoom out buttons under the navigation bar, and a glass panel with Recording, Estimate: Car or transit, current speed 0 km/h, 0:50, 442 m, Pause trip, and Stop and save."></a>
+      <figcaption><strong>Current trip</strong>1 November 2026. Baseline <code>4c887b1</code> plus this change. iPhone 17 Pro simulator, iOS 26.2. Simulated route, about 40 seconds along a street.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-saved-trip.webp"><img src="docs/progress/images/2026-11-01-ios-saved-trip.webp" loading="lazy" alt="Saved trip after Stop and save: the route coloured from yellow to dark at the stop, between a green start and a red end, the speed legend 25.9 to 43.2 km/h, a Trip saved banner with Resume trip, and a panel with distance 442 m, recording time 51 s, average speed 30.9 km/h, and maximum speed 43.2 km/h."></a>
+      <figcaption><strong>Saved trip</strong>1 November 2026. Baseline <code>4c887b1</code> plus this change. iPhone 17 Pro simulator, iOS 26.2. Simulated route. The route fits between the controls and the panel.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-replay.webp"><img src="docs/progress/images/2026-11-01-ios-replay.webp" loading="lazy" alt="Trip replay playing: the map follows the position near moment 1, and the panel shows replay time 0:04 of 0:51, speed 43.2 km/h, altitude 70 m, acceleration 0, the speed profile with moments 1 and 2, Pause, previous and next moment, 1x, and the moment chips."></a>
+      <figcaption><strong>Replay</strong>1 November 2026. Baseline <code>4c887b1</code> plus this change. iPhone 17 Pro simulator, iOS 26.2. Simulated route. Acceleration comes from GPS speed, because the simulator has no motion sensors.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-replay-charts.webp"><img src="docs/progress/images/2026-11-01-ios-replay-charts.webp" loading="lazy" alt="Replay charts: the map strip at the top, values at 0:45 with speed 0 km/h and dashes for altitude and acceleration, the controls, the moment chips, a Swift Charts speed chart, and the start of the altitude chart with a hatched area after the last fix."></a>
+      <figcaption><strong>Replay charts</strong>1 November 2026. Baseline <code>4c887b1</code> plus this change. iPhone 17 Pro simulator, iOS 26.2. Simulated route. The simulated fixes end before the trip ends, so altitude and acceleration show as unavailable.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-settings.webp"><img src="docs/progress/images/2026-11-01-ios-settings.webp" loading="lazy" alt="Settings sheet: units for speed, distance, and altitude from the region, altitude reference above sea level, and trip recording with standard position updates and the Wi-Fi and mobile networks switch."></a>
+      <figcaption><strong>Settings</strong>1 November 2026. Baseline <code>4c887b1</code> plus this change. iPhone 17 Pro simulator, iOS 26.2. Default values.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-speed-dark.webp"><img src="docs/progress/images/2026-11-01-ios-speed-dark.webp" loading="lazy" alt="Speed tab in dark mode: 32.4 km/h in the glass dial on a dark blue and copper backdrop, altitude 70 m, maximum speed 32.4 km/h, the accuracy bar, Start trip, and the Activity chip."></a>
+      <figcaption><strong>Dark mode</strong>1 November 2026. Baseline <code>4c887b1</code> plus this change. iPhone 17 Pro simulator, iOS 26.2. Simulated fixes at 9 m/s.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-saved-trip-dark.webp"><img src="docs/progress/images/2026-11-01-ios-saved-trip-dark.webp" loading="lazy" alt="Saved trip in dark mode: the dark Apple map with the speed-coloured route, the legend, the map buttons, and the panel with the trip totals."></a>
+      <figcaption><strong>Saved trip, dark mode</strong>1 November 2026. Baseline <code>4c887b1</code> plus this change. iPhone 17 Pro simulator, iOS 26.2. Simulated route.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-replay-dark.webp"><img src="docs/progress/images/2026-11-01-ios-replay-dark.webp" loading="lazy" alt="Replay in dark mode at the fastest speed moment: 0:01 of 0:51, speed 43.2 km/h, altitude 70 m, the speed profile, Play, and the moment chips."></a>
+      <figcaption><strong>Replay, dark mode</strong>1 November 2026. Baseline <code>4c887b1</code> plus this change. iPhone 17 Pro simulator, iOS 26.2. Simulated route. The test selected the fastest speed chip.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-speed-large-text.webp"><img src="docs/progress/images/2026-11-01-ios-speed-large-text.webp" loading="lazy" alt="Speed tab at the largest accessibility text size: a smaller dial with Current speed, 32.4, and km/h, then the altitude and maximum speed cards one above the other, in a scrolling view."></a>
+      <figcaption><strong>Largest text</strong>1 November 2026. Baseline <code>4c887b1</code> plus this change. iPhone 17 Pro simulator, iOS 26.2, accessibility text size XXXL. Simulated fixes. The text size was reset after the test.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-saved-trip-large-text.webp"><img src="docs/progress/images/2026-11-01-ios-saved-trip-large-text.webp" loading="lazy" alt="Saved trip at the largest text size: the legend and the map buttons at a standard size under the navigation bar, and the panel with the activity chip and the totals in large text."></a>
+      <figcaption><strong>Saved trip, largest text</strong>1 November 2026. Baseline <code>4c887b1</code> plus this change. iPhone 17 Pro simulator, iOS 26.2, accessibility text size XXXL. Simulated route.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-replay-large-text.webp"><img src="docs/progress/images/2026-11-01-ios-replay-large-text.webp" loading="lazy" alt="Replay at the largest text size: Play in its own full-width row, then previous moment, next moment, and 1x, then the Fastest speed chip and the motion sensor note."></a>
+      <figcaption><strong>Replay, largest text</strong>1 November 2026. Baseline <code>4c887b1</code> plus this change. iPhone 17 Pro simulator, iOS 26.2, accessibility text size XXXL. Simulated route. The panel scrolled to the selected chip.</figcaption></figure>
+      </div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li>Xcode 26.6 on a Mac, iPhone 17 Pro simulator with iOS 26.2. The debug build for testing had no Swift warnings.</li>
+          <li>UI flow <code>test1RecordAndReplayTrip</code> passed in light mode after a new installation and a reset of location access (132 s). It allows location in the system dialog, waits for 43.2 km/h, opens GPS details, starts a trip through the notice, sends 40 fixes, opens the current trip from the recording accessory, stops and saves, plays the replay, opens the charts, returns to the trip list, and opens Settings.</li>
+          <li><code>test2Screens</code> passed in dark mode and with the largest accessibility text size, with the trip from the first test.</li>
+          <li><code>swift test</code> in <code>ios/CVKEGPSCore</code>: 54 of 54 tests passed.</li>
+          <li>CI run <code>41341145868</code> on <code>4c887b1</code> built the app, but the UI flow failed at the toolbar button that this change fixes. Raw captures and result bundles: <code>artifacts/</code> (not in Git).</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>Nothing was checked on a real iPhone. The simulator gives about one fix each second with the values that the test sets. It does not show GPS accuracy, the network position rule, signal loss in a tunnel, or battery use.</li>
+          <li>Not tested: recording with the screen locked or the app in the background, the Live Activity and its Pause, Resume, and Stop buttons, the Control Center button, Siri and Shortcuts, GPX sharing, swipe to delete, Pause and Resume in the app, and the Resume trip offer after Stop and save.</li>
+          <li>Not tested: the Core Motion recorder (the simulator has no motion sensors or barometer), the screen dimming after touch, landscape, VoiceOver, and the iOS 26.0 path of the recording accessory.</li>
+          <li>The replay starts at the trip start. The first fix arrives about one second later, so at 0:00 the replay shows No GPS signal. This is the shared replay rule.</li>
+          <li>The release archive and signing were not checked. The bundle IDs <code>com.example.cvkegps</code> and <code>com.example.cvkegps.widgets</code> are development IDs.</li>
+        </ul>
+        <h3 style="margin-top:18px">Required work</h3>
+        <ul>
+          <li>Test on a real iPhone: GPS accuracy and speed on a drive, the network position rule (no speed or course accuracy and accuracy worse than 20 m), recording with the screen locked, Resume from the Live Activity in the background, the Core Motion quaternion sign check in <code>MotionRecorder</code>, barometer readings, the dimming touch observer, and battery use.</li>
+          <li>Before publication: set the bundle IDs and signing, and complete the App Store privacy details.</li>
+        </ul>
+        <h3 style="margin-top:18px">Optional work</h3>
+        <ul>
+          <li>A predicted sky view from orbit data in place of the satellite sky map. This needs a network download and the owner's decision.</li>
+        </ul>
+      </article>
+    </section>
 
     <section id="map-settings" aria-labelledby="map-settings-heading">
       <div class="section-head"><h2 id="map-settings-heading">Map settings · 30 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
@@ -2266,6 +2348,8 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-11-01">1 November 2026</time><div><h3>iOS app on the simulator</h3>
+<p>The native iOS app has SwiftUI with Liquid Glass, Apple Maps, a Live Activity, and a Swift core with the Android measurement rules. On an iPhone 17 Pro simulator with iOS 26.2, the UI flow passed with simulated locations: permission, live speed, a recorded trip, Stop and save, the replay, and Settings. The main screens passed again in dark mode and at the largest text size. The first run found layout problems on the map screens and at large text; this change fixes them. 54 of 54 Swift core tests passed. Nothing was checked on a real iPhone. See <a href="#ios-app">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-30">30 October 2026</time><div><h3>Map settings</h3>
 <p>Settings &gt; Maps adds labels on satellite, 3D buildings, keep routes blue, the start orientation, the tilt, zoom with speed, and the accuracy circle. The defaults keep the earlier behaviour. On a Pixel 10 Pro API 37 emulator, two new device tests and the affected map, replay, and Settings device tests, 58 of 58 calculation tests, and lint passed. See <a href="#map-settings">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-30">30 October 2026</time><div><h3>Three colour choices, wallpaper colours by default</h3>

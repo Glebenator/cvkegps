@@ -66,7 +66,9 @@ struct SpeedView: View {
     private var metrics: some View {
         let reference = model.settings.values.altitudeReference
         let altitude = model.speed.reading?.altitude(reference)
-        return HStack(spacing: Space.s3) {
+        // At the largest text sizes, each card needs the full width for its value and unit.
+        let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: Space.s3)) : AnyLayout(HStackLayout(spacing: Space.s3))
+        return layout {
             MetricCard(title: "Altitude", value: altitude.map(format.altitudeNumber), unit: format.altitudeUnit,
                        subtitle: reference == .seaLevel ? "Above sea level" : "GPS height", identifier: "altitude")
             MetricCard(title: "Maximum speed", value: model.speed.maximum.map(format.speedNumber), unit: format.speedUnit,
@@ -120,6 +122,8 @@ struct SpeedDial: View {
             VStack(spacing: Space.s1) {
                 if diameter >= 240 {
                     Text("Current speed").font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
                 }
                 if let speed {
                     Text(format.speedNumber(speed))

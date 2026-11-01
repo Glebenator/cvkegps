@@ -71,6 +71,7 @@ private struct ReplayValuesRow: View {
     var heightOffset: Double
     var seaLevel: Bool
     @Environment(\.displayFormat) private var format
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         // A network position or a gap has no speed. The text says why.
@@ -79,6 +80,11 @@ private struct ReplayValuesRow: View {
             else { values.speedMetersPerSecond.map(format.speed) }
         ViewThatFits(in: .horizontal) {
             HStack(alignment: .top, spacing: Space.s4) { items(speed) }
+            // Two columns keep the playback controls in view on a phone. Accessibility text sizes need the full width.
+            if !typeSize.isAccessibilitySize {
+                LazyVGrid(columns: [GridItem(.flexible(), alignment: .leading), GridItem(.flexible(), alignment: .leading)],
+                          alignment: .leading, spacing: Space.s2) { items(speed) }
+            }
             VStack(alignment: .leading, spacing: Space.s2) { items(speed) }
         }
     }
@@ -102,45 +108,66 @@ private struct ReplayControls: View {
     var replay: ReplayModel
     var trip: TripReplay
     @Environment(\.displayFormat) private var format
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        let previous = trip.previousMoment(before: replay.playhead)
-        let next = trip.nextMoment(after: replay.playhead)
         GlassEffectContainer(spacing: Space.s2) {
-            HStack(spacing: Space.s2) {
-                Button { if let previous { replay.pause(at: previous.timeNanos) } } label: {
-                    Image(systemName: "backward.end.fill").frame(width: 24, height: 24)
+            // At the largest text sizes, Play has its own row, so its label is not squeezed between the other buttons.
+            if typeSize.isAccessibilitySize {
+                VStack(spacing: Space.s2) {
+                    play
+                    HStack(spacing: Space.s2) { previous; next; rate }
                 }
-                .buttonStyle(.glass)
-                .buttonBorderShape(.circle)
-                .disabled(previous == nil)
-                .accessibilityLabel(Text("Previous moment"))
-                .accessibilityIdentifier("replay_previous")
-                // Play and Pause is the one primary button.
-                Button(action: replay.toggle) {
-                    Label(replay.playing ? "Pause" : "Play", systemImage: replay.playing ? "pause.fill" : "play.fill")
-                        .frame(maxWidth: .infinity, minHeight: 30)
-                        .contentTransition(.symbolEffect(.replace))
-                }
-                .buttonStyle(.glassProminent)
-                .accessibilityIdentifier("replay_play")
-                Button { if let next { replay.pause(at: next.timeNanos) } } label: {
-                    Image(systemName: "forward.end.fill").frame(width: 24, height: 24)
-                }
-                .buttonStyle(.glass)
-                .buttonBorderShape(.circle)
-                .disabled(next == nil)
-                .accessibilityLabel(Text("Next moment"))
-                .accessibilityIdentifier("replay_next")
-                Button(action: replay.nextRate) {
-                    Text("\(format.whole(replay.rate))×").monospacedDigit().frame(minWidth: 36, minHeight: 30)
-                }
-                .buttonStyle(.glass)
-                .accessibilityLabel(Text("Replay speed: \(format.whole(replay.rate)) times"))
-                .accessibilityIdentifier("replay_rate")
+                .controlSize(.large)
+            } else {
+                HStack(spacing: Space.s2) { previous; play; next; rate }
+                    .controlSize(.large)
             }
-            .controlSize(.large)
         }
+    }
+
+    private var previous: some View {
+        let moment = trip.previousMoment(before: replay.playhead)
+        return Button { if let moment { replay.pause(at: moment.timeNanos) } } label: {
+            Image(systemName: "backward.end.fill").frame(width: 24, height: 24)
+        }
+        .buttonStyle(.glass)
+        .buttonBorderShape(.circle)
+        .disabled(moment == nil)
+        .accessibilityLabel(Text("Previous moment"))
+        .accessibilityIdentifier("replay_previous")
+    }
+
+    /// Play and Pause is the one primary button.
+    private var play: some View {
+        Button(action: replay.toggle) {
+            Label(replay.playing ? "Pause" : "Play", systemImage: replay.playing ? "pause.fill" : "play.fill")
+                .frame(maxWidth: .infinity, minHeight: 30)
+                .contentTransition(.symbolEffect(.replace))
+        }
+        .buttonStyle(.glassProminent)
+        .accessibilityIdentifier("replay_play")
+    }
+
+    private var next: some View {
+        let moment = trip.nextMoment(after: replay.playhead)
+        return Button { if let moment { replay.pause(at: moment.timeNanos) } } label: {
+            Image(systemName: "forward.end.fill").frame(width: 24, height: 24)
+        }
+        .buttonStyle(.glass)
+        .buttonBorderShape(.circle)
+        .disabled(moment == nil)
+        .accessibilityLabel(Text("Next moment"))
+        .accessibilityIdentifier("replay_next")
+    }
+
+    private var rate: some View {
+        Button(action: replay.nextRate) {
+            Text("\(format.whole(replay.rate))×").monospacedDigit().lineLimit(1).fixedSize().frame(minWidth: 36, minHeight: 30)
+        }
+        .buttonStyle(.glass)
+        .accessibilityLabel(Text("Replay speed: \(format.whole(replay.rate)) times"))
+        .accessibilityIdentifier("replay_rate")
     }
 }
 

@@ -39,8 +39,10 @@ final class TripFlowUITests: XCTestCase {
         }
     }
 
+    /// The first element with the identifier. In iOS 26, a toolbar item has a container and a button with the same
+    /// identifier and the same frame.
     private func element(_ identifier: String) -> XCUIElement {
-        app.descendants(matching: .any)[identifier]
+        app.descendants(matching: .any).matching(identifier: identifier).firstMatch
     }
 
     private func waitFor(_ element: XCUIElement, _ timeout: TimeInterval = 15, file: StaticString = #filePath, line: UInt = #line) {
@@ -101,7 +103,7 @@ final class TripFlowUITests: XCTestCase {
         element("replay_play").tap()
         Thread.sleep(forTimeInterval: 4)
         capture("replay-playing")
-        element("replay_stop").tap()
+        element("replay_charts").tap()
         Thread.sleep(forTimeInterval: 2)
         capture("replay-charts")
         element("replay_back").tap()
@@ -124,7 +126,11 @@ final class TripFlowUITests: XCTestCase {
         XCUIDevice.shared.location = fix(east: 0, speed: 9)
         allowLocation()
         waitFor(element("current_speed"))
-        Thread.sleep(forTimeInterval: 3)
+        // One fix each second, as from a receiver. One fix only would become old, and the app would show no speed.
+        for second in 1...4 {
+            XCUIDevice.shared.location = fix(east: Double(second) * 9, speed: 9)
+            Thread.sleep(forTimeInterval: 1)
+        }
         capture("speed")
         app.tabBars.buttons["Trips"].tap()
         let trip = element("saved_trip").firstMatch
@@ -136,6 +142,10 @@ final class TripFlowUITests: XCTestCase {
         capture("saved-trip")
         element("open_replay").tap()
         waitFor(element("replay_play"), 30)
+        // The fastest moment has a speed. At 0:00 the replay is before the first fix and shows no GPS signal.
+        let fastest = element("moment_fastestSpeed")
+        waitFor(fastest)
+        fastest.tap()
         Thread.sleep(forTimeInterval: 2)
         capture("replay")
     }
