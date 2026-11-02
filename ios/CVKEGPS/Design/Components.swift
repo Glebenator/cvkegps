@@ -29,6 +29,8 @@ struct MetricView: View {
     var title: LocalizedStringKey
     var value: String?
     var identifier: String?
+    /// A short qualifier below the value, for example "Includes stops".
+    var note: LocalizedStringKey? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -38,6 +40,7 @@ struct MetricView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .accessibilityIdentifier(identifier ?? "")
+            if let note { Text(note).font(.caption).foregroundStyle(.secondary) }
         }
         .accessibilityElement(children: .combine)
         .accessibilityValue(value == nil ? Text("Unavailable") : Text(""))
@@ -82,7 +85,7 @@ struct TripStatusChip: View {
         HStack(spacing: Space.s2) {
             Image(systemName: recording ? "record.circle.fill" : "pause.circle.fill")
                 .foregroundStyle(recording ? Palette.danger : Palette.inkMuted)
-                .symbolEffect(.pulse, options: .repeat(3), isActive: recording && noSignal)
+            // No pulse: the owner's design language does not allow pulsing icons. The text and the tint show the state.
             Text(text).font(.subheadline.weight(.medium))
         }
         .padding(.horizontal, Space.s3)
@@ -198,24 +201,35 @@ struct TripActionsView: View {
         Button(action: stop) {
             Label("Stop and save", systemImage: "stop.fill").frame(maxWidth: .infinity, minHeight: 30)
         }
-        .buttonStyle(.glassProminent)
+        .prominentButton()
         .controlSize(.large)
         .accessibilityIdentifier("trip_stop")
     }
 }
 
-/// A chip that opens the activity choice.
+/// A chip that opens the activity choice. As on Android, it can show the activity icon and a short name; then `spoken`
+/// gives VoiceOver the full choice.
 struct ActivityChip: View {
     var text: String
+    var symbol: String? = nil
+    var trailing = "pencil"
+    var spoken: String? = nil
+    /// The label height. A chip beside a large button uses the height of that button's label.
+    var minHeight: CGFloat = 30
     var action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Label(text, systemImage: "pencil").labelStyle(TrailingIconLabelStyle())
-                .font(.subheadline)
-                .frame(minHeight: 30)
+            HStack(spacing: Space.s2) {
+                if let symbol { Image(systemName: symbol).foregroundStyle(.primary) }
+                Text(text).lineLimit(1)
+                Image(systemName: trailing).font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
+            }
+            .font(.subheadline)
+            .frame(minHeight: minHeight)
         }
         .buttonStyle(.glass)
+        .accessibilityLabel(Text(spoken ?? text))
         .accessibilityIdentifier("activity_chip")
     }
 }
@@ -253,5 +267,85 @@ struct TripTimeText: View {
         } else {
             Text(format.duration(elapsed))
         }
+    }
+}
+
+extension View {
+    /// A prominent glass button with the fill token. In dark mode, white text on the fill keeps a contrast of 4.5:1 or more.
+    func prominentButton() -> some View {
+        buttonStyle(.glassProminent).tint(Palette.accentFill)
+    }
+}
+
+/// The 32-point `accentSubtle` tile at the start of a list row, as on Android. The symbol keeps its size at all text
+/// sizes, so it stays inside the tile.
+struct IconTile: View {
+    var symbol: String
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundStyle(Palette.accent)
+            .frame(width: 32, height: 32)
+            .background(Palette.accentSubtle, in: .rect(cornerRadius: 8))
+            .accessibilityHidden(true)
+    }
+}
+
+/// A status as a dot and text, as on Android. The text says the same as the colour.
+struct StatusText: View {
+    var text: String
+    var color: Color
+
+    var body: some View {
+        HStack(spacing: Space.s2) {
+            StatusDot(color: color)
+            Text(text).font(.caption.weight(.medium)).foregroundStyle(Palette.ink)
+        }
+    }
+}
+
+/// Brand art for empty states, as on Android: a disc with a 70° slice cut out, the slice beside it, a half-disc, and two
+/// dots. Flat fills only. It is decoration, so VoiceOver skips it. Only one art on a screen moves. The slice drifts slowly
+/// only while the art is on screen, and stays at rest when Reduce Motion is on.
+struct SliceArt: View {
+    var animated = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var out = false
+
+    var body: some View {
+        let moving = animated && !reduceMotion
+        ZStack(alignment: .topLeading) {
+            Sector(start: 35, sweep: 290).fill(Palette.accent).frame(width: 44, height: 44).offset(x: 4, y: 10)
+            Sector(start: -35, sweep: 70).fill(Palette.brandApricot).frame(width: 44, height: 44)
+                .offset(x: 4 + (moving ? (out ? 11 : 5) : 5.5), y: 10)
+            Sector(start: 180, sweep: 180).fill(Palette.brandApricotSubtle).frame(width: 28, height: 28).offset(x: 64, y: 44)
+            Circle().fill(Palette.brandApricot).frame(width: 8, height: 8).offset(x: 74, y: 48)
+            Circle().fill(Palette.ink).frame(width: 8, height: 8).offset(x: 80, y: 8)
+        }
+        .frame(width: 96, height: 64, alignment: .topLeading)
+        .clipped()
+        .accessibilityHidden(true)
+        .onAppear {
+            guard moving else { return }
+            withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) { out = true }
+        }
+        .onDisappear { out = false }
+    }
+}
+
+/// A filled circle sector from `start` degrees, clockwise on screen, over `sweep` degrees. Zero degrees points right.
+private struct Sector: Shape {
+    var start: Double
+    var sweep: Double
+
+    func path(in rect: CGRect) -> Path {
+        let centre = CGPoint(x: rect.midX, y: rect.midY)
+        var path = Path()
+        path.move(to: centre)
+        path.addArc(center: centre, radius: min(rect.width, rect.height) / 2, startAngle: .degrees(start),
+                    endAngle: .degrees(start + sweep), clockwise: false)
+        path.closeSubpath()
+        return path
     }
 }

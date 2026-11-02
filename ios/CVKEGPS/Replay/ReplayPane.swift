@@ -37,7 +37,11 @@ struct ReplayPane: View {
 
     @ViewBuilder private func content(_ trip: TripReplay) -> some View {
         let values = trip.valuesAt(replay.playhead)
-        ReplayValuesRow(replay: trip, values: values, playhead: replay.playhead, heightOffset: heightOffset, seaLevel: seaLevel)
+        // With all charts, each chart title shows its value, so the values row shows only the time. One chart at a time
+        // keeps all values in the row, because the other charts do not show (as on Android).
+        let titled = replay.details && !singleChart
+        ReplayValuesRow(replay: trip, values: values, playhead: replay.playhead, heightOffset: heightOffset, seaLevel: seaLevel,
+                        timeOnly: titled)
         if !replay.details { SpeedProfile(trip: trip, playhead: replay.playhead, state: timelineState(trip, values), seek: replay.seek, pauseAt: replay.pause(at:)) }
         ReplayControls(replay: replay, trip: trip)
         MomentChips(trip: trip, playhead: replay.playhead, heightOffset: heightOffset) { moment in
@@ -47,7 +51,8 @@ struct ReplayPane: View {
         if replay.details {
             ReplayCharts(trip: trip, playhead: replay.playhead, heightOffset: heightOffset, seaLevel: seaLevel,
                          state: timelineState(trip, values), single: singleChart ? replay.chart : nil,
-                         select: { replay.chart = $0 }, seek: replay.seek, pauseAt: replay.pause(at:))
+                         select: { replay.chart = $0 }, seek: replay.seek, pauseAt: replay.pause(at:),
+                         value: titled ? { kind in ReplayReadout.text(kind, values, offset: heightOffset, format: format) } : nil)
         }
         if !trip.accelerationFromSensors && !trip.acceleration.isEmpty {
             Text("This trip has no motion sensor record. Acceleration comes from the change of GPS speed.")
@@ -70,14 +75,12 @@ private struct ReplayValuesRow: View {
     var playhead: Int64
     var heightOffset: Double
     var seaLevel: Bool
+    var timeOnly = false
     @Environment(\.displayFormat) private var format
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        // A network position or a gap has no speed. The text says why.
-        let speed: String? = if values.fix == nil { String(localized: "No GPS signal") }
-            else if values.fix?.source == .network { String(localized: "Approximate position") }
-            else { values.speedMetersPerSecond.map(format.speed) }
+        let speed = ReplayReadout.text(.speed, values, offset: heightOffset, format: format)
         ViewThatFits(in: .horizontal) {
             HStack(alignment: .top, spacing: Space.s4) { items(speed) }
             // Two columns keep the playback controls in view on a phone. Accessibility text sizes need the full width.
@@ -91,14 +94,30 @@ private struct ReplayValuesRow: View {
 
     @ViewBuilder private func items(_ speed: String?) -> some View {
         MetricView(title: "Replay time", value: "\(format.clock(playhead)) / \(format.clock(replay.durationNanos))", identifier: "replay_time")
-        MetricView(title: "Speed", value: speed, identifier: "replay_speed")
-        if replay.heightSource != .none {
-            MetricView(title: seaLevel ? "Altitude above sea level" : "GPS height (WGS 84)",
-                       value: values.heightMeters.map { format.altitude($0 - heightOffset) }, identifier: "replay_height")
+        if !timeOnly {
+            MetricView(title: "Speed", value: speed, identifier: "replay_speed")
+            if replay.heightSource != .none {
+                MetricView(title: seaLevel ? "Altitude above sea level" : "GPS height (WGS 84)",
+                           value: ReplayReadout.text(.height, values, offset: heightOffset, format: format), identifier: "replay_height")
+            }
+            if !replay.acceleration.isEmpty {
+                MetricView(title: "Acceleration", value: ReplayReadout.text(.acceleration, values, offset: heightOffset, format: format),
+                           identifier: "replay_acceleration")
+            }
         }
-        if !replay.acceleration.isEmpty {
-            MetricView(title: "Acceleration", value: values.accelerationMetersPerSecondSquared.map(format.acceleration),
-                       identifier: "replay_acceleration")
+    }
+}
+
+/// The replay values at the playhead as text. A network position or a gap has no speed; the text says why.
+enum ReplayReadout {
+    static func text(_ kind: ReplayChartKind, _ values: ReplayValues, offset: Double, format: DisplayFormat) -> String? {
+        switch kind {
+        case .speed:
+            if values.fix == nil { return String(localized: "No GPS signal") }
+            if values.fix?.source == .network { return String(localized: "Approximate position") }
+            return values.speedMetersPerSecond.map(format.speed)
+        case .height: return values.heightMeters.map { format.altitude($0 - offset) }
+        case .acceleration: return values.accelerationMetersPerSecondSquared.map(format.acceleration)
         }
     }
 }
@@ -145,7 +164,7 @@ private struct ReplayControls: View {
                 .frame(maxWidth: .infinity, minHeight: 30)
                 .contentTransition(.symbolEffect(.replace))
         }
-        .buttonStyle(.glassProminent)
+        .prominentButton()
         .accessibilityIdentifier("replay_play")
     }
 

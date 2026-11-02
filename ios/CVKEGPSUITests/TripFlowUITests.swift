@@ -75,6 +75,11 @@ final class TripFlowUITests: XCTestCase {
         capture("gps-details")
         app.navigationBars.buttons.element(boundBy: 0).tap()
 
+        // On a first run there are no trips. The list then shows the empty state, not a blank screen.
+        app.tabBars.buttons["Trips"].tap()
+        if element("trips_empty").waitForExistence(timeout: 5) { capture("trips-empty") }
+        app.tabBars.buttons["Speed"].tap()
+
         element("trip_start").tap()
         let confirm = element("confirm_start")
         if confirm.waitForExistence(timeout: 5) {
@@ -100,6 +105,9 @@ final class TripFlowUITests: XCTestCase {
 
         element("open_replay").tap()
         waitFor(element("replay_play"), 30)
+        // This trip has no fix at 0:00. The map must still zoom to the start of the route before Play.
+        Thread.sleep(forTimeInterval: 1.5)
+        capture("replay-start-zoom")
         element("replay_play").tap()
         Thread.sleep(forTimeInterval: 4)
         capture("replay-playing")

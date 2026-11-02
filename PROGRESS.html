@@ -166,8 +166,8 @@
       </div>
       <aside class="meta" aria-label="Report details">
         <dl>
-          <div><dt>Report updated</dt><dd><time datetime="2026-11-01">1 November 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd>Android: <code>c935bbb</code> plus the map settings (branch <code>native-maps</code>, not committed). iOS: <code>4c887b1</code> plus the fixes in the iOS entry</dd></div>
+          <div><dt>Report updated</dt><dd><time datetime="2026-11-02">2 November 2026</time></dd></div>
+          <div><dt>App code baseline</dt><dd>Android: <code>c935bbb</code> plus the map settings (branch <code>native-maps</code>, not committed). iOS: <code>ced72a4</code> plus the UI review fixes and the app comparison fixes (not committed)</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd><a href="#ios-app">UI flow passed on a simulator</a> · Real iPhone not tested</dd></div>
         </dl>
@@ -179,6 +179,8 @@
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, debug lint, and unsigned release build</span><span class="small">Release APK not installed or run</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#app-comparison">App comparison fixes · 2 Nov</a>
+      <a href="#ios-ui-review">iOS UI review fixes · 1 Nov</a>
       <a href="#ios-app">iOS app · 1 Nov</a>
       <a href="#map-settings">Map settings · 30 Oct</a>
       <a href="#colour-choices">Colour choices · 30 Oct</a>
@@ -215,9 +217,138 @@
       <a href="#history">Change history</a>
     </nav>
 
+    <section id="app-comparison" aria-labelledby="app-comparison-heading">
+      <div class="section-head"><h2 id="app-comparison-heading">App comparison fixes · 2 November 2026</h2><span class="tag pending">iOS UI flow passed on a simulator · Android not built</span></div>
+      <p class="section-intro">A comparison of the iOS app with the Android changes after <code>d14442b</code> (branches <code>native-maps</code> and <code>clanker/performance-review-71251c</code>) found these items. App baseline: <code>ced72a4</code> plus the iOS UI review fixes and this change, not committed.</p>
+      <ul>
+        <li>iOS replay zoom (finding F1 of the <a href="https://github.com/Glebenator/cvkegps/blob/clanker/performance-review-71251c/docs/performance-review-2026-10-30.md">performance review of 30 October</a>, as Android <code>1e43436</code>): the Replay tap moves the map to the replay zoom at once. Until the playhead has a position, the move goes to the start of the saved route. Before, the map did not move until the replay calculation ended, and on a trip without a fix at 0:00 it did not move until Play. A playhead position that arrives during the first move changes the target of that move. A zoom button or a map gesture stops it. iOS does not have the Android animation defect F5.</li>
+        <li>A failed delete now shows "The app could not delete the trip. Try again." in both apps. Before, it showed the message for a recording that stopped because the trip could not be saved.</li>
+        <li>Android: a narrow no-break space (U+202F) keeps a number with its unit in <code>value_with_unit</code>, the acceleration value, the GPS details, and the position estimate, so large text does not put a unit on the next line. The durations already had it. iOS uses a no-break space for the same purpose.</li>
+        <li>The iOS ADR is now <a href="docs/adr/0007-build-the-ios-app-with-apple-maps-and-a-shared-swift-core.md">ADR 0007</a>. ADR 0006 on branch <code>native-maps</code> is the map styles decision.</li>
+        <li>The iOS UI review entry below said "Trip saved" shows for about 10 seconds. It shows for the full 2 minutes in which the trip can continue. The entry is corrected.</li>
+      </ul>
+      <pre><code><a href="ios/CVKEGPS/Map/TripMapView.swift">TripMapView.swift</a> · the first replay move does not wait for the replay
+guard let sample = position?.sample ?? (mode == .replay &amp;&amp; replayStart ? routeStart : nil) else { return }</code></pre>
+      <div class="screens">
+      <figure class="shot"><a href="docs/progress/images/2026-11-02-ios-replay-start-zoom.webp"><img src="docs/progress/images/2026-11-02-ios-replay-start-zoom.webp" loading="lazy" alt="Trip replay at 0:00 before Play: the speed shows No GPS signal, and the map is at street zoom at the start of the route, with moment 1 near the centre."></a>
+      <figcaption><strong>Replay zoom before Play</strong>2 November 2026. Baseline <code>ced72a4</code> plus this change. iPhone 17 Pro simulator, iOS 26.2. Simulated route without a fix at 0:00. Captured 1.5 s after the Replay tap.</figcaption></figure>
+      </div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li>Xcode 26.6, iPhone 17 Pro simulator with iOS 26.2: <code>test1RecordAndReplayTrip</code> passed (148 s). It now captures the replay before Play. The capture shows the street zoom at the route start.</li>
+          <li><code>swift test</code> in <code>ios/CVKEGPSCore</code>: 54 of 54 tests passed. The core did not change.</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>Android: not built, not linted, and no device test ran. This Mac has no Java or Android SDK. <code>SatelliteDisplayDeviceTest</code> expects the new space in the position estimate.</li>
+          <li>iOS: the replay zoom has no automatic check of the camera. XCTest cannot read the MapKit camera, so the evidence is the capture.</li>
+          <li>The replay calculation time on iOS was not measured. It has the same structure as Android, where it took 0.9 s in a release-like build for a 36 minute trip.</li>
+        </ul>
+        <h3 style="margin-top:18px">Required work</h3>
+        <ul>
+          <li>Build the Android change, run lint, and run <code>SatelliteDisplayDeviceTest</code> and the trip device tests.</li>
+          <li>Measure the Replay tap of a long trip on a real iPhone with a Release build.</li>
+        </ul>
+        <h3 style="margin-top:18px">Optional work</h3>
+        <ul>
+          <li>Port the Android speed dial app icon (<code>202b836</code>) to iOS.</li>
+          <li>Android: keep the last replay in memory, as iOS does, so a second Replay tap on the same trip does not calculate again. Measure it first.</li>
+          <li>Android: count the yaw alignment sums in one pass, as iOS does (part of finding F3).</li>
+        </ul>
+      </article>
+    </section>
+
+    <section id="ios-ui-review" aria-labelledby="ios-ui-review-heading">
+      <div class="section-head"><h2 id="ios-ui-review-heading">iOS UI review fixes · 1 November 2026</h2><span class="tag pending">UI flow passed on a simulator · VoiceOver and real iPhone not tested</span></div>
+      <p class="section-intro">A design and accessibility review of the iOS app found layout, contrast, and touch target problems. The owner selected these changes. App baseline: <code>ced72a4</code> plus this change, not committed.</p>
+      <ul>
+        <li>Speed tab: altitude and maximum speed are plain text in one row, with a thin line between them. They are not glass cards. A missing value shows a dash without a unit, and VoiceOver reads it as unavailable.</li>
+        <li>Prominent buttons use a new fill token. In dark mode, the fill is <code>#2F66F2</code>, so white text has a contrast of 4.9:1. Before, it was 2.7:1. The light blue stays for text and icons on dark surfaces.</li>
+        <li>Recording bar: Pause, Resume, and Stop have 44-point touch targets. Before, the targets were about 28 points apart. VoiceOver reads the state, the time, and the distance, and then the hint. Before, it read only "Open current trip".</li>
+        <li>Current trip and saved trip maps: the map inset now includes the home indicator area, so the Apple Maps logo and the Legal link are above the panel. Before, the panel covered half of them.</li>
+        <li>Recording notice: the sheet has an opaque background. Before, the blue Start trip button showed through its text.</li>
+        <li>Trips tab: the list follows the Android trip list. It has open rows without cards or dividers, a 32-point route tile, the date and time, the summary, and a status for a trip that is not finished. An empty list shows the Android slice art. At accessibility text sizes, the tile goes above the text.</li>
+        <li>Each number and its unit have a no-break space between them, so large text does not put a unit on the next line.</li>
+        <li>The moment marker grows with the text size, so its number stays inside the circle. On the map, it stops growing at the largest standard size, as the other map overlays do.</li>
+        <li>Start trip and the activity of the next trip are in the bar above the tabs, on the Speed tab and the Trips tab. During a trip, the same bar is the recording bar. The Speed tab now has only the dial, the readings, and the GPS state. When the full activity text does not fit, the bar shows a shorter text; VoiceOver reads the full text. <a href="docs/adr/0007-build-the-ios-app-with-apple-maps-and-a-shared-swift-core.md">ADR 0007</a> records this difference from Android.</li>
+        <li>The tab bar shows icons only, as on Android and in the owner's design language. VoiceOver reads the tab names. The UI test finds the tabs by these names.</li>
+        <li>After Stop and save, "Trip saved" with a check and Resume trip show in the trip panel for the full 2 minutes in which the trip can continue (see the port below). Before, they were a banner over the map. The owner's design language puts feedback next to the action and does not use toasts.</li>
+        <li>Port of the Android design review changes on branch <code>native-maps</code> (<code>c0be6c7</code>):
+          <ul>
+            <li>Speed tab: the dial has no "Current speed" title, so the number is larger. VoiceOver still hears "Current speed". During a trip, the readings show the trip distance and the average speed, which includes stops.</li>
+            <li>Activity: the activity icon (car, bike, or plane) and a short name, such as "Automatic". VoiceOver hears the full choice.</li>
+            <li>Trips list: trips under Today, Yesterday, a weekday, or a date. Each row shows the start and end times, the duration and activity, an activity icon, and the distance at the right.</li>
+            <li>Saved trip: "Trip saved" and Resume trip show for the full time in which the trip can continue (2 minutes), with the time that is left. The distance is the main value, with the activity on its line, then three values in one row.</li>
+            <li>Current trip: the status and the activity share a row. Speed, time, and distance show as three labelled values.</li>
+            <li>Replay charts: each chart title shows its value at the playhead, a value that does not change shows as "Steady at", and one time axis serves all charts.</li>
+            <li>Maps: zoom in and zoom out are one control with a divider.</li>
+          </ul>
+          Not ported: the Android map styles (MapKit has no style files) and the cards on the Speed tab (the owner chose no cards on iOS). <a href="docs/adr/0007-build-the-ios-app-with-apple-maps-and-a-shared-swift-core.md">ADR 0007</a> records both.</li>
+        <li>The trip status no longer pulses when the GPS signal is lost. The design language does not allow pulsing icons. The text and the red tint show the state.</li>
+      </ul>
+      <pre><code><a href="ios/CVKEGPS/Map/TripMapView.swift">TripMapView.swift</a> · the map inset under the panel
+.safeAreaPadding(.bottom, bottomInset + geometry.safeAreaInsets.bottom)
+.ignoresSafeArea()</code></pre>
+      <h3 style="margin-top:24px">iPhone 17 Pro simulator, iOS 26.2</h3>
+      <p class="small">All locations are simulated with <code>XCUIDevice.shared.location</code>, as in the iOS entry below.</p>
+      <div class="screens">
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-review-speed-readings.webp"><img src="docs/progress/images/2026-11-01-ios-review-speed-readings.webp" loading="lazy" alt="Speed tab: 43.2 km/h in the glass dial, then altitude 70 m and maximum speed 43.2 km/h as plain text with a thin line between them, without cards, then the accuracy bar. Above the icon-only tab bar, a bar with Start trip and Activity: automatic."></a>
+      <figcaption><strong>Readings without cards</strong>1 November 2026. Baseline <code>ced72a4</code> plus this change. iPhone 17 Pro simulator, iOS 26.2. Simulated fix at 12 m/s.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-review-speed-large-text.webp"><img src="docs/progress/images/2026-11-01-ios-review-speed-large-text.webp" loading="lazy" alt="Speed tab at the largest text size: the dial, the readings one above the other, and the bar above the tabs with Start trip and Automatic."></a>
+      <figcaption><strong>Start trip bar, largest text</strong>1 November 2026. Baseline <code>ced72a4</code> plus this change. iPhone 17 Pro simulator, iOS 26.2, accessibility text size XXXL. Simulated fixes. The bar text stops growing at the largest standard size.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-review-saved-inline.webp"><img src="docs/progress/images/2026-11-01-ios-review-saved-inline.webp" loading="lazy" alt="Saved trip after Stop and save: in the panel, a green check with Trip saved and a Resume trip button in the same line, then the activity chip and the trip totals. The Apple Maps logo is above the panel."></a>
+      <figcaption><strong>Trip saved, in the panel</strong>1 November 2026. Baseline <code>ced72a4</code> plus this change. iPhone 17 Pro simulator, iOS 26.2. Simulated route.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-review-replay-chart-titles.webp"><img src="docs/progress/images/2026-11-01-ios-review-replay-chart-titles.webp" loading="lazy" alt="Replay charts: the time only in the values row, Speed with 0 km/h beside its title, Altitude above sea level with Steady at 70 m and no chart, and Acceleration with its chart."></a>
+      <figcaption><strong>Replay chart titles</strong>1 November 2026. Baseline <code>ced72a4</code> plus this change. iPhone 17 Pro simulator, iOS 26.2. Simulated route. The simulated altitude does not change, so it shows as Steady at.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-review-saved-large-text.webp"><img src="docs/progress/images/2026-11-01-ios-review-saved-large-text.webp" loading="lazy" alt="Saved trip at the largest text size: Trip saved, Resume trip, and the time left on separate lines, then the distance 442 m and the activity below it."></a>
+      <figcaption><strong>Saved trip, largest text</strong>1 November 2026. Baseline <code>ced72a4</code> plus this change. iPhone 17 Pro simulator, iOS 26.2. Accessibility text size XXXL. Simulated route.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-review-speed-dark.webp"><img src="docs/progress/images/2026-11-01-ios-review-speed-dark.webp" loading="lazy" alt="Speed tab in dark mode: the Start trip button has a darker blue fill with white text."></a>
+      <figcaption><strong>Dark mode button fill</strong>1 November 2026. Baseline <code>ced72a4</code> plus this change. iPhone 17 Pro simulator, iOS 26.2. Simulated fixes at 9 m/s. The fill measures #2D64F2 in the capture; white text on it is 4.98:1.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-review-recording-bar.webp"><img src="docs/progress/images/2026-11-01-ios-review-recording-bar.webp" loading="lazy" alt="Recording accessory above the tab bar: Recording, 0:42 and 442 m, and round Pause and Stop buttons with a light circle."></a>
+      <figcaption><strong>Recording bar</strong>1 November 2026. Baseline <code>ced72a4</code> plus this change. iPhone 17 Pro simulator, iOS 26.2. Simulated trip. Each button is 44 points.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-review-live-trip-attribution.webp"><img src="docs/progress/images/2026-11-01-ios-review-live-trip-attribution.webp" loading="lazy" alt="Current trip map: the Apple Maps logo and the Legal link are fully visible above the glass panel."></a>
+      <figcaption><strong>Map attribution above the panel</strong>1 November 2026. Baseline <code>ced72a4</code> plus this change. iPhone 17 Pro simulator, iOS 26.2. Simulated route.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-review-trip-notice-opaque.webp"><img src="docs/progress/images/2026-11-01-ios-review-trip-notice-opaque.webp" loading="lazy" alt="Record a trip sheet with an opaque white background. Nothing from the Speed tab shows through the text."></a>
+      <figcaption><strong>Opaque recording notice</strong>1 November 2026. Baseline <code>ced72a4</code> plus this change. iPhone 17 Pro simulator, iOS 26.2. Simulated location.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-review-trips-empty.webp"><img src="docs/progress/images/2026-11-01-ios-review-trips-empty.webp" loading="lazy" alt="Trips tab on a first run: the slice art, No trips, To record a trip, select Start trip below, and the bar with Start trip above the tabs."></a>
+      <figcaption><strong>Empty trip list</strong>1 November 2026. Baseline <code>ced72a4</code> plus this change. iPhone 17 Pro simulator, iOS 26.2. New installation. The capture shows the slice at one moment of its slow movement.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-review-trips-list.webp"><img src="docs/progress/images/2026-11-01-ios-review-trips-list.webp" loading="lazy" alt="Trips tab: an open row without a card, with the route tile, the date and time, and 442 m, 51 s, and the activity estimate."></a>
+      <figcaption><strong>Trip list</strong>1 November 2026. Baseline <code>ced72a4</code> plus this change. iPhone 17 Pro simulator, iOS 26.2. Simulated trip.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-review-trips-large-text.webp"><img src="docs/progress/images/2026-11-01-ios-review-trips-large-text.webp" loading="lazy" alt="Trips tab at the largest text size: the route tile above the text, then the date and time, and the summary on full lines; 442 m and 51 s keep their units."></a>
+      <figcaption><strong>Trip list, largest text</strong>1 November 2026. Baseline <code>ced72a4</code> plus this change. iPhone 17 Pro simulator, iOS 26.2. Accessibility text size XXXL. The text size was reset after the test.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-11-01-ios-review-replay-marker-large-text.webp"><img src="docs/progress/images/2026-11-01-ios-review-replay-marker-large-text.webp" loading="lazy" alt="Replay at the largest text size: the moment chip shows the number 1 fully inside a larger circle."></a>
+      <figcaption><strong>Moment marker, largest text</strong>1 November 2026. Baseline <code>ced72a4</code> plus this change. iPhone 17 Pro simulator, iOS 26.2. Accessibility text size XXXL. Simulated route.</figcaption></figure>
+      </div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li>Xcode 26.6, iPhone 17 Pro simulator with iOS 26.2. The build for testing passed.</li>
+          <li><code>test1RecordAndReplayTrip</code> passed in light mode after a new installation (136 s), on the final build, with the ported screens. The largest-text run checked the short activity text. The bar above the tabs shows only with the tab bar, as on Android: not on the saved trip, replay, or current trip screens. It now also opens the Trips tab before the first trip and captures the empty list. It selects the tabs by their VoiceOver names, so it also checks the names of the icon-only tabs.</li>
+          <li><code>test2Screens</code> passed in dark mode and at the largest accessibility text size. The text size and the appearance were reset after the tests.</li>
+          <li><code>swift test</code> in <code>ios/CVKEGPSCore</code>: 54 of 54 tests passed. The only core change is <code>DisplayFormat.number(_:)</code>, the distance number without its unit, as on Android.</li>
+          <li>The light, dark, and largest-text captures were inspected. The dark button fill was measured in the capture.</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>VoiceOver was not used. The new labels were checked only in the code.</li>
+          <li>Not captured: the small recording bar beside a minimised tab bar, landscape, the dark recording notice, and the empty list in dark mode.</li>
+          <li>On both Android and iOS, a failed delete shows the storage message for a failed recording. This change keeps the two apps the same. The message needs a fix in both apps. <a href="#app-comparison">Fixed on 2 November</a>.</li>
+          <li>Not captured: the small Start trip bar beside a minimised tab bar on the Trips tab.</li>
+          <li>The day titles, the time ranges, and the countdown were checked only with trips from the same day. Not captured: the zoom control in a row on a short map in landscape. Both apps also have parts that differ from the design language: "your" in some text, a confirmation dialog in place of Undo for delete, and two tabs where the design language asks for three to five.</li>
+          <li>The iOS app uses Liquid Glass and the brand gradient behind the Speed tab, as ADR 0007 decides. The design language does not allow glass effects and limits gradients. This needs an owner decision.</li>
+          <li>The other limits of the iOS app are in the iOS entry below.</li>
+        </ul>
+        <h3 style="margin-top:18px">Required work</h3>
+        <ul>
+          <li>Check the recording bar, the readings row, and the trip list with VoiceOver on a real iPhone.</li>
+          <li>Fix the failed-delete message in both apps. <a href="#app-comparison">Done on 2 November</a>; the Android part is not built yet.</li>
+          <li>Merge branch <code>native-maps</code> into the iOS branch. Both change PROGRESS.html.</li>
+        </ul>
+      </article>
+    </section>
+
     <section id="ios-app" aria-labelledby="ios-app-heading">
       <div class="section-head"><h2 id="ios-app-heading">iOS app on the simulator · 1 November 2026</h2><span class="tag pending">UI flow passed on a simulator · Real iPhone not tested</span></div>
-      <p class="section-intro">The native iOS app is in <a href="ios/README.md"><code>ios/</code></a>: SwiftUI with Liquid Glass, Apple Maps, Core Location, Core Motion, Swift Charts, a Live Activity, and a Control Center button. The Swift package <code>CVKEGPSCore</code> has the measurement rules, the trip recorder, and an SQLite store with the Room tables. <a href="docs/adr/0006-build-the-ios-app-with-apple-maps-and-a-shared-swift-core.md">ADR 0006</a> gives the decisions and the platform differences. iOS reports no satellites, so the satellite ring, the sky map, and the satellite details are Android only.</p>
+      <p class="section-intro">The native iOS app is in <a href="ios/README.md"><code>ios/</code></a>: SwiftUI with Liquid Glass, Apple Maps, Core Location, Core Motion, Swift Charts, a Live Activity, and a Control Center button. The Swift package <code>CVKEGPSCore</code> has the measurement rules, the trip recorder, and an SQLite store with the Room tables. <a href="docs/adr/0007-build-the-ios-app-with-apple-maps-and-a-shared-swift-core.md">ADR 0007</a> gives the decisions and the platform differences. iOS reports no satellites, so the satellite ring, the sky map, and the satellite details are Android only.</p>
       <p>App baseline: <code>4c887b1</code> plus the layout and test fixes that this entry adds. The first UI flow run found these problems, and this change fixes them:</p>
       <ul>
         <li>The map legend and the map buttons were under the status bar and the navigation bar buttons. Now only the map goes to the screen edges.</li>
@@ -2348,6 +2479,10 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-11-02">2 November 2026</time><div><h3>App comparison fixes</h3>
+<p>A comparison of the two apps after the Android design review and performance review. The iOS Replay tap zooms the map at once, as on Android. A failed delete shows its own message in both apps. Android keeps numbers with their units at large text sizes. The iOS ADR is renumbered to 0007. The iOS UI flow passed on a simulator. The Android part is not built yet. See <a href="#app-comparison">evidence and limits</a>.</p></div></li>
+<li><time datetime="2026-11-01">1 November 2026</time><div><h3>iOS UI review fixes</h3>
+<p>After a design and accessibility review, the iOS Speed tab shows altitude and maximum speed without cards. Dark mode buttons have a fill with 4.9:1 contrast. The recording bar has 44-point buttons and a full VoiceOver label. The Apple Maps attribution is above the map panels, and the recording notice is opaque. The trip list follows the Android design and fits the largest text size. The moment marker grows with the text. Start trip and the activity are in the bar above the tabs on both tabs, the tab bar shows icons only, the Android design review changes of 31 October are ported, and "Trip saved" shows in the trip panel. The UI flow and the dark and largest-text screens passed on a simulator, and 54 of 54 core tests passed. VoiceOver and a real iPhone were not used. See <a href="#ios-ui-review">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-11-01">1 November 2026</time><div><h3>iOS app on the simulator</h3>
 <p>The native iOS app has SwiftUI with Liquid Glass, Apple Maps, a Live Activity, and a Swift core with the Android measurement rules. On an iPhone 17 Pro simulator with iOS 26.2, the UI flow passed with simulated locations: permission, live speed, a recorded trip, Stop and save, the replay, and Settings. The main screens passed again in dark mode and at the largest text size. The first run found layout problems on the map screens and at large text; this change fixes them. 54 of 54 Swift core tests passed. The same tests passed in CI on <code>ced72a4</code>. Nothing was checked on a real iPhone. See <a href="#ios-app">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-30">30 October 2026</time><div><h3>Map settings</h3>

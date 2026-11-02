@@ -11,7 +11,7 @@ Update the report with each completed change, as specified in `AGENTS.md`.
 
 The native iOS app is in [`ios/`](ios/README.md). It uses SwiftUI, Apple Maps, and the Liquid Glass design of iOS 26,
 and keeps the Android measurement rules and product behaviour. The decisions and platform differences are in
-[ADR 0006](docs/adr/0006-build-the-ios-app-with-apple-maps-and-a-shared-swift-core.md).
+[ADR 0007](docs/adr/0007-build-the-ios-app-with-apple-maps-and-a-shared-swift-core.md).
 
 - **Same rules.** The Swift package `ios/CVKEGPSCore` has the usability rules, route math, activity estimate, GPX,
   sensor record, speed colours, replay calculations, display format, trip recorder, and an SQLite store with the Room

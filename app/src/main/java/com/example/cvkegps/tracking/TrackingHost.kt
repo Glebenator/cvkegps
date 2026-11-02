@@ -140,7 +140,7 @@ fun TrackingHost(
     }
     val error = remember {
         derivedStateOf {
-            if (storageError) R.string.trip_storage_error else when (recordingState.value.error) {
+            if (storageError) R.string.trip_delete_error else when (recordingState.value.error) {
                 RecordingError.Access -> R.string.trip_access_missing
                 RecordingError.Storage -> R.string.trip_storage_error
                 RecordingError.Queue -> R.string.trip_queue_error

@@ -120,7 +120,12 @@ public struct DisplayFormat: Sendable {
 
     public func distance(_ meters: Double) -> String {
         let amount = distanceAmount(meters)
-        return text.valueWithUnit(string(amount.value, formatter(maximumDecimals: amount.decimals)), amount.unit)
+        return text.valueWithUnit(number(amount), amount.unit)
+    }
+
+    /// The number of a distance `amount` without its unit, for places that show the unit separately.
+    public func number(_ amount: Amount) -> String {
+        string(amount.value, formatter(maximumDecimals: amount.decimals))
     }
 
     /// The altitude number in whole units, without a unit. GPS altitude is not accurate to less than a metre.

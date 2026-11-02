@@ -47,6 +47,7 @@
     <string name="trip_gap_note">Distance is an estimate. It does not include gaps in the signal.</string>
     <string name="trip_interrupted_note">Recording stopped unexpectedly. The trip is saved up to that point. You can resume it or end it.</string>
     <string name="trip_plane_note">GPS speed is speed over the ground, not airspeed. GPS altitude is not the same as an aircraft altimeter.</string>
+    <string name="trip_delete_error">The app could not delete the trip. Try again.</string>
     <string name="trip_storage_error">Recording stopped because the trip could not be saved. Make free space on the phone. The trip is saved up to that point.</string>
     <string name="trip_queue_error">Recording stopped because the phone could not save the trip fast enough. The trip is saved up to that point.</string>
     <string name="trip_resume_refused">This trip cannot continue. A saved trip can continue only for 2 minutes after Stop and save.</string>
@@ -100,7 +101,8 @@
     <string name="recording_notification_values">%1$s · %2$s average</string>
     <string name="recording_metric_time">Time</string>
     <string name="recording_metric_average">Average</string>
-    <string name="value_with_unit">%1$s %2$s</string>
+    <!-- A narrow no-break space keeps each number with its unit, so large text never puts the unit on the next line. -->
+    <string name="value_with_unit">%1$s %2$s</string>
     <string name="unit_metres">m</string>
     <string name="unit_kilometres">km</string>
     <string name="unit_feet">ft</string>
@@ -124,7 +126,7 @@
     <string name="replay_time_label">Replay time</string>
     <string name="replay_speed_label">Speed</string>
     <string name="replay_acceleration_label">Acceleration</string>
-    <string name="replay_acceleration_value">%1$s m/s²</string>
+    <string name="replay_acceleration_value">%1$s m/s²</string>
     <string name="replay_no_gps">No GPS signal</string>
     <string name="replay_approximate">Approximate position</string>
     <string name="replay_loading">Calculating the replay…</string>

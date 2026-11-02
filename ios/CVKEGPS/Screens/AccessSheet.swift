@@ -58,7 +58,7 @@ struct AccessSheet: View {
         VStack(alignment: .leading, spacing: Space.s2) {
             Label { Text(message) } icon: { Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Palette.warning) }
             Button(action: action) { Text(title).frame(maxWidth: .infinity, minHeight: 30) }
-                .buttonStyle(.glassProminent)
+                .prominentButton()
                 .controlSize(.large)
                 .accessibilityIdentifier(identifier)
         }

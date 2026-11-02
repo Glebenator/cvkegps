@@ -2,9 +2,10 @@ import CVKEGPSCore
 import SwiftUI
 
 /// Visible text for the shared models. All text is in the String Catalog, so a translation changes it in one place.
+/// A no-break space keeps each number with its unit, so large text never puts the unit on the next line.
 extension DisplayText {
     static let app = DisplayText(
-        valueWithUnit: { number, unit in String(localized: "\(number) \(unit)", comment: "A number and its unit, for example 12.3 km/h") },
+        valueWithUnit: { number, unit in String(localized: "\(number)\u{00A0}\(unit)", comment: "A number and its unit, for example 12.3 km/h, with a no-break space") },
         speedUnit: { unit in
             switch unit {
             case .kilometresPerHour: String(localized: "km/h")
@@ -33,10 +34,10 @@ extension DisplayText {
             }
         },
         spokenSpeed: { number, unit in String(localized: "Current speed: \(number) \(unit)") },
-        hoursMinutes: { hours, minutes in String(localized: "\(hours) h \(minutes) min") },
-        minutesSeconds: { minutes, seconds in String(localized: "\(minutes) min \(seconds) s") },
-        seconds: { seconds in String(localized: "\(seconds) s", comment: "A time in seconds") },
-        acceleration: { number in String(localized: "\(number) m/s²") }
+        hoursMinutes: { hours, minutes in String(localized: "\(hours)\u{00A0}h \(minutes)\u{00A0}min") },
+        minutesSeconds: { minutes, seconds in String(localized: "\(minutes)\u{00A0}min \(seconds)\u{00A0}s") },
+        seconds: { seconds in String(localized: "\(seconds)\u{00A0}s", comment: "A time in seconds, with a no-break space") },
+        acceleration: { number in String(localized: "\(number)\u{00A0}m/s²") }
     )
 }
 
@@ -54,14 +55,14 @@ extension TripMode {
         }
     }
 
+    /// The activity icon, as on Android: combined activities use the icon of the first one, and an unknown activity has
+    /// the route icon.
     var symbol: String {
         switch self {
-        case .car, .carOrTransit: "car.fill"
-        case .transit: "tram.fill"
+        case .car, .carOrTransit, .transit: "car"
+        case .bike, .bikeOrSki, .ski: "bicycle"
         case .plane: "airplane"
-        case .bike, .bikeOrSki: "bicycle"
-        case .ski: "figure.skiing.downhill"
-        case .unknown: "questionmark.circle"
+        case .unknown: "point.topleft.down.to.point.bottomright.curvepath"
         }
     }
 }
@@ -70,6 +71,15 @@ extension TripRecord {
     /// The activity, with "Estimate" for an automatic estimate.
     var activityText: String {
         automaticMode && mode != .unknown ? String(localized: "Estimate: \(mode.title)") : mode.title
+    }
+}
+
+extension TripMode {
+    /// The full activity choice for VoiceOver, where a chip shows only the short name.
+    static func spokenChoice(selected: TripMode?, estimate: TripMode) -> String {
+        if let selected { return String(localized: "Activity: \(selected.title)") }
+        if estimate != .unknown { return String(localized: "Activity: \(estimate.title) (estimate)") }
+        return String(localized: "Activity: automatic")
     }
 }
 

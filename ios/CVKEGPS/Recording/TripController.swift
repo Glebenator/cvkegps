@@ -34,8 +34,6 @@ final class TripController {
     private(set) var pending = PendingStart()
     /// True after the first permission request. iOS then does not ask again, so the notice offers the Settings app.
     private(set) var asked = false
-    /// The trip that Stop and save ended in this session. The saved trip offers Resume for a short time.
-    var justSaved: String?
     /// The activity that the user chose for the next trip. Nil means automatic.
     var selectedMode: TripMode?
     /// The activity choice that shows.
@@ -74,13 +72,11 @@ final class TripController {
 
     func stop(_ id: String) {
         recorder.send(.finish(id: id))
-        justSaved = id
         openSavedTrip(id)
     }
 
     /// Continues a trip that Stop and save ended a moment ago.
     func reopen(_ id: String) {
-        justSaved = nil
         awaitedResume = id
         send(PendingStart(tripId: id, reopen: true))
     }

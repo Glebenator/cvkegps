@@ -10,6 +10,8 @@ struct LiveTripView: View {
     @State private var details = false
     @State private var seenTrip = false
     @State private var panelHeight: CGFloat = 0
+    /// The height of the values row: a caption and a large number.
+    @ScaledMetric(relativeTo: .title) private var valuesHeight: CGFloat = 60
 
     var body: some View {
         let state = model.recorder.state
@@ -87,35 +89,34 @@ struct LiveTripView: View {
         let reading = currentReading
         return VStack(alignment: .leading, spacing: Space.s3) {
             if let error = state.error { ProblemBanner(message: error.message) }
-            HStack(alignment: .center) {
-                TripStatusChip(status: trip.status, noSignal: state.signalLost(at: now), approximate: state.approximate(at: now))
-                Spacer()
-                ActivityChip(text: trip.activityText) { model.trips.activityChoice = .trip(trip.id) }
+            // As on Android: the status and the activity share the top row. The activity chip wraps below a long status.
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .center) { statusChip(trip, state, now); Spacer(minLength: Space.s2); activityChip(trip) }
+                VStack(alignment: .leading, spacing: Space.s2) { statusChip(trip, state, now); activityChip(trip) }
             }
-            HStack(alignment: .lastTextBaseline) {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("Current speed").font(.caption).foregroundStyle(.secondary)
-                    HStack(alignment: .lastTextBaseline, spacing: Space.s1) {
-                        Text(reading?.speedMetersPerSecond.map(format.speedNumber) ?? "—")
-                            .font(.system(size: 44, weight: .medium, design: .rounded).monospacedDigit())
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.5)
-                        // A dash with a unit reads like a value. The unit shows only with a speed.
-                        if reading?.speedMetersPerSecond != nil { Text(format.speedUnit).font(.headline).foregroundStyle(.secondary) }
+            // Speed, time, and distance as three labelled values. Speed is the widest column and the largest value.
+            let speed = reading?.speedMetersPerSecond
+            let distance = trip.distanceMeters.map(format.distanceAmount)
+            // The columns share the width 1.3 : 1 : 1, as on Android, so no value takes the space of another.
+            GeometryReader { geometry in
+                let unit = (geometry.size.width - 2 * Space.s3) / 3.3
+                HStack(alignment: .lastTextBaseline, spacing: Space.s3) {
+                    LiveValue(label: "Speed", value: speed.map(format.speedNumber), unit: format.speedUnit, large: true,
+                              spoken: speed.map(format.spokenSpeed) ?? String(localized: "Current speed unavailable"))
+                        .frame(width: unit * 1.3, alignment: .leading)
+                        .accessibilityIdentifier("tracking_speed")
+                    LiveValue(label: "Time", value: nil, unit: nil, spoken: format.duration(state.elapsedNanos(at: now))) {
+                        TripTimeText(state: state)
                     }
-                }
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(reading?.speedMetersPerSecond.map(format.spokenSpeed) ?? String(localized: "Current speed unavailable"))
-                .accessibilityIdentifier("tracking_speed")
-                Spacer()
-                VStack(alignment: .trailing, spacing: 2) {
-                    TripTimeText(state: state).font(.title3.weight(.medium))
-                    Text(trip.distanceMeters.map(format.distance) ?? "—")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    .frame(width: unit, alignment: .leading)
+                    .accessibilityIdentifier("live_time")
+                    LiveValue(label: "Distance", value: distance.map(format.number), unit: distance?.unit)
+                        .frame(width: unit, alignment: .leading)
                         .accessibilityIdentifier("live_distance")
                 }
+                .frame(maxHeight: .infinity, alignment: .bottom)
             }
+            .frame(height: valuesHeight)
             TripActionsView(trip: trip, pause: model.trips.pause, resume: { model.trips.resume(trip.id) }, stop: { model.trips.stop(trip.id) })
         }
         .padding(Space.s4)
@@ -123,6 +124,57 @@ struct LiveTripView: View {
         .padding(.horizontal, Space.s3)
         .padding(.bottom, Space.s2)
         .frame(maxWidth: 560)
+    }
+}
+
+extension LiveTripView {
+    fileprivate func statusChip(_ trip: TripRecord, _ state: RecordingState, _ now: Int64) -> some View {
+        TripStatusChip(status: trip.status, noSignal: state.signalLost(at: now), approximate: state.approximate(at: now))
+    }
+
+    /// The activity icon and its short name, as on Android. VoiceOver hears the full activity text.
+    fileprivate func activityChip(_ trip: TripRecord) -> some View {
+        ActivityChip(text: trip.mode.title, symbol: trip.mode.symbol, trailing: "chevron.down", spoken: trip.activityText) {
+            model.trips.activityChoice = .trip(trip.id)
+        }
+    }
+}
+
+/// A panel value: a label, then the number and its unit on one line. A long value gets smaller instead of breaking. A missing
+/// value shows a dash without a unit. VoiceOver reads the label and the value as one item.
+private struct LiveValue<Content: View>: View {
+    var label: LocalizedStringKey
+    var value: String?
+    var unit: String?
+    var large = false
+    var spoken: String?
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(label).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            HStack(alignment: .lastTextBaseline, spacing: Space.s1) {
+                if Content.self == EmptyView.self {
+                    Text(value ?? "—")
+                        .font(large ? .system(size: 34, weight: .medium, design: .rounded) : .title2.weight(.medium))
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                    if value != nil, let unit { Text(unit).font(.footnote).foregroundStyle(.secondary).lineLimit(1) }
+                } else {
+                    content.font(.title2.weight(.medium)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.5)
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(label))
+        .accessibilityValue(Text(spoken ?? (value.map { v in unit.map { "\(v) \($0)" } ?? v } ?? String(localized: "Unavailable"))))
+    }
+}
+
+extension LiveValue where Content == EmptyView {
+    init(label: LocalizedStringKey, value: String?, unit: String?, large: Bool = false, spoken: String? = nil) {
+        self.init(label: label, value: value, unit: unit, large: large, spoken: spoken) { EmptyView() }
     }
 }
 

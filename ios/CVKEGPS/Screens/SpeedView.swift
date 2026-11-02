@@ -63,18 +63,43 @@ struct SpeedView: View {
         .onDisappear { model.location.display(false) }
     }
 
-    private var metrics: some View {
-        let reference = model.settings.values.altitudeReference
-        let altitude = model.speed.reading?.altitude(reference)
-        // At the largest text sizes, each card needs the full width for its value and unit.
-        let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: Space.s3)) : AnyLayout(HStackLayout(spacing: Space.s3))
+    /// Two readings as plain text on the backdrop, with a thin line between them. Glass is only for controls.
+    /// During a trip, as on Android, the trip distance and the average speed take the place of altitude and maximum speed.
+    /// The recording bar shows the time.
+    @ViewBuilder private var metrics: some View {
+        let state = model.recorder.state
+        if let trip = state.trip {
+            // The average changes with time also without a new fix, so it updates each second during a trip.
+            TimelineView(.periodic(from: .now, by: 1)) { _ in
+                let distance = trip.distanceMeters.map(format.distanceAmount)
+                let average = averageSpeed(distanceMeters: trip.distanceMeters, durationNanos: state.elapsedNanos(at: MonotonicClock.nanos()))
+                readings(Reading(label: "Distance of this trip", value: distance.map(format.number), unit: distance?.unit ?? "",
+                                 identifier: "trip_card_distance"),
+                         Reading(label: "Average speed, including stops", value: average.map(format.speedNumber), unit: format.speedUnit,
+                                 identifier: "trip_card_average"))
+            }
+        } else {
+            let reference = model.settings.values.altitudeReference
+            let altitude = model.speed.reading?.altitude(reference)
+            readings(Reading(label: reference == .seaLevel ? "Altitude above sea level" : "GPS height",
+                             value: altitude.map(format.altitudeNumber), unit: format.altitudeUnit, identifier: "altitude"),
+                     Reading(label: "Maximum speed since app launch", value: model.speed.maximum.map(format.speedNumber),
+                             unit: format.speedUnit, identifier: "maximum_speed"))
+        }
+    }
+
+    private func readings(_ first: Reading, _ second: Reading) -> some View {
+        let stacked = typeSize.isAccessibilitySize
+        // At the largest text sizes, each reading needs the full width for its value and unit.
+        let layout = stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: Space.s3))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: Space.s4))
         return layout {
-            MetricCard(title: "Altitude", value: altitude.map(format.altitudeNumber), unit: format.altitudeUnit,
-                       subtitle: reference == .seaLevel ? "Above sea level" : "GPS height", identifier: "altitude")
-            MetricCard(title: "Maximum speed", value: model.speed.maximum.map(format.speedNumber), unit: format.speedUnit,
-                       subtitle: "Since app launch", identifier: "maximum_speed")
+            first
+            if stacked { Divider() } else { Divider().frame(maxHeight: .infinity) }
+            second
         }
         .fixedSize(horizontal: false, vertical: true)
+        .padding(.horizontal, Space.s2)
     }
 
     private var gpsCard: some View {
@@ -87,31 +112,13 @@ struct SpeedView: View {
         if model.storageUnavailable {
             ProblemBanner(message: String(localized: "The app cannot open its trip storage. Trips that you record now are lost when the app closes."))
         }
-        if state.trip == nil && model.speed.canStartTrip && model.trips.accessComplete {
-            VStack(spacing: Space.s2) {
-                Button { model.trips.start() } label: {
-                    Label(state.starting ? "Starting…" : "Start trip", systemImage: "record.circle")
-                        .frame(maxWidth: .infinity, minHeight: 34)
-                }
-                .buttonStyle(.glassProminent)
-                .controlSize(.large)
-                .disabled(state.starting)
-                .accessibilityIdentifier("trip_start")
-                ActivityChip(text: activityText) { model.trips.activityChoice = .next }
-            }
-        }
-    }
-
-    private var activityText: String {
-        if let selected = model.trips.selectedMode { return String(localized: "Activity: \(selected.title)") }
-        let estimate = model.location.activityEstimate.fresh(at: MonotonicClock.nanos())
-        if estimate != .unknown { return String(localized: "Activity: \(estimate.title) (estimate)") }
-        return String(localized: "Activity: automatic")
+        // Start trip and the activity of the next trip are in the bar above the tabs (RootView), on both tabs.
     }
 }
 
-/// The large speed in a glass circle. A smaller dial omits the label. A dash shows a missing speed at a normal size,
-/// so it does not look like a bar.
+/// The large speed in a glass circle. As on Android, the dial has no title: the tab and the unit say that the number is the
+/// speed, so the digits can be larger. VoiceOver still hears "Current speed". A dash shows a missing speed at a normal size,
+/// so it does not look like a bar, and without a unit, so it does not look like a value.
 struct SpeedDial: View {
     var speed: Double?
     @Environment(\.displayFormat) private var format
@@ -120,23 +127,19 @@ struct SpeedDial: View {
         GeometryReader { geometry in
             let diameter = min(geometry.size.width, geometry.size.height, 320)
             VStack(spacing: Space.s1) {
-                if diameter >= 240 {
-                    Text("Current speed").font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.5)
-                }
                 if let speed {
                     Text(format.speedNumber(speed))
-                        .font(.system(size: 104, weight: .medium, design: .rounded))
+                        .font(.system(size: 128, weight: .medium, design: .rounded))
                         .monospacedDigit()
                         .minimumScaleFactor(0.2)
                         .lineLimit(1)
+                    Text(format.speedUnit).font(.title3).foregroundStyle(.secondary)
+                        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                 } else {
                     Text("—").font(.system(size: 56, weight: .medium, design: .rounded)).foregroundStyle(.secondary)
                 }
-                Text(format.speedUnit).font(.title3).foregroundStyle(.secondary)
             }
-            .padding(diameter * (diameter >= 240 ? 0.14 : 0.1))
+            .padding(diameter * (diameter >= 240 ? 0.1 : 0.08))
             .frame(width: diameter, height: diameter)
             .glassEffect(.regular, in: .circle)
             .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
@@ -148,30 +151,31 @@ struct SpeedDial: View {
     }
 }
 
-/// A value card: a label, a value with its unit on one line, and what the value means.
-struct MetricCard: View {
-    var title: LocalizedStringKey
+/// A reading without a card: the value with its unit on one line, and below it what the value means.
+/// A missing value shows a dash without a unit, and VoiceOver reads it as unavailable.
+struct Reading: View {
+    var label: LocalizedStringKey
     var value: String?
     var unit: String
-    var subtitle: LocalizedStringKey
     var identifier: String
 
     var body: some View {
-        GlassCard(cornerRadius: 22, padding: Space.s3) {
-            VStack(alignment: .leading, spacing: Space.s1) {
-                Text(title).font(.caption.weight(.medium)).foregroundStyle(.secondary)
-                HStack(alignment: .firstTextBaseline, spacing: Space.s1) {
-                    Text(value ?? "—")
-                        .font(.title.weight(.medium).monospacedDigit())
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.5)
-                        .accessibilityIdentifier(identifier)
-                    if value != nil { Text(unit).font(.footnote).foregroundStyle(.secondary) }
-                }
-                Text(subtitle).font(.caption).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: Space.s1) {
+            HStack(alignment: .firstTextBaseline, spacing: Space.s1) {
+                Text(value ?? "—")
+                    .font(.title.weight(.medium).monospacedDigit())
+                    .foregroundStyle(value == nil ? .secondary : .primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                if value != nil { Text(unit).font(.callout.weight(.medium)).foregroundStyle(.secondary) }
             }
+            Text(label).font(.footnote).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
-        .accessibilityElement(children: .combine)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(label))
+        .accessibilityValue(value.map { Text(verbatim: "\($0) \(unit)") } ?? Text("Unavailable"))
+        .accessibilityIdentifier(identifier)
     }
 }
 
@@ -218,7 +222,7 @@ struct GpsCard: View {
                 Button(action: action.run) {
                     Text(action.title).frame(maxWidth: .infinity, minHeight: 30)
                 }
-                .buttonStyle(.glassProminent)
+                .prominentButton()
                 .controlSize(.large)
                 .accessibilityIdentifier("gps_action")
             }

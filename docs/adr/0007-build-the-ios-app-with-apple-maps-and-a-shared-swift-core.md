@@ -23,8 +23,9 @@ calculation tests, so the two apps must give the same results. It also builds an
   never starts a trip without the app on screen: the Start trip intent opens the app.
 - **Notification.** A Live Activity on the Lock Screen and in the Dynamic Island replaces the Android notification. It
   follows the same rules: state changes show at once, values at most every 30 seconds, and no current speed.
-- **Design.** The Liquid Glass tab bar with a recording accessory, glass map controls and panels, and the brand gradient
-  behind the Speed tab. The brand blue accent stays. iOS has no wallpaper colours, so the Colours setting is Android only.
+- **Design.** The Liquid Glass tab bar with icons only and an accessory above it, glass map controls and panels, and the
+  brand gradient behind the Speed tab. Before a trip, the accessory has Start trip and the activity of the next trip, on
+  both tabs. During a trip, it is the recording bar. The brand blue accent stays. iOS has no wallpaper colours, so the Colours setting is Android only.
 
 ## Platform differences
 
@@ -38,6 +39,14 @@ calculation tests, so the two apps must give the same results. It also builds an
   A trip stores the difference near its start, so the replay can show heights above sea level.
 - **Sensors.** Core Motion values are converted to the stored conventions of `SensorKind`, so the replay calculations
   do not change.
+- **Map styles.** Android has the map styles Standard, Minimal, and High contrast, made with Google map style files. MapKit
+  has no style files. The iOS map types are Standard, Muted (the nearest to Minimal), and Satellite. There is no High
+  contrast map on iOS.
+- **Speed tab values.** Android shows altitude and maximum speed, or the trip values during a trip, on cards. iOS shows
+  the same values as plain text without cards, as the owner chose for iOS.
+- **Start trip.** On iOS, Start trip and the activity are in the tab bar accessory, so a trip can start from the Speed
+  tab and from the Trips tab. On Android, they are on the Speed tab. The start rules are the same: the recording notice,
+  the access checks, and no start without the app on screen.
 
 ## Consequences
 

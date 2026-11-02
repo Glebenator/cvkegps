@@ -5,6 +5,8 @@ import SwiftUI
 /// Speed, height, and along-track acceleration with Swift Charts and one shared playhead. A tap or a horizontal drag on any
 /// chart moves the playhead for all charts, the values, and the map. A vertical drag scrolls the panel.
 /// With `single`, a selector shows one chart at a time.
+/// As on Android, `value` shows the value at the playhead beside each chart title. A series that does not change shows as
+/// one line of text, not as an empty chart. One time axis under the last chart serves all charts.
 struct ReplayCharts: View {
     var trip: TripReplay
     var playhead: Int64
@@ -15,6 +17,7 @@ struct ReplayCharts: View {
     var select: (ReplayChartKind) -> Void
     var seek: (Int64) -> Void
     var pauseAt: (Int64) -> Void
+    var value: ((ReplayChartKind) -> String?)? = nil
 
     @Environment(\.displayFormat) private var format
 
@@ -29,11 +32,53 @@ struct ReplayCharts: View {
                 .pickerStyle(.segmented)
                 .accessibilityIdentifier("chart_selector")
             }
-            ForEach(shown.isEmpty ? Array(specs.prefix(1)) : shown) { spec in
-                if single == nil { Text(title(spec.kind)).font(.subheadline.weight(.semibold)) }
-                ReplayChart(spec: spec, trip: trip, playhead: playhead, state: state, seek: seek, pauseAt: pauseAt)
-                    .frame(height: 120)
+            let drawn = shown.isEmpty ? Array(specs.prefix(1)) : shown
+            ForEach(drawn) { spec in
+                let steady = spec.steady
+                if single == nil || steady != nil {
+                    HStack(alignment: .firstTextBaseline, spacing: Space.s2) {
+                        if single == nil { Text(title(spec.kind)).font(.subheadline.weight(.semibold)) }
+                        Spacer(minLength: Space.s2)
+                        if let steady {
+                            Text("Steady at \(steady)").font(.footnote).foregroundStyle(.secondary)
+                                .accessibilityIdentifier("chart_steady_\(spec.kind)")
+                        } else if let value {
+                            Text(value(spec.kind) ?? "—").font(.subheadline.weight(.semibold)).monospacedDigit().lineLimit(1)
+                                .accessibilityIdentifier(Self.valueIdentifier(spec.kind))
+                        }
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("chart_title_\(spec.kind)")
+                }
+                if steady == nil {
+                    ReplayChart(spec: spec, trip: trip, playhead: playhead, state: state, seek: seek, pauseAt: pauseAt)
+                        .frame(height: 104)
+                }
             }
+            if drawn.contains(where: { $0.steady == nil }) { timeAxis }
+        }
+    }
+
+    /// The start, middle, and end times under the charts. All charts share the same time scale.
+    private var timeAxis: some View {
+        HStack {
+            ForEach([Int64(0), trip.durationNanos / 2, trip.durationNanos], id: \.self) { time in
+                Text(format.clock(time))
+                if time != trip.durationNanos { Spacer() }
+            }
+        }
+        .font(.caption.monospacedDigit())
+        .foregroundStyle(.secondary)
+        .accessibilityHidden(true)
+        .accessibilityIdentifier("chart_time_axis")
+    }
+
+    /// The same identifiers as in the values row.
+    static func valueIdentifier(_ kind: ReplayChartKind) -> String {
+        switch kind {
+        case .speed: "replay_speed"
+        case .height: "replay_height"
+        case .acceleration: "replay_acceleration"
         }
     }
 
@@ -61,6 +106,14 @@ struct ChartSpec: Identifiable {
     var label: (Double) -> String
 
     var id: ReplayChartKind { kind }
+
+    /// The one displayed value when all values look the same in display units, such as a flat height. Nil when they change.
+    var steady: String? {
+        let values = runs.flatMap { $0.values.filter(\.isFinite) }
+        guard let low = values.min(), let high = values.max() else { return nil }
+        let text = label(low)
+        return text == label(high) ? text : nil
+    }
 
     static func all(_ trip: TripReplay, heightOffset: Double, format: DisplayFormat) -> [ChartSpec] {
         var specs: [ChartSpec] = []
@@ -159,11 +212,9 @@ private struct ReplayChart: View {
         }
         .chartXScale(domain: 0...duration)
         .chartYScale(domain: spec.low...spec.high)
+        // The time labels are in one axis under all charts, so each chart shows only the grid lines.
         .chartXAxis {
-            AxisMarks(values: .automatic(desiredCount: 4)) { value in
-                AxisGridLine()
-                AxisValueLabel { if let seconds = value.as(Double.self) { Text(format.clock(Int64(seconds * 1e9))) } }
-            }
+            AxisMarks(values: .automatic(desiredCount: 4)) { _ in AxisGridLine() }
         }
         .chartYAxis {
             AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) { value in

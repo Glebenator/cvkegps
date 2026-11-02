@@ -2,7 +2,7 @@
 
 The native iOS app: a speedometer and trip recorder with SwiftUI, Apple Maps, and the Liquid Glass design of iOS 26.
 It has the same measurement rules and product behaviour as the Android app. See
-[ADR 0006](../docs/adr/0006-build-the-ios-app-with-apple-maps-and-a-shared-swift-core.md) for the decisions and the
+[ADR 0007](../docs/adr/0007-build-the-ios-app-with-apple-maps-and-a-shared-swift-core.md) for the decisions and the
 platform differences, and [PROGRESS.html](../PROGRESS.html#ios-app) for the test evidence.
 
 ## Open and run

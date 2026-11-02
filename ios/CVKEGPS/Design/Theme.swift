@@ -6,7 +6,12 @@ import UIKit
 /// Electric blue is the one accent. Status, data, and brand colours never change.
 enum Palette {
     static let accent = dynamic(light: 0x0A5CFF, dark: 0x6F9BFF)
+    /// The fill of a prominent button. White text on it has a contrast of 5.3:1 in light mode and 4.9:1 in dark mode.
+    /// The dark `accent` is for text and icons on dark surfaces; white text on it is only 2.7:1.
+    static let accentFill = dynamic(light: 0x0A5CFF, dark: 0x2F66F2)
     static let accentSubtle = dynamic(light: 0xE5EDFF, dark: 0x132552)
+    static let brandApricotSubtle = dynamic(light: 0xFDE9DC, dark: 0x3A2012)
+    static let ink = dynamic(light: 0x161A1F, dark: 0xE9EDF1)
     static let success = dynamic(light: 0x1A7F4B, dark: 0x5FD39A)
     static let warning = dynamic(light: 0x9A5B00, dark: 0xF5B14C)
     static let warningSubtle = dynamic(light: 0xFBF0DC, dark: 0x33270F)

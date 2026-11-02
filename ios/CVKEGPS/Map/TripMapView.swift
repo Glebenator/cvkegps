@@ -52,7 +52,10 @@ struct TripMapView: View {
     @State private var follow: FollowMode = .off
     @State private var userZoomed = false
     @State private var placed = false
+    /// True from the change to replay mode until the first replay move starts.
     @State private var replayStart = true
+    /// The end of the first replay move. A playhead position that arrives before this time changes the target of that move.
+    @State private var replayMoveEnd = Date.distantPast
     @State private var cameraState = MapCameraState()
     @State private var selectedMarker: String?
     @State private var size: CGSize = .zero
@@ -71,7 +74,9 @@ struct TripMapView: View {
                     MapCompass()
                     MapScaleView()
                 }
-                .safeAreaPadding(.bottom, bottomInset)
+                // The map goes under the home indicator, so the panel inset adds that safe area. Then MapKit places the
+                // Apple Maps logo and the Legal link above the panel, where they must stay visible.
+                .safeAreaPadding(.bottom, bottomInset + geometry.safeAreaInsets.bottom)
                 .ignoresSafeArea()
                 .onMapCameraChange(frequency: .continuous) { context in cameraState.camera = context.camera }
                 .onChange(of: camera.positionedByUser) { _, byUser in if byUser { follow = .off } }
@@ -88,12 +93,17 @@ struct TripMapView: View {
             controls.padding(.trailing, Space.s3).padding(.top, Space.s2).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         }
         .overlay(alignment: .topLeading) {
-            legend.padding(.leading, Space.s3).padding(.top, Space.s2).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+            // On a short map the buttons are in one row, so the legend goes below them (as on Android).
+            legend.padding(.leading, Space.s3).padding(.top, shortMap ? Space.s2 + 60 : Space.s2).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         }
         .overlay(alignment: .bottom) { note.padding(.bottom, bottomInset + Space.s6) }
         .onChange(of: lines) { _, new in route.set(new, bySpeed: bySpeed, throttled: mode == .live) }
         .onChange(of: bySpeed) { _, speed in route.set(lines, bySpeed: speed, throttled: false) }
-        .onChange(of: route.builds) { _, _ in fitOnce() }
+        .onChange(of: route.builds) { _, _ in
+            fitOnce()
+            // A replay that starts before the saved route arrives moves to the route start when the route arrives.
+            if mode == .replay && replayStart { moveCamera() }
+        }
         .onChange(of: position) { _, _ in moveCamera() }
         .onChange(of: follow) { _, _ in moveCamera() }
         .onChange(of: mode) { _, new in
@@ -157,7 +167,9 @@ struct TripMapView: View {
         ForEach(moments) { moment in
             Annotation(coordinate: CLLocationCoordinate2D(latitude: moment.latitudeRadians * 180 / .pi, longitude: moment.longitudeRadians * 180 / .pi),
                        anchor: .center) {
+                // Like the other map overlays, the marker stops growing at the largest standard text size.
                 MomentMarker(number: moment.number).accessibilityLabel(Text(moment.description))
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             } label: {
                 EmptyView()
             }
@@ -205,13 +217,24 @@ struct TripMapView: View {
         return speed < 3 ? 17 : speed < 10 ? 16 : speed < 25 ? 15 : speed < 60 ? 14 : 11
     }
 
+    /// The first usable point of the saved route. The replay map goes there before the replay calculation ends.
+    private var routeStart: TrackSample? {
+        for line in lines { if let sample = line.first(where: \.usablePosition) { return sample } }
+        return nil
+    }
+
     private func moveCamera() {
-        guard follows, follow != .off, let sample = position?.sample else { return }
+        guard follows, follow != .off else { return }
+        // The first replay move does not wait for the replay calculation (performance review F1). Until the playhead
+        // has a position, it goes to the start of the saved route, which is already on the map.
+        guard let sample = position?.sample ?? (mode == .replay && replayStart ? routeStart : nil) else { return }
         let current = cameraState.camera
+        // During the first replay move, a playhead position that arrives changes the target of that move.
+        let firstReplayMove = mode == .replay && (replayStart || (!playing && Date.now < replayMoveEnd))
         let distance: Double
         if mode == .replay {
             // A replay keeps one zoom, so the map does not jump in and out with the speed. The zoom buttons change it.
-            distance = replayStart || !placed ? Self.distance(zoom: 16) : (current?.distance ?? Self.distance(zoom: 16))
+            distance = firstReplayMove || !placed ? Self.distance(zoom: 16) : (current?.distance ?? Self.distance(zoom: 16))
         } else if !placed {
             distance = settings.mapZoomWithSpeed ? Self.distance(zoom: Self.speedZoom(sample) ?? 15) : Self.distance(zoom: 16)
         } else if userZoomed || !settings.mapZoomWithSpeed {
@@ -223,9 +246,10 @@ struct TripMapView: View {
         let bearing = course ? (sample.courseRadians.map { $0 * 180 / .pi } ?? current?.heading ?? 0) : 0
         let pitch = course && settings.mapTilt ? 45.0 : 0
         let next = MapCameraPosition.camera(MapCamera(centerCoordinate: sample.coordinate, distance: distance, heading: bearing, pitch: pitch))
-        if placed && (mode != .replay || replayStart) {
+        if placed && (mode != .replay || firstReplayMove) {
             // One short camera move for each new fix. There is no continuous animation.
             withAnimation(.easeInOut(duration: 0.8)) { camera = next }
+            if replayStart { replayMoveEnd = .now.addingTimeInterval(0.8) }
         } else if mode == .replay && playing {
             // A playing replay moves evenly between the playhead steps.
             withAnimation(.linear(duration: 0.1)) { camera = next }
@@ -264,6 +288,8 @@ struct TripMapView: View {
     private func zoom(_ factor: Double) {
         guard let current = cameraState.camera else { return }
         userZoomed = true
+        // A zoom button ends the first replay move, so a late playhead position keeps the user's zoom.
+        replayMoveEnd = .distantPast
         withAnimation(.easeInOut(duration: 0.3)) {
             camera = .camera(MapCamera(centerCoordinate: current.centerCoordinate, distance: min(max(current.distance * factor, 150), 40_000_000),
                                        heading: current.heading, pitch: current.pitch))
@@ -272,10 +298,14 @@ struct TripMapView: View {
 
     // MARK: Overlays
 
+    /// A map with little free height, such as the replay with its charts: the buttons go in one row.
+    private var shortMap: Bool { size.height - bottomInset < 300 }
+
     private var controls: some View {
         let hasRoute = lines.contains { !$0.isEmpty }
+        let layout = shortMap ? AnyLayout(HStackLayout(spacing: Space.s2)) : AnyLayout(VStackLayout(spacing: Space.s2))
         return GlassEffectContainer(spacing: Space.s2) {
-            VStack(spacing: Space.s2) {
+            layout {
                 MapLayerMenu(live: mode == .live)
                 if follows {
                     Button {
@@ -296,12 +326,7 @@ struct TripMapView: View {
                         .accessibilityLabel(Text("Fit route"))
                         .accessibilityIdentifier("map_fit")
                 }
-                Button { zoom(0.5) } label: { Image(systemName: "plus").frame(width: 24, height: 24) }
-                    .accessibilityLabel(Text("Zoom in"))
-                    .accessibilityIdentifier("map_zoom_in")
-                Button { zoom(2) } label: { Image(systemName: "minus").frame(width: 24, height: 24) }
-                    .accessibilityLabel(Text("Zoom out"))
-                    .accessibilityIdentifier("map_zoom_out")
+                ZoomControl(vertical: !shortMap, zoomIn: { zoom(0.5) }, zoomOut: { zoom(2) })
             }
             .buttonStyle(.glass)
             .buttonBorderShape(.circle)
@@ -339,6 +364,34 @@ struct TripMapView: View {
                 .padding(.vertical, Space.s2)
                 .glassEffect(.regular, in: .capsule)
         }
+    }
+}
+
+/// Zoom in and zoom out as one control with a divider, as on Android: vertical on tall maps, horizontal on short maps.
+/// Each button has a 48-point touch target.
+private struct ZoomControl: View {
+    var vertical: Bool
+    var zoomIn: () -> Void
+    var zoomOut: () -> Void
+
+    var body: some View {
+        let layout = vertical ? AnyLayout(VStackLayout(spacing: 0)) : AnyLayout(HStackLayout(spacing: 0))
+        layout {
+            button("plus", label: "Zoom in", identifier: "map_zoom_in", action: zoomIn)
+            Rectangle().fill(.separator).frame(width: vertical ? 24 : 1, height: vertical ? 1 : 24)
+            button("minus", label: "Zoom out", identifier: "map_zoom_out", action: zoomOut)
+        }
+        .glassEffect(.regular.interactive(), in: .capsule)
+    }
+
+    private func button(_ symbol: String, label: LocalizedStringKey, identifier: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol).font(.body.weight(.semibold)).frame(width: 48, height: 48).contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.tint)
+        .accessibilityLabel(Text(label))
+        .accessibilityIdentifier(identifier)
     }
 }
 
@@ -503,15 +556,20 @@ private struct EndpointMarker: View {
 }
 
 /// A white number on an accent circle with a white edge, as on the profile and the chips.
+/// The circle grows with the text size, so the number always fits inside it: 24 points at the default size.
 struct MomentMarker: View {
     var number: Int
+    @ScaledMetric(relativeTo: .caption) private var size: CGFloat = 24
 
     var body: some View {
         Text("\(number)")
             .font(.caption.weight(.bold))
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
             .foregroundStyle(.white)
-            .frame(minWidth: 24, minHeight: 24)
-            .background(Palette.accent, in: .circle)
+            .padding(2)
+            .frame(width: size, height: size)
+            .background(Palette.accentFill, in: .circle)
             .overlay(Circle().stroke(.white, lineWidth: 2))
     }
 }

@@ -117,7 +117,7 @@ class SatelliteDisplayDeviceTest {
             report()
             awaitCount("Satellites: 9 used / 12 seen")
             compose.onNodeWithTag("accuracy_bar", useUnmergedTree = true).assertIsDisplayed()
-            compose.onNodeWithTag("position_accuracy", useUnmergedTree = true).assertTextEquals("Position estimate ±6 m")
+            compose.onNodeWithTag("position_accuracy", useUnmergedTree = true).assertTextEquals("Position estimate ±6\u202Fm")
             compose.onNodeWithTag("accuracy_scale", useUnmergedTree = true).assertIsDisplayed()
             capture("light")
             compose.runOnIdle { dark = true }
@@ -132,12 +132,12 @@ class SatelliteDisplayDeviceTest {
 
             fix(0.5f)
             compose.waitUntil(5_000) {
-                runCatching { compose.onNodeWithTag("accuracy_bar", useUnmergedTree = true).assertContentDescriptionEquals("Position estimate ±0.5 m") }.isSuccess
+                runCatching { compose.onNodeWithTag("accuracy_bar", useUnmergedTree = true).assertContentDescriptionEquals("Position estimate ±0.5\u202Fm") }.isSuccess
             }
             capture("full")
             fix(0.04f)
             compose.waitUntil(5_000) {
-                runCatching { compose.onNodeWithTag("accuracy_bar", useUnmergedTree = true).assertContentDescriptionEquals("Position estimate below 0.1 m") }.isSuccess
+                runCatching { compose.onNodeWithTag("accuracy_bar", useUnmergedTree = true).assertContentDescriptionEquals("Position estimate below 0.1\u202Fm") }.isSuccess
             }
 
             fix()

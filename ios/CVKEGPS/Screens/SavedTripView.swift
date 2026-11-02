@@ -20,7 +20,6 @@ struct SavedTripView: View {
     @State private var details = false
     @State private var panelHeight: CGFloat = 0
     @State private var contentHeight: CGFloat = 0
-    @State private var showSaved = false
 
     init(id: String) {
         self.id = id
@@ -54,8 +53,6 @@ struct SavedTripView: View {
                 // The panel takes the height of its content. Content that is too tall scrolls inside the panel.
                 let limit = geometry.size.height * (replay.details && replaying ? 0.72 : 0.55)
                 VStack(spacing: Space.s2) {
-                    // Near the panel, so it does not cover the map controls at the top.
-                    if showSaved { savedBanner }
                     ScrollView {
                         panel.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 }
                     }
@@ -88,16 +85,6 @@ struct SavedTripView: View {
                 replay.pause()
                 replay.details = false
             }
-            // The replay shows the saved trip, so it closes the offer to continue the trip.
-            if active { showSaved = false }
-        }
-        .task(id: model.trips.justSaved) {
-            // Stop and save opens this screen. For about 10 seconds the trip can continue, which undoes an accidental stop.
-            guard model.trips.justSaved == id else { return }
-            showSaved = true
-            try? await Task.sleep(for: .seconds(10))
-            showSaved = false
-            if model.trips.justSaved == id { model.trips.justSaved = nil }
         }
     }
 
@@ -180,68 +167,32 @@ struct SavedTripView: View {
     }
 
     @ViewBuilder private func savedPanel(_ trip: TripRecord?, _ shown: TripDetail?) -> some View {
+        // As on Android: "Trip saved" and Resume trip in the panel above the values, while the trip can still continue.
+        if let trip { SavedRow(trip: trip, blocked: model.recorder.state.trip != nil) { model.trips.reopen(id) } }
         if let error = model.recorder.state.error { ProblemBanner(message: error.message) }
         if case .failed = detail {
             ProblemBanner(message: String(localized: "The app cannot read the saved trips. The trips stay on the phone.")) {
                 Button("Try again") { Task { await read() } }.buttonStyle(.glass).accessibilityIdentifier("read_retry")
             }
         }
-        if let trip {
-            HStack {
-                ActivityChip(text: trip.activityText) { model.trips.activityChoice = .trip(trip.id) }
-                Spacer()
-                if trip.status != .finished { Text(trip.status.title).font(.subheadline.weight(.medium)).foregroundStyle(Palette.warning) }
-            }
+        if let trip, trip.status != .finished {
+            Text(trip.status.title).font(.subheadline.weight(.medium)).foregroundStyle(Palette.warning)
         }
-        let distance = shown?.summary.distanceMeters ?? trip?.distanceMeters
-        let duration = trip?.durationNanos
-        Grid(alignment: .leading, horizontalSpacing: Space.s6, verticalSpacing: Space.s3) {
-            GridRow {
-                MetricView(title: "Distance", value: distance.map(format.distance), identifier: "trip_distance")
-                MetricView(title: "Recording time", value: duration.map(format.duration))
-            }
-            GridRow {
-                MetricView(title: "Average speed, including stops",
-                           value: duration.flatMap { averageSpeed(distanceMeters: distance, durationNanos: $0) }.map(format.speed),
-                           identifier: "average_speed")
-                MetricView(title: "Maximum speed", value: shown?.summary.maximumSpeedMetersPerSecond.map(format.speed))
-            }
-        }
+        TripTotals(distance: shown?.summary.distanceMeters ?? trip?.distanceMeters, duration: trip?.durationNanos,
+                   maximum: shown?.summary.maximumSpeedMetersPerSecond, activity: trip?.activityText)
         if trip?.status == .interrupted, let trip {
             Text("Recording stopped unexpectedly. The trip is saved up to that point. You can resume it or end it.").font(.footnote)
             HStack(spacing: Space.s3) {
                 Button { model.trips.resume(trip.id, fromSavedTrip: true) } label: {
                     Label("Resume trip", systemImage: "play.fill").frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.glassProminent)
+                .prominentButton()
                 .disabled(model.recorder.state.trip != nil)
                 Button { model.recorder.send(.finish(id: trip.id)) } label: { Text("End trip").frame(maxWidth: .infinity) }
                     .buttonStyle(.glass)
             }
             .controlSize(.large)
         }
-    }
-
-    private var savedBanner: some View {
-        HStack(spacing: Space.s3) {
-            Image(systemName: "checkmark.circle.fill").foregroundStyle(Palette.success)
-            Text("Trip saved").font(.subheadline.weight(.semibold))
-            Spacer()
-            Button("Resume trip") {
-                showSaved = false
-                model.trips.reopen(id)
-            }
-            .buttonStyle(.glassProminent)
-            .accessibilityIdentifier("trip_reopen")
-            Button { showSaved = false; model.trips.justSaved = nil } label: { Image(systemName: "xmark") }
-                .buttonStyle(.glass)
-                .buttonBorderShape(.circle)
-                .accessibilityLabel(Text("Close"))
-        }
-        .padding(.horizontal, Space.s4)
-        .padding(.vertical, Space.s2)
-        .glassEffect(.regular, in: .capsule)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 
     @ToolbarContentBuilder private func toolbar(_ trip: TripRecord?, _ shown: TripDetail?) -> some ToolbarContent {
@@ -291,6 +242,119 @@ struct SavedTripView: View {
                 }
                 .accessibilityLabel(Text("More options"))
                 .accessibilityIdentifier("trip_menu")
+            }
+        }
+    }
+}
+
+/// "Trip saved" and Resume trip while the recorder can still continue the trip: `reopenWindowMillis` after Stop and save.
+/// This undoes an accidental stop. The time that is left shows beside Resume trip and changes once each second, so the row
+/// does not go away without warning. The row does not show while another trip records or is paused.
+private struct SavedRow: View {
+    var trip: TripRecord
+    var blocked: Bool
+    var resume: () -> Void
+    @Environment(\.displayFormat) private var format
+
+    var body: some View {
+        if let ended = trip.endedMillis, trip.status == .finished, !blocked {
+            let end = Date(timeIntervalSince1970: Double(ended + reopenWindowMillis) / 1000)
+            // One update at each full second that is left, and none after the end. The screen draws them only while visible.
+            TimelineView(.explicit(Self.seconds(until: end))) { context in
+                let left = end.timeIntervalSince(context.date)
+                if left > 0 && left <= Double(reopenWindowMillis) / 1000 {
+                    // One line when it fits; at large text sizes the parts stack, so no word breaks.
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: Space.s2) { saved; Spacer(minLength: Space.s2); resumeButton; leftText(left) }
+                        VStack(alignment: .leading, spacing: 0) {
+                            saved
+                            HStack(spacing: Space.s3) { resumeButton; leftText(left) }
+                        }
+                        VStack(alignment: .leading, spacing: 0) { saved; resumeButton; leftText(left) }
+                    }
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("trip_saved")
+                }
+            }
+        }
+    }
+
+    private var saved: some View {
+        Label { Text("Trip saved") } icon: { Image(systemName: "checkmark").foregroundStyle(Palette.success) }
+            .font(.subheadline.weight(.semibold))
+            .lineLimit(1)
+            .accessibilityElement(children: .combine)
+    }
+
+    private var resumeButton: some View {
+        Button(action: resume) {
+            Text("Resume trip").font(.subheadline.weight(.semibold)).lineLimit(1).frame(minHeight: 44)
+        }
+        .buttonStyle(.borderless)
+        .accessibilityIdentifier("trip_reopen")
+    }
+
+    private func leftText(_ left: TimeInterval) -> some View {
+        Text("\(format.clock(Int64(left.rounded(.up)) * 1_000_000_000)) left")
+            .font(.footnote)
+            .monospacedDigit()
+            .lineLimit(1)
+            .foregroundStyle(.secondary)
+            .accessibilityIdentifier("saved_resume_left")
+    }
+
+    private static func seconds(until end: Date) -> [Date] {
+        let now = Date.now
+        guard end > now else { return [now] }
+        var dates: [Date] = []
+        var time = end
+        while time > now { dates.append(time); time.addTimeInterval(-1) }
+        return [now] + dates.reversed()
+    }
+}
+
+/// The everyday trip values, as on Android. Distance is the main value, with the activity on its line. Recording time,
+/// average speed, and maximum speed follow in equal columns. At accessibility text sizes they stack.
+struct TripTotals: View {
+    var distance: Double?
+    var duration: Int64?
+    var maximum: Double?
+    var activity: String?
+    @Environment(\.displayFormat) private var format
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    var body: some View {
+        let amount = distance.map(format.distanceAmount)
+        // At accessibility text sizes the activity goes below the distance, so the distance keeps the full width.
+        let headLayout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: Space.s1))
+            : AnyLayout(HStackLayout(alignment: .lastTextBaseline, spacing: Space.s3))
+        VStack(alignment: .leading, spacing: Space.s3) {
+            headLayout {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Distance").font(.caption).foregroundStyle(.secondary)
+                    HStack(alignment: .lastTextBaseline, spacing: Space.s1) {
+                        Text(amount.map(format.number) ?? "—").font(.title.weight(.medium)).monospacedDigit()
+                        if let amount { Text(amount.unit).font(.subheadline).foregroundStyle(.secondary) }
+                    }
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text("Distance"))
+                .accessibilityValue(amount.map { Text(verbatim: "\(format.number($0)) \($0.unit)") } ?? Text("Unavailable"))
+                .accessibilityIdentifier("trip_distance")
+                if !typeSize.isAccessibilitySize { Spacer(minLength: Space.s2) }
+                if let activity {
+                    Text(activity).font(.footnote).foregroundStyle(.secondary)
+                        .multilineTextAlignment(typeSize.isAccessibilitySize ? .leading : .trailing)
+                }
+            }
+            let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: Space.s2))
+                : AnyLayout(HStackLayout(alignment: .top, spacing: Space.s3))
+            layout {
+                MetricView(title: "Recording time", value: duration.map(format.duration)).frame(maxWidth: .infinity, alignment: .leading)
+                MetricView(title: "Average speed", value: duration.flatMap { averageSpeed(distanceMeters: distance, durationNanos: $0) }.map(format.speed),
+                           identifier: "average_speed", note: "Includes stops")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                MetricView(title: "Maximum speed", value: maximum.map(format.speed)).frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
