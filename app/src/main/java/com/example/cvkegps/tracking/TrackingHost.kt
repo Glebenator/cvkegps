@@ -63,7 +63,6 @@ class TrackingActions(
     private val readyState: State<Boolean>,
     private val estimateState: State<TripMode>,
     private val selectedModeState: State<TripMode?>,
-    private val justSavedState: State<String?>,
     val start: () -> Unit,
     val pause: () -> Unit,
     val resume: (String) -> Unit,
@@ -71,7 +70,6 @@ class TrackingActions(
     /** A trip ID changes that trip. Null chooses the activity for the next trip. */
     val chooseMode: (String?) -> Unit,
     val reopen: (String) -> Unit,
-    val consumeJustSaved: () -> Unit,
     val finish: (String) -> Unit,
     val delete: (String) -> Unit,
     val shareGpx: suspend (String) -> Boolean,
@@ -85,8 +83,6 @@ class TrackingActions(
     val estimate get() = estimateState.value
     /** The activity that the user chose for the next trip. Null means automatic. */
     val selectedMode get() = selectedModeState.value
-    /** The trip that Stop and save ended a moment ago, which the saved trip offers to resume. */
-    val justSaved get() = justSavedState.value
 }
 
 @Composable
@@ -106,7 +102,6 @@ fun TrackingHost(
     val recordingState = vm.recorder.state.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
     val estimateState = vm.estimate.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
     val selectedModeState = vm.mode.collectAsStateWithLifecycle()
-    val justSavedState = remember(controller) { derivedStateOf { controller.justSaved } }
     val activeTripState = remember { derivedStateOf { recordingState.value.trip?.id } }
     val storageError by vm.storageError.collectAsStateWithLifecycle()
     var changeMode by rememberSaveable { mutableStateOf(false) }
@@ -154,14 +149,13 @@ fun TrackingHost(
     content(remember(vm, controller) {
         TrackingActions(
             vm = vm, recordingState = recordingState, activeTripState = activeTripState, errorState = error, readyState = ready, estimateState = estimateState,
-            selectedModeState = selectedModeState, justSavedState = justSavedState,
+            selectedModeState = selectedModeState,
             start = controller::start,
             pause = controller::pause,
             resume = controller::resume,
             stop = controller::stop,
             chooseMode = { id -> modeTrip = id; changeMode = true },
             reopen = controller::reopen,
-            consumeJustSaved = controller::consumeJustSaved,
             finish = vm::finishInterrupted,
             delete = { id -> deleteTrip = id },
             shareGpx = controller::shareGpx,

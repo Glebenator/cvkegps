@@ -29,6 +29,8 @@ data class Settings(
     val tripAccessExplained: Boolean = false,
     /** The map type on the trip maps. */
     val mapLayer: MapLayer = MapLayer.Default,
+    /** The look of the default map type. Satellite and terrain maps do not use it. */
+    val mapStyle: MapStyle = MapStyle.Standard,
     /** Live traffic on the current trip map. Off by default, because it loads more map data. */
     val mapTraffic: Boolean = false,
     /** The route colour on saved trip and replay maps. The current trip map always uses one colour. */
@@ -65,6 +67,16 @@ enum class MapLayer(override val key: String) : StoredChoice {
     Default("default"),
     Satellite("satellite"),
     Terrain("terrain"),
+}
+
+/** The look of the default map type. Each style other than [Standard] has a light and a dark version that follows the app theme. */
+enum class MapStyle(override val key: String) : StoredChoice {
+    /** The Google map, with the dark map of the Maps SDK. */
+    Standard("standard"),
+    /** Roads, names, water, and parks in the app's neutral colours. No places of business and no transit. */
+    Minimal("minimal"),
+    /** Strong lines and text, for sunlight and low vision. */
+    HighContrast("high_contrast"),
 }
 
 /** How much of the app takes the wallpaper colours of Android 12 and later. Status, data, and brand colours never do. */
@@ -133,6 +145,7 @@ class AppSettings(
                 altitudeReference = pick(ALTITUDE_REFERENCE) { altitudeReference },
                 tripAccessExplained = pick(TRIP_ACCESS_EXPLAINED) { tripAccessExplained },
                 mapLayer = pick(MAP_LAYER) { mapLayer },
+                mapStyle = pick(MAP_STYLE) { mapStyle },
                 mapTraffic = pick(MAP_TRAFFIC) { mapTraffic },
                 routeColour = pick(ROUTE_COLOUR) { routeColour },
                 mapStart = pick(MAP_START) { mapStart },
@@ -162,6 +175,7 @@ class AppSettings(
     fun setTripAccessExplained() =
         change(TRIP_ACCESS_EXPLAINED, { copy(tripAccessExplained = true) }) { putBoolean(TRIP_ACCESS_EXPLAINED, true) }
     fun setMapLayer(value: MapLayer) = change(MAP_LAYER, { copy(mapLayer = value) }) { putString(MAP_LAYER, value.key) }
+    fun setMapStyle(value: MapStyle) = change(MAP_STYLE, { copy(mapStyle = value) }) { putString(MAP_STYLE, value.key) }
     fun setMapTraffic(value: Boolean) = change(MAP_TRAFFIC, { copy(mapTraffic = value) }) { putBoolean(MAP_TRAFFIC, value) }
     fun setRouteColour(value: RouteColour) = change(ROUTE_COLOUR, { copy(routeColour = value) }) { putString(ROUTE_COLOUR, value.key) }
     fun setMapStart(value: MapStart) = change(MAP_START, { copy(mapStart = value) }) { putString(MAP_START, value.key) }
@@ -203,6 +217,7 @@ class AppSettings(
         const val ALTITUDE_REFERENCE = "altitude_reference"
         const val TRIP_ACCESS_EXPLAINED = "trip_access_explained"
         const val MAP_LAYER = "map_layer"
+        const val MAP_STYLE = "map_style"
         const val MAP_TRAFFIC = "map_traffic"
         const val ROUTE_COLOUR = "route_colour"
         const val MAP_START = "map_start"
@@ -229,6 +244,7 @@ class AppSettings(
             altitudeReference = read.getString(ALTITUDE_REFERENCE, null).toChoice<AltitudeReference>() ?: AltitudeReference.SeaLevel,
             tripAccessExplained = read.getBoolean(TRIP_ACCESS_EXPLAINED, false),
             mapLayer = read.getString(MAP_LAYER, null).toChoice<MapLayer>() ?: MapLayer.Default,
+            mapStyle = read.getString(MAP_STYLE, null).toChoice<MapStyle>() ?: MapStyle.Standard,
             mapTraffic = read.getBoolean(MAP_TRAFFIC, false),
             routeColour = read.getString(ROUTE_COLOUR, null).toChoice<RouteColour>() ?: RouteColour.Speed,
             mapStart = read.getString(MAP_START, null).toChoice<MapStart>() ?: MapStart.North,

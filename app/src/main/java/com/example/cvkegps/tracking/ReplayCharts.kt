@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.selection.selectableGroup
@@ -72,13 +74,20 @@ private class ChartSpec(
     val high: Float,
     val zeroLine: Boolean,
     val label: (Float) -> String,
-)
+) {
+    /** The one displayed value when all values look the same in display units, such as a flat height. Null when they change. */
+    val steady: String? = runs.flatMap { run -> run.values.filter { it.isFinite() } }.let { values ->
+        if (values.isEmpty()) null else label(values.min()).takeIf { it == label(values.max()) }
+    }
+}
 
 /**
  * Speed, height, and along-track acceleration with one shared cursor. A tap or a horizontal drag on any chart moves the
  * cursor. A vertical drag scrolls the page. Each chart has a summary for a screen reader, and the first chart is the slider.
  *
  * With [selected], a selector shows one chart at a time. A narrow pane and the largest text sizes use it.
+ * [value] shows the value at the cursor beside each chart title. A series that does not change shows as one line of text,
+ * not as an empty chart. One time axis under the last chart serves all charts.
  */
 @Composable
 internal fun ReplayCharts(
@@ -93,6 +102,7 @@ internal fun ReplayCharts(
     selected: ReplayChartKind? = null,
     onSelect: (ReplayChartKind) -> Unit = {},
     chartHeight: Dp = 96.dp,
+    value: (@Composable (ReplayChartKind) -> Unit)? = null,
 ) {
     val specs = remember(replay, format, heightOffset) { chartSpecs(replay, format, heightOffset) }
     val titles = mapOf(
@@ -115,9 +125,31 @@ internal fun ReplayCharts(
                 }
             }
         }
-        shown.forEachIndexed { index, spec ->
-            if (selected == null) Text(title(spec.kind), style = MaterialTheme.typography.labelLarge)
-            Chart(spec, replay, playhead, summary(spec, replay, format, heightOffset), state, seek, pauseAt, slider = index == 0, chartHeight)
+        // The first drawn chart is the slider for screen readers. A steady series has no chart to be the slider.
+        val slider = shown.firstOrNull { it.steady == null }
+        for (spec in shown) {
+            val steady = spec.steady
+            if (selected == null || steady != null) Row(Modifier.fillMaxWidth().testTag("chart_title_${spec.kind.name}"),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.s2)) {
+                Text(if (selected == null) title(spec.kind) else "", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+                if (steady != null) Text(stringResource(R.string.chart_steady, steady), Modifier.testTag("chart_steady_${spec.kind.name}"),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                else value?.invoke(spec.kind)
+            }
+            if (steady == null) Chart(spec, replay, playhead, summary(spec, replay, format, heightOffset), state, seek, pauseAt,
+                slider = spec === slider, chartHeight)
+        }
+        if (slider != null) TimeAxis(replay.durationNanos, format)
+    }
+}
+
+/** The start, middle, and end times under the charts. All charts share the same time scale. */
+@Composable
+private fun TimeAxis(durationNanos: Long, format: DisplayFormat) {
+    Row(Modifier.fillMaxWidth().testTag("chart_time_axis"), horizontalArrangement = Arrangement.SpaceBetween) {
+        for (time in listOf(0L, durationNanos / 2, durationNanos)) {
+            Text(format.clock(time), style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -273,6 +305,5 @@ private fun Chart(
                     if (value != null) drawCircle(colors.ink, 4.dp.toPx(), Offset(head, y(value)))
                 }
             })
-        Text(summary, style = MaterialTheme.typography.bodySmall, color = colors.inkMuted)
     }
 }

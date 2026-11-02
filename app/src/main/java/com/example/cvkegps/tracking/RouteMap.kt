@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.text.format.DateUtils
 import androidx.activity.compose.LocalActivity
+import androidx.annotation.RawRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -24,6 +25,12 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.IconButton
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.shadow
+import com.example.cvkegps.ui.theme.Size
 import androidx.compose.material3.FilledTonalIconToggleButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -54,6 +61,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -86,6 +94,7 @@ import com.example.cvkegps.location.FixSource
 import com.example.cvkegps.location.TrackSample
 import com.example.cvkegps.settings.MapLayer
 import com.example.cvkegps.settings.MapStart
+import com.example.cvkegps.settings.MapStyle
 import com.example.cvkegps.settings.RouteColour
 import com.example.cvkegps.ui.FloatingBackButton
 import com.example.cvkegps.ui.rememberDisplayFormat
@@ -99,6 +108,7 @@ import com.google.android.gms.maps.model.Dash
 import com.google.android.gms.maps.model.Gap
 import com.google.android.gms.maps.model.JointType
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.android.gms.maps.model.RoundCap
 import com.google.android.gms.maps.model.StrokeStyle
 import com.google.android.gms.maps.model.StyleSpan
@@ -193,6 +203,8 @@ private fun MapCanvas(
     val bySpeed = !live && choice.routeColour == RouteColour.Speed
     // An outline keeps both ends of the speed colours visible: dark on a light map, white on a dark or satellite map.
     val outline = if (dark || choice.mapLayer == MapLayer.Satellite) SpeedRamp.outlineOnDark else SpeedRamp.outlineOnLight
+    // Styles work only on the default map type. A style replaces the dark map of the SDK, so each style has a dark version.
+    val style = rememberMapStyle(choice.mapStyle.takeIf { choice.mapLayer == MapLayer.Default }?.resource(dark))
     // A missing or old Google Play services result. Null while the check runs or when the services are ready.
     val servicesProblem = rememberPlayServices()?.takeIf { it != ConnectionResult.SUCCESS }
     val scope = rememberCoroutineScope()
@@ -317,6 +329,7 @@ private fun MapCanvas(
                 // Traffic is current, so it shows only on the map of the current trip.
                 isTrafficEnabled = live && choice.mapTraffic,
                 isBuildingEnabled = choice.map3dBuildings,
+                mapStyleOptions = style,
             ),
             // The app's 48 dp buttons replace the small SDK zoom controls. The marker toolbar opens a saved start or end in Google Maps.
             uiSettings = MapUiSettings(
@@ -340,7 +353,7 @@ private fun MapCanvas(
                 SpeedLegend(scale, Modifier.align(Alignment.TopStart).padding(start = Space.s2,
                     top = if (onBack != null || shortMap) CONTROL_SPACE else Space.s2, end = if (shortMap) Space.s2 else CONTROL_SPACE))
             }
-            val controls: @Composable () -> Unit = {
+            val controls: @Composable (vertical: Boolean) -> Unit = { vertical ->
                 val hasRoute = lines.any { it.isNotEmpty() }
                 MapTypeButton(choice.mapLayer, choice.mapTraffic.takeIf { live }, choice.routeColour.takeIf { !live },
                     settings::setMapLayer, settings::setMapTraffic, settings::setRouteColour)
@@ -365,18 +378,13 @@ private fun MapCanvas(
                     modifier = mapButtonModifier.testTag("map_fit")) {
                     Icon(painterResource(R.drawable.ic_fit_route), contentDescription = stringResource(R.string.map_fit))
                 }
-                FilledTonalIconButton(onClick = { userZoomed = true; scope.launch { camera.animate(CameraUpdateFactory.zoomIn()) } },
-                    colors = mapButtonColors(), modifier = mapButtonModifier.testTag("map_zoom_in")) {
-                    Icon(painterResource(R.drawable.ic_add), contentDescription = stringResource(R.string.map_zoom_in))
-                }
-                FilledTonalIconButton(onClick = { userZoomed = true; scope.launch { camera.animate(CameraUpdateFactory.zoomOut()) } },
-                    colors = mapButtonColors(), modifier = mapButtonModifier.testTag("map_zoom_out")) {
-                    Icon(painterResource(R.drawable.ic_remove), contentDescription = stringResource(R.string.map_zoom_out))
-                }
+                ZoomControls(vertical,
+                    onZoomIn = { userZoomed = true; scope.launch { camera.animate(CameraUpdateFactory.zoomIn()) } },
+                    onZoomOut = { userZoomed = true; scope.launch { camera.animate(CameraUpdateFactory.zoomOut()) } })
             }
             if (servicesProblem == null) {
-                if (!shortMap) Column(Modifier.align(Alignment.TopEnd).padding(Space.s2), verticalArrangement = Arrangement.spacedBy(Space.s2)) { controls() }
-                else Row(Modifier.align(Alignment.TopEnd).padding(Space.s2), horizontalArrangement = Arrangement.spacedBy(Space.s2)) { controls() }
+                if (!shortMap) Column(Modifier.align(Alignment.TopEnd).padding(Space.s2), verticalArrangement = Arrangement.spacedBy(Space.s2)) { controls(true) }
+                else Row(Modifier.align(Alignment.TopEnd).padding(Space.s2), horizontalArrangement = Arrangement.spacedBy(Space.s2)) { controls(false) }
             }
             // A route that is still loading is not reported as empty. The map loads at the same time.
             val noPoints = routeReady && lines.all { it.isEmpty() }
@@ -494,6 +502,38 @@ private fun RouteOverlay(
     }
 }
 
+/**
+ * Zoom in and zoom out as one floating control, so the map has fewer separate buttons. Each half keeps a 48 dp touch target.
+ * The control is a column beside the map, or a row on a short map.
+ */
+@Composable
+private fun ZoomControls(vertical: Boolean, onZoomIn: () -> Unit, onZoomOut: () -> Unit) {
+    val colors = CvkeTheme.colors
+    val shape = RoundedCornerShape(Size.touch / 2)
+    val zoomIn: @Composable () -> Unit = {
+        IconButton(onClick = onZoomIn, modifier = Modifier.size(Size.touch).testTag("map_zoom_in")) {
+            Icon(painterResource(R.drawable.ic_add), contentDescription = stringResource(R.string.map_zoom_in))
+        }
+    }
+    val zoomOut: @Composable () -> Unit = {
+        IconButton(onClick = onZoomOut, modifier = Modifier.size(Size.touch).testTag("map_zoom_out")) {
+            Icon(painterResource(R.drawable.ic_remove), contentDescription = stringResource(R.string.map_zoom_out))
+        }
+    }
+    // The same overlay shadow as the round map buttons, so the control reads on every map type.
+    Surface(Modifier.shadow(6.dp, shape), shape = shape, color = colors.surface, contentColor = colors.ink) {
+        if (vertical) Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            zoomIn()
+            Box(Modifier.width(Space.s6).height(1.dp).background(colors.border))
+            zoomOut()
+        } else Row(verticalAlignment = Alignment.CenterVertically) {
+            zoomIn()
+            Box(Modifier.width(1.dp).height(Space.s6).background(colors.border))
+            zoomOut()
+        }
+    }
+}
+
 /** Selects the map type. On the current trip map it also turns live traffic on or off. On other maps it selects the route colour. */
 @Composable
 private fun MapTypeButton(
@@ -561,6 +601,24 @@ private fun speedSpans(positions: List<Float?>, alpha: Float): List<StyleSpan> =
     val to = (run.to?.let(SpeedRamp::at) ?: SpeedRamp.noSpeed).copy(alpha = alpha).toArgb()
     val style = if (from == to) StrokeStyle.colorBuilder(from) else StrokeStyle.gradientBuilder(from, to)
     StyleSpan(style.build(), run.segments.toDouble())
+}
+
+/** The JSON style file of this style in the light or the dark theme. Null for the Google map. */
+@RawRes private fun MapStyle.resource(dark: Boolean): Int? = when (this) {
+    MapStyle.Standard -> null
+    MapStyle.Minimal -> if (dark) R.raw.map_style_minimal_dark else R.raw.map_style_minimal_light
+    MapStyle.HighContrast -> if (dark) R.raw.map_style_high_contrast_dark else R.raw.map_style_high_contrast_light
+}
+
+/** The map style in [resource], read off the main thread. Null without a resource. The previous style stays while a new one loads. */
+@Composable
+private fun rememberMapStyle(@RawRes resource: Int?): MapStyleOptions? {
+    val resources = LocalResources.current
+    return produceState<MapStyleOptions?>(null, resource, resources) {
+        value = resource?.let {
+            withContext(Dispatchers.IO) { MapStyleOptions(resources.openRawResource(it).bufferedReader().use { file -> file.readText() }) }
+        }
+    }.value
 }
 
 /** Opens the Google Play services dialog that installs, updates, or turns on the services that the map needs. */

@@ -84,6 +84,7 @@ fun SpeedometerRoute(
     access: GpsAccess,
     onDetails: () -> Unit,
     trackerControls: @Composable (canStartTrip: Boolean, landscape: Boolean) -> Unit = { _, _ -> },
+    metrics: @Composable (default: @Composable () -> Unit) -> Unit = { it() },
     compassViewModel: CompassViewModel? = null,
     onSettings: (() -> Unit)? = null,
 ) {
@@ -96,6 +97,7 @@ fun SpeedometerRoute(
         onDetails = onDetails,
         gnss = gnss,
         trackerControls = trackerControls,
+        metrics = metrics,
         onSettings = onSettings,
         heading = {
             compassViewModel?.let { collectPhoneHeading(it, state.reading?.magneticDeclinationRadians) }

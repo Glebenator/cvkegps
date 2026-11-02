@@ -167,21 +167,25 @@
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-11-02">2 November 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd>Android: <code>c935bbb</code> plus the map settings (branch <code>native-maps</code>, not committed). iOS: <code>ced72a4</code> plus the UI review fixes and the app comparison fixes (not committed)</dd></div>
+          <div><dt>App code baseline</dt><dd>Branch <code>claude/android-to-ios-port-g3ohdc</code> after the merge of <code>native-maps</code> at <code>202b836</code>. Android: <code>202b836</code> plus the app comparison fixes. iOS: <code>b3474a9</code></dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd><a href="#ios-app">UI flow passed on a simulator</a> · Real iPhone not tested</dd></div>
         </dl>
       </aside>
     </div>
     <div class="metrics" aria-label="Last verified results">
-      <div class="metric"><strong>42 / 48</strong><span>Device tests passed in one run with the replay mode</span><span class="small">Pixel 10 Pro emulator, API 37, on a slow emulator; the 6 others passed one by one after a cold start</span></div>
-      <div class="metric"><strong>58 / 58</strong><span>Calculation tests passed</span><span class="small">New: speed colour smoothing, scale, and runs</span></div>
+      <div class="metric"><strong>53 / 53</strong><span>Device tests passed with the design review changes</span><span class="small">Pixel 10 Pro emulator, API 37; one test class for each run, tracking 30 of 30 in one run</span></div>
+      <div class="metric"><strong>58 / 58</strong><span>Calculation tests passed</span><span class="small">On the design review changes</span></div>
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, debug lint, and unsigned release build</span><span class="small">Release APK not installed or run</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
       <a href="#app-comparison">App comparison fixes · 2 Nov</a>
+      <a href="#speed-dial-icon">Speed dial app icon · 2 Nov</a>
       <a href="#ios-ui-review">iOS UI review fixes · 1 Nov</a>
       <a href="#ios-app">iOS app · 1 Nov</a>
+      <a href="#ui-suggestions">Design review changes · 31 Oct</a>
+      <a href="#map-styles">Map styles · 30 Oct</a>
+      <a href="#trip-saved-row">Trip saved row · 30 Oct</a>
       <a href="#map-settings">Map settings · 30 Oct</a>
       <a href="#colour-choices">Colour choices · 30 Oct</a>
       <a href="#speed-colours">Speed colours · 30 Oct</a>
@@ -219,12 +223,12 @@
 
     <section id="app-comparison" aria-labelledby="app-comparison-heading">
       <div class="section-head"><h2 id="app-comparison-heading">App comparison fixes · 2 November 2026</h2><span class="tag pending">iOS UI flow passed on a simulator · Android not built</span></div>
-      <p class="section-intro">A comparison of the iOS app with the Android changes after <code>d14442b</code> (branches <code>native-maps</code> and <code>clanker/performance-review-71251c</code>) found these items. App baseline: <code>ced72a4</code> plus the iOS UI review fixes and this change, not committed.</p>
+      <p class="section-intro">A comparison of the iOS app with the Android changes after <code>d14442b</code> (branches <code>native-maps</code> and <code>clanker/performance-review-71251c</code>) found these items. App baseline: <code>b3474a9</code>, which also has the iOS UI review fixes. Branch <code>native-maps</code> was merged after it (<code>202b836</code>).</p>
       <ul>
         <li>iOS replay zoom (finding F1 of the <a href="https://github.com/Glebenator/cvkegps/blob/clanker/performance-review-71251c/docs/performance-review-2026-10-30.md">performance review of 30 October</a>, as Android <code>1e43436</code>): the Replay tap moves the map to the replay zoom at once. Until the playhead has a position, the move goes to the start of the saved route. Before, the map did not move until the replay calculation ended, and on a trip without a fix at 0:00 it did not move until Play. A playhead position that arrives during the first move changes the target of that move. A zoom button or a map gesture stops it. iOS does not have the Android animation defect F5.</li>
         <li>A failed delete now shows "The app could not delete the trip. Try again." in both apps. Before, it showed the message for a recording that stopped because the trip could not be saved.</li>
-        <li>Android: a narrow no-break space (U+202F) keeps a number with its unit in <code>value_with_unit</code>, the acceleration value, the GPS details, and the position estimate, so large text does not put a unit on the next line. The durations already had it. iOS uses a no-break space for the same purpose.</li>
-        <li>The iOS ADR is now <a href="docs/adr/0007-build-the-ios-app-with-apple-maps-and-a-shared-swift-core.md">ADR 0007</a>. ADR 0006 on branch <code>native-maps</code> is the map styles decision.</li>
+        <li>Android: a no-break space (U+00A0) keeps a number with its unit in <code>value_with_unit</code>, the acceleration value, the GPS details, and the position estimate, so large text does not put a unit on the next line. The durations already had it, and iOS uses the same character.</li>
+        <li>The iOS ADR is now <a href="docs/adr/0007-build-the-ios-app-with-apple-maps-and-a-shared-swift-core.md">ADR 0007</a>. <a href="docs/adr/0006-map-styles-as-json-styles-without-a-map-id.md">ADR 0006</a> is the Android map styles decision.</li>
         <li>The iOS UI review entry below said "Trip saved" shows for about 10 seconds. It shows for the full 2 minutes in which the trip can continue. The entry is corrected.</li>
       </ul>
       <pre><code><a href="ios/CVKEGPS/Map/TripMapView.swift">TripMapView.swift</a> · the first replay move does not wait for the replay
@@ -258,9 +262,33 @@ guard let sample = position?.sample ?? (mode == .replay &amp;&amp; replayStart ?
       </article>
     </section>
 
+    <section id="speed-dial-icon" aria-labelledby="speed-dial-icon-heading">
+      <div class="section-head"><h2 id="speed-dial-icon-heading">Speed dial app icon · 2 November 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
+      <p class="section-intro">The app has its own launcher icon in place of the shared cvke sliced c. The owner asked for a mark that shows speed first and compared four concepts, three colour versions, and text options. The owner chose the speed dial on the family blue-to-apricot gradient, with GPS in bold type below the dial.
+        The dial is a white half-disc with a slice cut out at the reading. The slice floats out in light apricot. GPS is Source Han Sans Bold (SIL Open Font License 1.1), converted to outlines, because a vector drawable cannot hold text. The report favicon uses the same icon.</p>
+      <pre><code><a href="app/src/main/res/drawable/ic_launcher_foreground.xml">ic_launcher_foreground.xml</a> · the 64-unit icon grid fills the 72 dp visible area of the 108 dp layer
+&lt;group android:scaleX="1.125" android:scaleY="1.125" android:translateX="18" android:translateY="18"&gt;</code></pre>
+      <div class="screens"><figure class="shot landscape"><a href="docs/progress/images/2026-11-02-launcher-icon-speed-dial.png"><img src="docs/progress/images/2026-11-02-launcher-icon-speed-dial.png" loading="lazy" alt="App drawer row with the CVKE GPS speed dial icon, a white dial with an apricot slice and GPS below it on a blue-to-apricot gradient, beside Contacts, Drive, and Files."></a>
+      <figcaption><strong>Launcher icon in the app drawer</strong>2 November 2026. Baseline <code>c0be6c7</code> plus the speed dial icon. Pixel 10 Pro emulator, Android 17 (API 37), light theme. No location data is shown.</figcaption></figure></div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li>The debug build and debug lint passed with no issues. The debug APK was installed on the Pixel 10 Pro API 37 emulator, and the icon was inspected in the app drawer.</li>
+          <li>The farthest point of the dial is 22.7 units from the centre. The 66 dp safe zone is 29.3 units, so circle, rounded square, and other launcher masks do not cut the mark.</li>
+          <li>The outlined text was compared with the approved draft at 256, 64, and 48 px. Design drafts and comparison pages: <code>artifacts/logo-design/2026-11-02/</code> (not in Git).</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>The white parts reach 2.8:1 and the apricot slice 1.4:1 against the pink middle of the gradient. The design language asks for 3:1. The owner chose the family gradient with this known limit.</li>
+          <li>Themed (monochrome) icons were checked only in drafts, not on a launcher. Other launchers and a real phone were not checked.</li>
+          <li>The icon has no grain, because vector drawables have no noise filter.</li>
+          <li>The mark was not checked for similarity to other store icons. Many speedometer icons use a dial and a needle.</li>
+        </ul>
+      </article>
+    </section>
+
     <section id="ios-ui-review" aria-labelledby="ios-ui-review-heading">
       <div class="section-head"><h2 id="ios-ui-review-heading">iOS UI review fixes · 1 November 2026</h2><span class="tag pending">UI flow passed on a simulator · VoiceOver and real iPhone not tested</span></div>
-      <p class="section-intro">A design and accessibility review of the iOS app found layout, contrast, and touch target problems. The owner selected these changes. App baseline: <code>ced72a4</code> plus this change, not committed.</p>
+      <p class="section-intro">A design and accessibility review of the iOS app found layout, contrast, and touch target problems. The owner selected these changes. App baseline: <code>ced72a4</code> plus this change, committed in <code>b3474a9</code>.</p>
       <ul>
         <li>Speed tab: altitude and maximum speed are plain text in one row, with a thin line between them. They are not glass cards. A missing value shows a dash without a unit, and VoiceOver reads it as unavailable.</li>
         <li>Prominent buttons use a new fill token. In dark mode, the fill is <code>#2F66F2</code>, so white text has a contrast of 4.9:1. Before, it was 2.7:1. The light blue stays for text and icons on dark surfaces.</li>
@@ -341,7 +369,7 @@ guard let sample = position?.sample ?? (mode == .replay &amp;&amp; replayStart ?
         <ul>
           <li>Check the recording bar, the readings row, and the trip list with VoiceOver on a real iPhone.</li>
           <li>Fix the failed-delete message in both apps. <a href="#app-comparison">Done on 2 November</a>; the Android part is not built yet.</li>
-          <li>Merge branch <code>native-maps</code> into the iOS branch. Both change PROGRESS.html.</li>
+          <li>Merge branch <code>native-maps</code> into the iOS branch. Done on 2 November 2026 at <code>202b836</code>.</li>
         </ul>
       </article>
     </section>
@@ -423,6 +451,175 @@ let rect = MKMapRect(x: centre.x - freeWidth * scale / 2, y: centre.y - freeHeig
         <h3 style="margin-top:18px">Optional work</h3>
         <ul>
           <li>A predicted sky view from orbit data in place of the satellite sky map. This needs a network download and the owner's decision.</li>
+        </ul>
+      </article>
+    </section>
+
+    <section id="ui-suggestions" aria-labelledby="ui-suggestions-heading">
+      <div class="section-head"><h2 id="ui-suggestions-heading">UI changes from the design review · 31 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
+      <p class="section-intro">On 30 October 2026 a design review of the app gave a mock prototype with UI suggestions for each screen. The owner accepted all of them except one: a GPS row in place of the accuracy bar on the Speed tab. The accuracy bar stays as it was. The changes use the existing design tokens and string resources. They add no new data and no new setting.</p>
+      <div class="table-wrap"><table class="wrap-cells">
+        <thead><tr><th scope="col">Screen</th><th scope="col">Change</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Speed tab</th><td>The dial has no "Current speed" title. The tab and the unit identify the number, so the number can be larger (up to 128 sp). A screen reader still hears "Current speed". The activity chip shows the activity icon and a short name, for example "Automatic" or "Bike or ski". A screen reader hears the full choice. The chip and Start trip share one row when both fit at the current text size. If they do not fit, the chip shows above a full-width button. While a trip records, the Altitude and Maximum speed cards change to the trip distance and the average speed ("Includes stops"). The recording bar below already shows the time.</td></tr>
+          <tr><th scope="row">Trips list</th><td>Trips show under the day on which they started: Today, Yesterday, a weekday in the last 7 days, then a short date. The year shows only for an earlier year. Each day title is a heading for screen readers. Each row shows the start and end times, the duration and the activity, an activity icon, and the distance at the right in tabular digits.</td></tr>
+          <tr><th scope="row">Saved trip</th><td>The distance is the main value, with the activity on the same line. The recording time, the average speed ("Includes stops"), and the maximum speed follow on one row, or wrap at text above 150%. The Trip saved row now shows the time that is left for Resume trip, for example "1:56 left". The time changes once each second only while the screen is in the foreground. It is not in the live region, so a screen reader does not announce each second.</td></tr>
+          <tr><th scope="row">Current trip</th><td>The status chip and the activity chip (icon and short name) share the top row of the panel. The speed, the time, and the distance show on one row, and the speed is the largest. Each value is one item for a screen reader.</td></tr>
+          <tr><th scope="row">Replay details</th><td>With all three charts, each chart title shows its value at the cursor, so the values row shows only the time. A series with one displayed value, such as the constant air pressure height of the emulator, shows "Steady at 390 ft" in place of a flat chart. One time axis under the charts shows the start, the middle, and the end. One chart at a time with a selector keeps the full values row.</td></tr>
+          <tr><th scope="row">Maps</th><td>Zoom in and zoom out are one control with a divider: vertical on tall maps, horizontal on short maps. Each button has a 48 dp touch target. The speed legend on short maps stays below the buttons.</td></tr>
+        </tbody>
+      </table></div>
+      <pre><code><a href="app/src/main/java/com/example/cvkegps/ui/AppShell.kt">AppShell.kt</a> · the Speed tab cards come from a slot, so the speedometer does not know about trips
+metrics = { default -&gt; TripMetricCards(tracking, default) },</code></pre>
+      <pre><code><a href="app/src/main/java/com/example/cvkegps/tracking/ReplayCharts.kt">ReplayCharts.kt</a> · a chart with one displayed value shows as text
+/** The one displayed value when all values look the same in display units, such as a flat height. Null when they change. */
+val steady: String? = runs.flatMap { run -&gt; run.values.filter { it.isFinite() } }.let { values -&gt;
+    if (values.isEmpty()) null else label(values.min()).takeIf { it == label(values.max()) }
+}</code></pre>
+      <pre><code><a href="app/src/main/java/com/example/cvkegps/tracking/SavedTripScreen.kt">SavedTripScreen.kt</a> · the countdown of the Trip saved row
+// The countdown changes once each second, and only while the screen is resumed. It stops at the end of the time.
+lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+    while (true) {
+        left = left()
+        if (left !in 1..REOPEN_WINDOW_MILLIS) break
+        delay((left - 1) % 1_000 + 1)
+    }
+}</code></pre>
+      <h3 style="margin-top:24px">Pixel 10 Pro emulator, Android 17 (API 37)</h3>
+      <div class="screens">
+      <figure class="shot"><a href="docs/progress/images/2026-10-31-ui-speed-start-row.webp"><img src="docs/progress/images/2026-10-31-ui-speed-start-row.webp" loading="lazy" alt="The Speed tab: 22.4 in large digits in the dial with mph under it and no title, the Altitude and Maximum speed cards, the accuracy bar, then a chip with a bike icon and Automatic beside the Start trip button."></a>
+      <figcaption><strong>Speed tab, start row</strong>31 October 2026. Baseline <code>27b5508</code> plus the design review changes. Pixel 10 Pro emulator, Android 17 (API 37). Simulated GPS test locations at 10 m/s. The automatic estimate is Bike or ski, so the chip shows the bike icon.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-31-ui-speed-trip-cards.webp"><img src="docs/progress/images/2026-10-31-ui-speed-trip-cards.webp" loading="lazy" alt="The Speed tab during a trip: the dial with 22.4 mph, then a Distance card with 0 ft and This trip, an Average speed card with 0 mph and Includes stops, the accuracy bar, and the recording bar with Recording, 1 s, Pause, and Stop."></a>
+      <figcaption><strong>Speed tab during a trip</strong>31 October 2026. Baseline <code>27b5508</code> plus the design review changes. Pixel 10 Pro emulator, Android 17 (API 37). Simulated GPS test locations. One second after the start, with one saved position, so the distance and the average speed are 0.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-ui-speed-large-text.webp"><img src="docs/progress/images/2026-10-30-ui-speed-large-text.webp" loading="lazy" alt="The Speed tab at 200% text: 123.5 and km/h in the dial, larger Altitude and Maximum speed cards, the accuracy bar, and the Automatic chip and Start trip button still on one row."></a>
+      <figcaption><strong>200% text</strong>30 October 2026. Baseline <code>27b5508</code> plus the design review changes. Pixel 10 Pro emulator, Android 17 (API 37). Simulated GPS test locations at 34.3 m/s. Display settings were restored after the test.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-31-ui-trips-dark.webp"><img src="docs/progress/images/2026-10-31-ui-trips-dark.webp" loading="lazy" alt="The Trips list in the dark theme: the heading Today, then one row with a route icon, 12:32 – 12:33 AM, 33 s, and 95 ft at the right."></a>
+      <figcaption><strong>Trips list, dark</strong>31 October 2026. Baseline <code>27b5508</code> plus the design review changes. Pixel 10 Pro emulator, Android 17 (API 37). One saved trip from simulated GPS test locations. Dark theme set by the test.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-31-ui-trips-large-text.webp"><img src="docs/progress/images/2026-10-31-ui-trips-large-text.webp" loading="lazy" alt="The Trips list at 200% text: Today, then the row with 12:32 – 12:33 AM, 33 s, and 95 ft."></a>
+      <figcaption><strong>Trips list, 200% text</strong>31 October 2026. Baseline <code>27b5508</code> plus the design review changes. Pixel 10 Pro emulator, Android 17 (API 37). Display settings were restored after the test.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-31-ui-saved-countdown.webp"><img src="docs/progress/images/2026-10-31-ui-saved-countdown.webp" loading="lazy" alt="A saved trip just after Stop and save: Trip saved, Resume trip, and 1:56 left on one row, then Distance 24 ft with Activity unknown at the right, and the recording time, average speed with Includes stops, and maximum speed on one row."></a>
+      <figcaption><strong>Saved trip with the time left</strong>31 October 2026. Baseline <code>27b5508</code> plus the design review changes. Pixel 10 Pro emulator, Android 17 (API 37). Simulated GPS test locations. The map tiles had not loaded at the capture.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-31-ui-current-trip.webp"><img src="docs/progress/images/2026-10-31-ui-current-trip.webp" loading="lazy" alt="The current trip: the map, then Recording and a Bike or ski chip with a bike icon on one row, Speed 22.4 mph, Time 0:12, and Distance 167 ft on one row, and Pause trip and Stop and save."></a>
+      <figcaption><strong>Current trip</strong>31 October 2026. Baseline <code>27b5508</code> plus the design review changes. Pixel 10 Pro emulator, Android 17 (API 37). Simulated GPS test locations in Vancouver at 10 m/s.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-31-ui-current-trip-large-text.webp"><img src="docs/progress/images/2026-10-31-ui-current-trip-large-text.webp" loading="lazy" alt="The current trip at 200% text: Recording, then the Activity unknown chip on the next line, then Speed, Time, and Distance on one row, and the two buttons one above the other."></a>
+      <figcaption><strong>Current trip, 200% text</strong>31 October 2026. Baseline <code>27b5508</code> plus the design review changes. Pixel 10 Pro emulator, Android 17 (API 37). Simulated GPS test locations. The map tiles had not loaded at the capture. Display settings were restored after the test.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-31-ui-replay-details.webp"><img src="docs/progress/images/2026-10-31-ui-replay-details.webp" loading="lazy" alt="Replay details: a short map with one zoom control, the replay time, the play controls, the Fastest speed chip, the Speed chart with 11.2 mph in its title, Altitude above sea level with Steady at 390 ft, Acceleration with Steady at 0 m/s², and a time axis with 0:00, 0:12, and 0:25."></a>
+      <figcaption><strong>Replay details</strong>31 October 2026. Baseline <code>27b5508</code> plus the design review changes. Pixel 10 Pro emulator, Android 17 (API 37). Saved trip from simulated GPS test locations. The emulator air pressure does not change, so the height is steady.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-31-ui-replay-details-large-text.webp"><img src="docs/progress/images/2026-10-31-ui-replay-details-large-text.webp" loading="lazy" alt="Replay details at 200% text: the full values row, the play controls, the Fastest speed chip, the chart selector with Altitude above sea level selected, and Steady at 390 ft in place of the chart."></a>
+      <figcaption><strong>One chart at 200% text</strong>31 October 2026. Baseline <code>27b5508</code> plus the design review changes. Pixel 10 Pro emulator, Android 17 (API 37). Simulated GPS test locations. Display settings were restored after the test.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-31-ui-replay-details-wide.webp"><img src="docs/progress/images/2026-10-31-ui-replay-details-wide.webp" loading="lazy" alt="A wide window: the navigation rail, the Trips list with Today and the selected trip, and the replay details beside it with the three charts, the steady lines, and the time axis."></a>
+      <figcaption><strong>Wide window</strong>31 October 2026. Baseline <code>27b5508</code> plus the design review changes. Pixel 10 Pro emulator, Android 17 (API 37), set to a wide window by the test. Simulated GPS test locations. Display settings were restored after the test.</figcaption></figure>
+      </div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li><code>TrackingDeviceTest</code> now checks the trip distance and average speed cards on the Speed tab during a trip, the time left on the Trip saved row (a text such as "1:59 left"), the Today heading and the row distance in the Trips list, the screen reader text of the short activity chip, and the replay chart title value, the steady lines, and the time axis.</li>
+          <li>One test had a timing fault: <code>networkPositionsReplaceAMissingGpsSignalUntilTheNextGpsFix</code> read the live route at once after the database had the second network position. The recorder saves first and updates the route after that, so a slow emulator could read the route one position behind. The test now waits up to 5 seconds for the route. The recorder did not change.</li>
+          <li>All 53 device tests passed on the Pixel 10 Pro API 37 emulator, one test class for each Gradle run: tracking 30 of 30 in one run of 14 minutes, Settings 7 of 7, speedometer 10 of 10, display rotation 1 of 1, satellite display 2 of 2, sky map 2 of 2, and compass 1 of 1. The speedometer and rotation classes ran before an emulator restart, on the same app code.</li>
+          <li>Earlier runs on an unstable emulator are not counted. In the first run the Android system server stopped. A wide-window density that a stopped test had set stayed after the reboot, so the second run used the wide layout and 4 tracking tests failed. In the third run the whole emulator stalled for up to 6 minutes, and a "Pixel Launcher isn't responding" dialog covered the app, so 5 tracking tests failed. Then the emulator and the adb server stopped. After a cold boot, all of these tests passed on the same app code.</li>
+          <li>58 of 58 calculation tests passed. The debug build, the test build, the unsigned release build, and debug lint passed with no issues. Raw captures: <code>artifacts/ui-suggestions/</code> (not in Git).</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>The landscape side pane of the current trip still has the earlier activity chip with a pencil icon and the "Current speed" title. The prototype showed the portrait panel only.</li>
+          <li>The Trips list was seen with one trip on one day. The Yesterday, weekday, and date headings were not seen on a device.</li>
+          <li>No capture shows the Speed tab with the activity chip above a full-width Start trip button. At 200% text on the Pixel 10 Pro, both still fit on one row.</li>
+          <li>The time left on the Trip saved row uses the device clock, as the recorder does. A clock change can move it.</li>
+          <li>TalkBack was not used. The device tests check the screen reader text of the speed and of the activity chip through the semantics tree. No test checks the text of the speed, time, and distance on the current trip panel.</li>
+          <li>Nothing was checked on a real phone.</li>
+        </ul>
+      </article>
+    </section>
+
+    <section id="map-styles" aria-labelledby="map-styles-heading">
+      <div class="section-head"><h2 id="map-styles-heading">Map styles · 30 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
+      <p class="section-intro">Settings &gt; Maps &gt; Map style changes the look of the Default map type. It is the first Group A feature of the <a href="docs/google-maps-features-research.md">Google Maps features research</a>: free, in the Maps SDK, and with no new data to Google. The owner chose Minimal and High contrast. The styles are JSON styles in <a href="app/src/main/res/raw"><code>res/raw</code></a> without a map ID, so they add no cost (<a href="docs/adr/0006-map-styles-as-json-styles-without-a-map-id.md">ADR 0006</a>).</p>
+      <div class="table-wrap"><table class="wrap-cells">
+        <thead><tr><th scope="col">Style</th><th scope="col">Look</th><th scope="col">Light and dark</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Standard (default)</th><td>The Google map with all places, as before.</td><td>The dark map of the Maps SDK.</td></tr>
+          <tr><th scope="row">Minimal</th><td>Roads, road names, road numbers, water, and parks in the neutral design tokens. No places of business, other places, transit, neighbourhood names, or land parcels.</td><td>Two files from the light and the dark tokens. Text has a halo in the land colour: 5.6:1 in light, 7.6:1 in dark, and 4.5:1 or more on water.</td></tr>
+          <tr><th scope="row">High contrast</th><td>Black or white text, black or white road edges, built-up areas at 2:1 to the roads, and clearer water and parks. Places and transit stay.</td><td>White land in light, black land in dark. Black text with a white halo, or white text with a black halo: 9.5:1 or more, also on water.</td></tr>
+        </tbody>
+      </table></div>
+      <div class="table-wrap" style="margin-top:18px"><table class="wrap-cells">
+        <thead><tr><th scope="col">Other map setting</th><th scope="col">With a style</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Map type menu</th><td>The Maps SDK styles the normal map type only. Satellite and terrain keep the Google look, and the style applies again on Default.</td></tr>
+          <tr><th scope="row">Labels on satellite</th><td>No change. The satellite labels are the Google labels.</td></tr>
+          <tr><th scope="row">Speed colours</th><td>No change. Each light file is light and each dark file is dark, so the outline is dark on a light map and white on a dark map. Both end colours show on both styles.</td></tr>
+          <tr><th scope="row">3D buildings</th><td>Buildings use the built-up area colour of the style.</td></tr>
+        </tbody>
+      </table></div>
+      <pre><code><a href="app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt">RouteMap.kt</a> · the style of the map
+// Styles work only on the default map type. A style replaces the dark map of the SDK, so each style has a dark version.
+val style = rememberMapStyle(choice.mapStyle.takeIf { choice.mapLayer == MapLayer.Default }?.resource(dark))</code></pre>
+      <h3 style="margin-top:24px">Pixel 10 Pro emulator, Android 17 (API 37)</h3>
+      <div class="screens">
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-map-style-minimal-light.webp"><img src="docs/progress/images/2026-10-30-map-style-minimal-light.webp" loading="lazy" alt="The current trip map in Minimal, light: grey blocks, white roads, light blue water, pale green parks, street names, and no place icons."></a>
+      <figcaption><strong>Minimal, light</strong>30 October 2026. Baseline <code>d14442b</code> plus the map styles. Pixel 10 Pro emulator, Android 17 (API 37). Current trip map with simulated GPS test locations in Vancouver at 10 m/s. Wallpaper colours.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-map-style-minimal-dark.webp"><img src="docs/progress/images/2026-10-30-map-style-minimal-dark.webp" loading="lazy" alt="The current trip map in Minimal, dark: near-black land, dark grey roads, muted grey street names, and no place icons."></a>
+      <figcaption><strong>Minimal, dark</strong>30 October 2026. Baseline <code>d14442b</code> plus the map styles. Pixel 10 Pro emulator, Android 17 (API 37). Simulated GPS test locations in Vancouver. Dark theme set by the test.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-map-style-high-contrast-light.webp"><img src="docs/progress/images/2026-10-30-map-style-high-contrast-light.webp" loading="lazy" alt="The current trip map in High contrast, light: grey blocks, white roads with black edges, black street names, blue water, green parks, and place icons."></a>
+      <figcaption><strong>High contrast, light</strong>30 October 2026. Baseline <code>d14442b</code> plus the map styles. Pixel 10 Pro emulator, Android 17 (API 37). Simulated GPS test locations in Vancouver.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-map-style-high-contrast-dark.webp"><img src="docs/progress/images/2026-10-30-map-style-high-contrast-dark.webp" loading="lazy" alt="The current trip map in High contrast, dark: black land and roads with white edges, grey blocks, white street names, dark blue water, and dark green parks."></a>
+      <figcaption><strong>High contrast, dark</strong>30 October 2026. Baseline <code>d14442b</code> plus the map styles. Pixel 10 Pro emulator, Android 17 (API 37). Simulated GPS test locations in Vancouver. Dark theme set by the test.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-map-style-speed-colours.webp"><img src="docs/progress/images/2026-10-30-map-style-speed-colours.webp" loading="lazy" alt="A saved trip map in High contrast at street zoom: white roads between grey blocks, and the route from the green start to the red end in speed colours from dark purple to yellow with a dark outline, below the speed legend."></a>
+      <figcaption><strong>Speed colours on High contrast</strong>30 October 2026. Baseline <code>d14442b</code> plus the map styles. Pixel 10 Pro emulator, Android 17 (API 37). Saved trip from simulated GPS test locations, 2 to 30 m/s.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-map-style-settings-light.webp"><img src="docs/progress/images/2026-10-30-map-style-settings-light.webp" loading="lazy" alt="Settings, Maps card: Map type, then the label Map style with radio rows for Standard, Minimal, and High contrast, each with a short description, and a note that map styles apply to the default map type."></a>
+      <figcaption><strong>Map style in Settings</strong>30 October 2026. Baseline <code>d14442b</code> plus the map styles. Pixel 10 Pro emulator, Android 17 (API 37). Default emulator wallpaper.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-map-style-settings-large-text.webp"><img src="docs/progress/images/2026-10-30-map-style-settings-large-text.webp" loading="lazy" alt="The Map style rows at 200% text: each title and description wraps inside its row, the radio buttons stay beside the titles, and the note about the default map type wraps above Labels on satellite."></a>
+      <figcaption><strong>200% text</strong>30 October 2026. Baseline <code>d14442b</code> plus the map styles. Pixel 10 Pro emulator, Android 17 (API 37). Display settings were restored after the test.</figcaption></figure>
+      </div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li>New Settings device test <code>mapStylesChangeTheDefaultMapInLightAndDarkAndStayAfterRecreation</code>: on the current trip map, the most common map colour is the land or built-up area colour of Minimal light, then Minimal dark after the theme changes, also after a new activity, then High contrast dark and light. With satellite, and after a change back to Standard, no style colour is the most common colour. The test reads the screen pixels, because the map draws on its own surface.</li>
+          <li>The speed colour device test now also changes the saved trip map to Minimal and High contrast. Both end colours of the speed scale show on each style.</li>
+          <li>The settings unit test reads an unknown stored style as Standard and stores a style choice.</li>
+          <li>Full device suite on the Pixel 10 Pro API 37 emulator: 52 of 53 tests passed in one run of 34 minutes. The other test, <code>highAccuracyRecordsEachFastFixAndStandardKeepsOnePerSecond</code>, does not use maps and passed alone. After the last High contrast colour change and the note spacing change, the style test, the speed colour test, and the Settings layout test passed again. 58 of 58 calculation tests passed. The debug build, the test build, the unsigned release build, and debug lint passed with no issues. Raw captures: <code>artifacts/map-styles/</code> (not in Git). The report section was checked at 1024 px and 360 px: no page overflow, and the tables scroll inside their frame.</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>All map checks used one place, downtown Vancouver, from simulated GPS test locations. Rural roads, motorways, and other countries were not checked.</li>
+          <li>The style test needs map tiles from the network. Without them it fails.</li>
+          <li>High contrast was not checked in sunlight. Readability outdoors and with low vision needs a real phone.</li>
+          <li>Traffic on a styled map and the terrain map with a style choice were not captured. A new map can show the Standard map for a moment before the style file loads. This was not measured.</li>
+          <li>The release build was not checked. Nothing was checked on a real phone.</li>
+        </ul>
+      </article>
+    </section>
+
+    <section id="trip-saved-row" aria-labelledby="trip-saved-row-heading">
+      <div class="section-head"><h2 id="trip-saved-row-heading">Trip saved row in place of the snackbar · 30 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
+      <p class="section-intro">Stop and save showed a "Trip saved" snackbar with Resume trip. It covered the trip values, it closed after about 10 seconds while the recorder accepts Resume for 2 minutes, and the design language allows no toasts. The owner chose an inline row from four options.
+      The row is <code>SavedRow</code> in <a href="app/src/main/java/com/example/cvkegps/tracking/SavedTripScreen.kt"><code>SavedTripScreen.kt</code></a>.</p>
+      <div class="table-wrap"><table class="wrap-cells">
+        <thead><tr><th scope="col">Part</th><th scope="col">Behaviour</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Place</th><td>The first row of the trip panel, above the values: a success check, "Trip saved", and a Resume trip text button with a 48 dp touch target. It covers nothing. Portrait, landscape, the wide pane, and the short window all show it.</td></tr>
+          <tr><th scope="row">Time</th><td>It shows while the recorder can still continue the trip: a finished trip that ended less than 2 minutes ago, while no other trip records or is paused. One wait hides it at the end, with a 240 ms fade. There is no countdown, so the screen does not change each second. Changed on 31 October 2026: the row now shows the time left (see <a href="#ui-suggestions">UI changes from the design review</a>).</td></tr>
+          <tr><th scope="row">Rule</th><td>The row follows the recorder rule, not the Stop button. A trip that ends from the notification also shows it when it opens within 2 minutes. The controller no longer keeps the "just saved" trip.</td></tr>
+          <tr><th scope="row">Access</th><td>"Trip saved" is a polite live region, so a screen reader announces it once.</td></tr>
+        </tbody>
+      </table></div>
+      <h3 style="margin-top:24px">Pixel 10 Pro emulator, Android 17 (API 37)</h3>
+      <div class="screens">
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-trip-saved-row-light.webp"><img src="docs/progress/images/2026-10-30-trip-saved-row-light.webp" loading="lazy" alt="A saved trip just after Stop and save: the map, then the panel with a green check, Trip saved, and a Resume trip button on one row, and the distance, recording time, average speed, and maximum speed below it."></a>
+      <figcaption><strong>Trip saved row</strong>30 October 2026. Baseline <code>d14442b</code> plus the saved row. Pixel 10 Pro emulator, Android 17 (API 37). Simulated GPS test locations. Some map tiles were still loading.</figcaption></figure>
+      <figure class="shot"><a href="docs/progress/images/2026-10-30-trip-saved-row-large-text.webp"><img src="docs/progress/images/2026-10-30-trip-saved-row-large-text.webp" loading="lazy" alt="The same panel at 200% text: Trip saved and Resume trip stay on one row above the values."></a>
+      <figcaption><strong>200% text</strong>30 October 2026. Baseline <code>d14442b</code> plus the saved row. Pixel 10 Pro emulator, Android 17 (API 37). The map tiles had not loaded at the capture. Display settings were restored after the test.</figcaption></figure>
+      <figure class="shot landscape"><a href="docs/progress/images/2026-10-30-trip-saved-row-dark-landscape.webp"><img src="docs/progress/images/2026-10-30-trip-saved-row-dark-landscape.webp" loading="lazy" alt="Landscape in the dark theme: the map on the left and the side pane with the title, the Trip saved row with Resume trip, the activity chip, and the values."></a>
+      <figcaption><strong>Landscape, dark</strong>30 October 2026. Baseline <code>d14442b</code> plus the saved row. Pixel 10 Pro emulator, Android 17 (API 37). The map tiles had not loaded at the capture.</figcaption></figure>
+      </div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li><code>undoAfterStopContinuesTheSameTripAsANewSegment</code> now checks the row and its text, that the row ends above the Distance label, and that Resume trip continues the same trip as a new segment.</li>
+          <li><code>undoAfterTheTimeLimitShowsARefusalOnTheSavedTrip</code> now also checks that the row goes away when the stored end time is more than 2 minutes old. <code>undoAfterLocationRecoveryContinuesTheSameTrip</code> resumes from the row.</li>
+          <li>Also passed on the final code: the saved map themes, large text, and rotation test, the saved map camera test, the short narrow window test, the wide window test, and the GPX share test, which still uses a snackbar for an export error. Debug lint found no issues. 58 of 58 calculation tests passed. Raw captures: <code>artifacts/saved-row/</code> (not in Git).</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>The end of the time uses the device clock, as the recorder does. A clock change can move it.</li>
+          <li>TalkBack was not used on the row. The release build was not checked. The full device test suite ran after the merge with the map styles: see the <a href="#history">change history</a>.</li>
         </ul>
       </article>
     </section>
@@ -927,7 +1124,7 @@ val keepOn = screen &amp;&amp; when (settings.screenOn) {
           <tr><th scope="row">Navigation</th><td>The bottom bar and the rail show icons only. The tab names are the accessible names. The baseline-profile journey finds the tabs by that name.</td></tr>
           <tr><th scope="row">Lists and states</th><td>Trips are open rows with a 32 dp icon tile, a chevron, and a dot-and-text status. The selected trip has an <code>accent-subtle</code> fill. Problems show in a <code>danger-subtle</code> banner with an icon. The GPS card shows its state as a coloured dot with text. Delete in the trip menu is last, after a divider, in the danger colour. The delete confirmation uses a danger fill. Settings has a heading and a card for each section (new string: Display).</td></tr>
           <tr><th scope="row">Icons</th><td>Lucide outlines, 1.5 stroke, 20 dp (16 dp in buttons). A new alert icon for problem banners. The recording dot stays filled.</td></tr>
-          <tr><th scope="row">Brand layer</th><td>The launcher icon is the cvke app icon: the sliced c on the blue-to-apricot gradient, with a monochrome layer. The report favicon uses the same icon. The empty trip list and the empty detail pane show a small flat slice composition. On the empty list, the slice drifts 5 to 11 units from the disc and back, 2.4 s each way. The loop runs only in the draw phase, stops off screen, and stays still when animations are off in the system. The detail pane art stays still, so only one slice moves on a screen.</td></tr>
+          <tr><th scope="row">Brand layer</th><td>The launcher icon is the cvke app icon: the sliced c on the blue-to-apricot gradient, with a monochrome layer. The report favicon uses the same icon. (On 2 November 2026 the <a href="#speed-dial-icon">speed dial icon</a> replaced it.) The empty trip list and the empty detail pane show a small flat slice composition. On the empty list, the slice drifts 5 to 11 units from the disc and back, 2.4 s each way. The loop runs only in the draw phase, stops off screen, and stays still when animations are off in the system. The detail pane art stays still, so only one slice moves on a screen.</td></tr>
           <tr><th scope="row">Data display</th><td>The accuracy bar fill uses the functional accent-to-gradient-end gradient on a flat track. GPS satellites use the accent; the other systems use neutral steps and keep their shapes. The route line uses the accent.</td></tr>
           <tr><th scope="row">Motion</th><td>Tab changes are instant. A drill-in screen fades in and moves 8 dp over 340 ms, and leaves in 240 ms, with the standard easing. The accuracy bar changes at once. Pending values, the technical details section, and list items use the same duration tokens.</td></tr>
         </tbody>
@@ -2467,6 +2664,7 @@ val angle = azimuthRadians - headingRadians</code></pre>
             <li>GPX import, or GPX altitude converted to height above sea level. GPX export and sharing are <a href="#gpx-export">implemented</a>.</li>
             <li>A route line coloured by speed (the Maps SDK supports gradient line spans). It needs a legend and colours that do not carry meaning alone.</li>
             <li>Update Kotlin to 2.4, then <code>maps-compose</code> to 9.x and Play services Maps to 20.1.</li>
+            <li>The other Group A features of the <a href="docs/google-maps-features-research.md">Google Maps features research</a>, one at a time: an all-trips map, a planned route overlay, trip list thumbnails after a list performance measurement, and a share card drawn by the app. <a href="#map-styles">Map styles</a> are implemented. The transit layer waits for support in the map: on 30 October 2026, Google Play services 26.41.31 on the API 37 emulator logged "setTransitEnabled is not yet supported", and the map kept transit off.</li>
             <li>Automatic pause and improved activity classification, after field validation.</li>
             <li>Volume-button controls and a larger speed display mode.</li>
           </ul>
@@ -2481,10 +2679,20 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <ol class="history">
 <li><time datetime="2026-11-02">2 November 2026</time><div><h3>App comparison fixes</h3>
 <p>A comparison of the two apps after the Android design review and performance review. The iOS Replay tap zooms the map at once, as on Android. A failed delete shows its own message in both apps. Android keeps numbers with their units at large text sizes. The iOS ADR is renumbered to 0007. The iOS UI flow passed on a simulator. The Android part is not built yet. See <a href="#app-comparison">evidence and limits</a>.</p></div></li>
+<li><time datetime="2026-11-02">2 November 2026</time><div><h3>Speed dial app icon</h3>
+<p>Replaced the shared cvke sliced c launcher icon with a speed dial on the family gradient, with GPS in bold type below it. The owner chose it from four concepts, three colour versions, and text options. The report favicon changed with it. The debug build and lint passed, and the icon was inspected in the emulator app drawer. The white parts and the slice stay below 3:1 contrast on the pink middle of the gradient. See <a href="#speed-dial-icon">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-11-01">1 November 2026</time><div><h3>iOS UI review fixes</h3>
 <p>After a design and accessibility review, the iOS Speed tab shows altitude and maximum speed without cards. Dark mode buttons have a fill with 4.9:1 contrast. The recording bar has 44-point buttons and a full VoiceOver label. The Apple Maps attribution is above the map panels, and the recording notice is opaque. The trip list follows the Android design and fits the largest text size. The moment marker grows with the text. Start trip and the activity are in the bar above the tabs on both tabs, the tab bar shows icons only, the Android design review changes of 31 October are ported, and "Trip saved" shows in the trip panel. The UI flow and the dark and largest-text screens passed on a simulator, and 54 of 54 core tests passed. VoiceOver and a real iPhone were not used. See <a href="#ios-ui-review">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-11-01">1 November 2026</time><div><h3>iOS app on the simulator</h3>
 <p>The native iOS app has SwiftUI with Liquid Glass, Apple Maps, a Live Activity, and a Swift core with the Android measurement rules. On an iPhone 17 Pro simulator with iOS 26.2, the UI flow passed with simulated locations: permission, live speed, a recorded trip, Stop and save, the replay, and Settings. The main screens passed again in dark mode and at the largest text size. The first run found layout problems on the map screens and at large text; this change fixes them. 54 of 54 Swift core tests passed. The same tests passed in CI on <code>ced72a4</code>. Nothing was checked on a real iPhone. See <a href="#ios-app">evidence and limits</a>.</p></div></li>
+<li><time datetime="2026-10-31">31 October 2026</time><div><h3>UI changes from the design review</h3>
+<p>The owner accepted the UI suggestions of a design review prototype, except a GPS row in place of the accuracy bar. The Speed tab has no dial title, a short activity chip beside Start trip, and trip distance and average speed cards during a trip. The Trips list groups trips by day. The saved trip shows the distance first, and the Trip saved row now shows the time left for Resume trip. This replaces the "no countdown" rule of 30 October. The current trip panel shows speed, time, and distance on one row. Replay chart titles show the cursor values, a steady series shows as text, and the map zoom buttons are one control. On a Pixel 10 Pro API 37 emulator, all 53 device tests passed, one test class for each run, after a cold boot of an unstable emulator. 58 of 58 calculation tests, lint, and the release build passed. See <a href="#ui-suggestions">evidence and limits</a>.</p></div></li>
+<li><time datetime="2026-10-30">30 October 2026</time><div><h3>Saved row and map styles together on native-maps</h3>
+<p>The <a href="#trip-saved-row">Trip saved row</a> is committed on <code>native-maps</code> as <code>3d8033b</code>, and the <a href="#map-styles">map styles</a> branch is merged into it. Only this report had conflicts. On a Pixel 10 Pro API 37 emulator, 51 of 53 device tests passed in one run of 26 minutes. <code>skyMapHandlesAnglesThemesRotationLargeTextAndOldReports</code> did not find the sky map after the turn to landscape at large text, and <code>locationTurnedOnWhileTheAppShowsBringsBackStartTrip</code> did not see Start trip again within 10 seconds. Both use code that the merge did not change, and both passed alone. 58 of 58 calculation tests, the debug build, the test build, and debug lint passed. The release build was not checked. Raw results: <code>artifacts/merge-native-maps/</code> (not in Git).</p></div></li>
+<li><time datetime="2026-10-30">30 October 2026</time><div><h3>Map styles</h3>
+<p>Settings &gt; Maps &gt; Map style adds Minimal and High contrast beside Standard. Each has a light and a dark version that follows the app theme. They are JSON styles without a map ID and apply to the Default map type. The Google Maps features research of 30 October 2026 is now in the repository. On a Pixel 10 Pro API 37 emulator, 52 of 53 device tests passed in one run and the other one passed alone. 58 of 58 calculation tests, lint, and the release build passed. See <a href="#map-styles">evidence and limits</a>.</p></div></li>
+<li><time datetime="2026-10-30">30 October 2026</time><div><h3>Trip saved row in place of the snackbar</h3>
+<p>After Stop and save, a row above the trip values says that the trip is saved and offers Resume trip for the full 2 minutes, then fades out. It replaces the snackbar, which covered the values and closed after about 10 seconds. On a Pixel 10 Pro API 37 emulator, the three resume tests and five saved-trip layout tests, 58 of 58 calculation tests, and lint passed. See <a href="#trip-saved-row">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-30">30 October 2026</time><div><h3>Map settings</h3>
 <p>Settings &gt; Maps adds labels on satellite, 3D buildings, keep routes blue, the start orientation, the tilt, zoom with speed, and the accuracy circle. The defaults keep the earlier behaviour. On a Pixel 10 Pro API 37 emulator, two new device tests and the affected map, replay, and Settings device tests, 58 of 58 calculation tests, and lint passed. See <a href="#map-settings">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-30">30 October 2026</time><div><h3>Three colour choices, wallpaper colours by default</h3>

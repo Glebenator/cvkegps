@@ -59,6 +59,7 @@ import com.example.cvkegps.settings.AppSettings
 import com.example.cvkegps.settings.DistanceUnit
 import com.example.cvkegps.settings.MapLayer
 import com.example.cvkegps.settings.MapStart
+import com.example.cvkegps.settings.MapStyle
 import com.example.cvkegps.settings.RecordingAccuracy
 import com.example.cvkegps.settings.RouteColour
 import com.example.cvkegps.settings.ScreenOn
@@ -144,6 +145,16 @@ fun SettingsScreen(settings: AppSettings, onBack: () -> Unit) {
                     SegmentedChoice(MapLayer.entries, values.mapLayer, { stringResource(it.title) },
                         { maps { settings.setMapLayer(it) } }, tag = { "map_type_${it.key}" })
                 }
+                Column(Modifier.selectableGroup()) {
+                    Label(R.string.settings_map_style)
+                    MapStyle.entries.forEach { choice ->
+                        ChoiceRow(choice.title, choice.body, values.mapStyle == choice, "map_style_${choice.key}") {
+                            maps { settings.setMapStyle(choice) }
+                        }
+                    }
+                }
+                Text(stringResource(R.string.settings_map_style_note), Modifier.padding(start = Space.s4, end = Space.s4, bottom = Space.s2),
+                    style = MaterialTheme.typography.bodySmall, color = CvkeTheme.colors.inkMuted)
                 SwitchRow(R.string.settings_satellite_labels, R.string.settings_satellite_labels_body, values.mapSatelliteLabels,
                     "setting_satellite_labels") { maps { settings.setMapSatelliteLabels(it) } }
                 SwitchRow(R.string.settings_3d_buildings, null, values.map3dBuildings, "setting_3d_buildings") {
@@ -343,6 +354,18 @@ private fun transparent(enabled: Boolean = true) = CvkeTheme.colors.let {
 @get:StringRes private val RouteColour.title get() = when (this) {
     RouteColour.Single -> R.string.settings_route_single
     RouteColour.Speed -> R.string.settings_route_speed
+}
+
+@get:StringRes private val MapStyle.title get() = when (this) {
+    MapStyle.Standard -> R.string.settings_map_style_standard
+    MapStyle.Minimal -> R.string.settings_map_style_minimal
+    MapStyle.HighContrast -> R.string.settings_map_style_high_contrast
+}
+
+@get:StringRes private val MapStyle.body get() = when (this) {
+    MapStyle.Standard -> R.string.settings_map_style_standard_body
+    MapStyle.Minimal -> R.string.settings_map_style_minimal_body
+    MapStyle.HighContrast -> R.string.settings_map_style_high_contrast_body
 }
 
 @get:StringRes private val MapLayer.title get() = when (this) {

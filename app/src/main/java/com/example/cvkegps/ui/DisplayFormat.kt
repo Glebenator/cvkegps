@@ -57,9 +57,10 @@ class DisplayFormat(locale: Locale, val units: Units, private val text: (Int, Ar
         else -> Amount(meters / units.distance.metres, text(units.distance.label, emptyArray()), 2)
     }
 
-    fun distance(meters: Double): String = distanceAmount(meters).let {
-        withUnit(if (it.decimals == 0) whole.format(it.value) else twoDecimals.format(it.value), it.unit)
-    }
+    fun distance(meters: Double): String = distanceAmount(meters).let { withUnit(number(it), it.unit) }
+
+    /** The number of a distance [amount] without its unit, for places that show the unit separately. */
+    fun number(amount: Amount): String = if (amount.decimals == 0) whole.format(amount.value) else twoDecimals.format(amount.value)
 
     /** The altitude number in whole units, without a unit. GPS altitude is not accurate to less than a metre. */
     fun altitudeNumber(meters: Double): String = altitudeNumber.format(meters / units.altitude.metres)

@@ -69,6 +69,8 @@ fun SpeedometerScreen(
     modifier: Modifier = Modifier,
     gnss: GnssSnapshot = GnssSnapshot(),
     trackerControls: @Composable (canStartTrip: Boolean, landscape: Boolean) -> Unit = { _, _ -> },
+    // The narrow portrait cards. The slot can show other cards, such as the values of a recording trip, or the default cards.
+    metrics: @Composable (default: @Composable () -> Unit) -> Unit = { it() },
     heading: @Composable () -> PhoneHeading = { PhoneHeading.Unavailable },
     onSettings: (() -> Unit)? = null,
 ) {
@@ -128,12 +130,13 @@ fun SpeedometerScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(Space.s3),
                 ) {
+                    // A wide window, such as an open foldable, shows the rail instead of the recording bar. The trip card then shows the values.
+                    val railed = this@BoxWithConstraints.maxWidth >= 600.dp
                     SpeedDial(speed, format.speedUnit, spoken, satellites, heading, Modifier.weight(1f))
-                    Metrics(altitude, maximum, format, reference)
+                    if (railed) Metrics(altitude, maximum, format, reference) else metrics { Metrics(altitude, maximum, format, reference) }
                     GpsControls(state, permissionNeedsSettings, wholeFormat, onAction, onDetails, satellites,
                         compact = wide, collapseWhenReady = true)
-                    // A wide window, such as an open foldable, shows the rail instead of the recording bar. The trip card then shows the values.
-                    trackerControls(canStartTrip, this@BoxWithConstraints.maxWidth >= 600.dp)
+                    trackerControls(canStartTrip, railed)
                 }
                 // The dial circle leaves the corner free, so the button does not cover a value.
                 if (onSettings != null) SettingsButton(onSettings, Modifier.align(Alignment.TopEnd))
@@ -182,22 +185,14 @@ private fun SpeedDial(
                 SatelliteConstellation(satellites, sky ?: PhoneHeading.Unavailable, Modifier.fillMaxSize().testTag("home_sky_ring"))
             }
             val diameter = minOf(maxWidth, maxHeight, 320.dp)
-            val showLabel = diameter >= 240.dp
+            // The tab and the unit say that the number is the speed, so the dial has no title. The digits use that space.
             Column(
                 Modifier.size(diameter)
                     .drawBehind { drawCircle(ring.copy(alpha = 0.45f), style = Stroke(1.dp.toPx())) }
-                    .padding(if (showLabel) Space.s6 else Space.s3),
+                    .padding(if (diameter >= 240.dp) Space.s6 else Space.s3),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(Space.s1),
             ) {
-                if (showLabel) {
-                    Text(
-                        stringResource(R.string.current_speed),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                    )
-                }
                 Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                     SpeedValue(speed, available, description, Modifier.fillMaxWidth())
                 }
@@ -220,7 +215,7 @@ private fun SpeedValue(
     minFontSize: TextUnit = 24.sp,
 ) {
     // Auto-size fills the dial with digits. A dash at that size looks like a bar, so the unavailable mark keeps the normal display size.
-    val maxFontSize = if (available) 104.sp else MaterialTheme.typography.displayLarge.fontSize
+    val maxFontSize = if (available) 128.sp else MaterialTheme.typography.displayLarge.fontSize
     BasicText(
         text = speed,
         modifier = modifier.testTag("current_speed")
@@ -242,20 +237,21 @@ private fun Metrics(altitude: String, maximum: String, format: DisplayFormat, re
     Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(Space.s3)) {
         // The card names the zero height, because sea level and GPS height can differ by up to 100 m.
         MetricCard(R.string.altitude, altitude, format.altitudeUnit, "altitude", Modifier.weight(1f).fillMaxHeight(),
-            if (reference == AltitudeReference.SeaLevel) R.string.altitude_sea_level else R.string.altitude_ellipsoid)
+            stringResource(if (reference == AltitudeReference.SeaLevel) R.string.altitude_sea_level else R.string.altitude_ellipsoid))
         MetricCard(R.string.maximum_speed, maximum, format.speedUnit, "maximum_speed", Modifier.weight(1f).fillMaxHeight(),
-            R.string.since_open)
+            stringResource(R.string.since_open))
     }
 }
 
+/** A Speed tab card: a title, a large value with its unit, and an optional note below. */
 @Composable
-private fun MetricCard(
+internal fun MetricCard(
     @StringRes title: Int,
     value: String,
     unit: String,
     tag: String,
     modifier: Modifier,
-    @StringRes subtitle: Int? = null,
+    subtitle: String? = null,
 ) {
     ElevatedCard(modifier = modifier) {
         Column(Modifier.padding(Space.s3), verticalArrangement = Arrangement.spacedBy(Space.s1)) {
@@ -282,7 +278,7 @@ private fun MetricCard(
             }
             if (subtitle != null) {
                 Text(
-                    stringResource(subtitle),
+                    subtitle,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

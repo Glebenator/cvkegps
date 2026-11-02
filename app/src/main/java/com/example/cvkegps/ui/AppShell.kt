@@ -86,6 +86,7 @@ import com.example.cvkegps.tracking.SavedTripScreen
 import com.example.cvkegps.tracking.TrackingActions
 import com.example.cvkegps.tracking.TrackingApplication
 import com.example.cvkegps.tracking.TrackingHost
+import com.example.cvkegps.tracking.TripMetricCards
 import com.example.cvkegps.tracking.TripStartControls
 import com.example.cvkegps.tracking.TripsScreen
 
@@ -296,6 +297,7 @@ private fun Screen(
                 trackerControls = { canStart, landscape ->
                     TripStartControls(tracking, canStart, landscape, onOpenTrip = { navigator.push(Destination.LiveTrip) })
                 },
+                metrics = { default -> TripMetricCards(tracking, default) },
                 compassViewModel = compass, onSettings = openSettings)
         }
         Destination.GpsDetails -> GpsDetailsDestination(speedometer, access, onBack = navigator::pop, compassViewModel = compass)

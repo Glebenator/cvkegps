@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The sliced c of cvke-app-icon.svg: a white disc with a 70 degree slice cut out, and the slice in light apricot.
+<!-- The speed dial: a white half-disc with a slice cut out at the reading, the slice in light apricot,
+     and GPS in white below it (Source Han Sans Bold, SIL OFL 1.1, converted to outlines).
      The 64-unit icon grid is scaled to the 72 dp visible area of the 108 dp layer. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -13,9 +14,12 @@
         android:translateY="18">
         <path
             android:fillColor="#FFFFFFFF"
-            android:pathData="M29,32 L43.7,42.3 A18,18 0,1 1,43.7 21.7 Z" />
+            android:pathData="M32 37 L53 37 A21 21 0 0 0 48.77 24.36 Z M32 37 L38.14 16.92 A21 21 0 0 0 11 37 Z" />
         <path
             android:fillColor="#FFF5A578"
-            android:pathData="M35,32 L49.7,21.7 A18,18 0,0 1,49.7 42.3 Z" />
+            android:pathData="M34.74 33.09 L51.51 20.45 A21 21 0 0 0 40.88 13.01 Z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M24.26 50.17C25.5 50.17 26.54 49.69 27.14 49.1V45.09H23.98V46.54H25.56V48.3C25.3 48.51 24.87 48.63 24.45 48.63C22.7 48.63 21.81 47.47 21.81 45.54C21.81 43.63 22.84 42.48 24.32 42.48C25.12 42.48 25.63 42.8 26.07 43.22L27.01 42.09C26.43 41.5 25.54 40.95 24.26 40.95C21.9 40.95 20 42.67 20 45.6C20 48.56 21.85 50.17 24.26 50.17Z M29.65 50H31.42V46.84H32.61C34.52 46.84 36.04 45.93 36.04 43.9C36.04 41.8 34.53 41.11 32.56 41.11H29.65ZM31.42 45.44V42.52H32.43C33.66 42.52 34.3 42.87 34.3 43.9C34.3 44.92 33.72 45.44 32.49 45.44Z M40.9 50.17C42.96 50.17 44.17 48.93 44.17 47.48C44.17 46.2 43.46 45.51 42.38 45.07L41.22 44.58C40.46 44.28 39.84 44.05 39.84 43.41C39.84 42.82 40.33 42.48 41.11 42.48C41.84 42.48 42.43 42.74 42.99 43.21L43.89 42.09C43.17 41.36 42.14 40.95 41.11 40.95C39.31 40.95 38.04 42.07 38.04 43.52C38.04 44.82 38.94 45.54 39.84 45.91L41.02 46.41C41.82 46.75 42.36 46.95 42.36 47.61C42.36 48.24 41.86 48.63 40.94 48.63C40.16 48.63 39.32 48.24 38.68 47.65L37.66 48.87C38.53 49.7 39.72 50.17 40.9 50.17Z" />
     </group>
 </vector>

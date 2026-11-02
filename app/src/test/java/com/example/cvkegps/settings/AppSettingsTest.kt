@@ -73,12 +73,14 @@ class AppSettingsTest {
     }
 
     @Test fun anUnknownStoredMapTypeShowsTheDefaultMapAndAMapChoiceIsStored() {
-        val stored = FakePreferences(mapOf(MAP_LAYER to "street-view", MAP_TRAFFIC to true))
+        val stored = FakePreferences(mapOf(MAP_LAYER to "street-view", MAP_STYLE to "neon", MAP_TRAFFIC to true))
         val settings = onUi { AppSettings({ stored }, scope) }
         waitFor { settings.values.value.mapTraffic }
         assertEquals(MapLayer.Default, settings.values.value.mapLayer)
+        assertEquals(MapStyle.Standard, settings.values.value.mapStyle)
         onUi { settings.setMapLayer(MapLayer.Terrain) }
-        waitFor { stored.values[MAP_LAYER] == "terrain" }
+        onUi { settings.setMapStyle(MapStyle.HighContrast) }
+        waitFor { stored.values[MAP_LAYER] == "terrain" && stored.values[MAP_STYLE] == "high_contrast" }
         assertEquals(true, stored.values[MAP_TRAFFIC])
     }
 
@@ -135,6 +137,7 @@ class AppSettingsTest {
         const val ALTITUDE_REFERENCE = "altitude_reference"
         const val TRIP_ACCESS_EXPLAINED = "trip_access_explained"
         const val MAP_LAYER = "map_layer"
+        const val MAP_STYLE = "map_style"
         const val MAP_TRAFFIC = "map_traffic"
     }
 }
