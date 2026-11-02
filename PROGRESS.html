@@ -166,8 +166,8 @@
       </div>
       <aside class="meta" aria-label="Report details">
         <dl>
-          <div><dt>Report updated</dt><dd><time datetime="2026-10-31">31 October 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd><code>27b5508</code> plus the design review changes (branch <code>native-maps</code>)</dd></div>
+          <div><dt>Report updated</dt><dd><time datetime="2026-11-02">2 November 2026</time></dd></div>
+          <div><dt>App code baseline</dt><dd><code>c0be6c7</code> plus the speed dial app icon (branch <code>native-maps</code>)</dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd>Planned · Not started</dd></div>
         </dl>
@@ -179,6 +179,7 @@
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, debug lint, and unsigned release build</span><span class="small">Release APK not installed or run</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#speed-dial-icon">Speed dial app icon · 2 Nov</a>
       <a href="#ui-suggestions">Design review changes · 31 Oct</a>
       <a href="#map-styles">Map styles · 30 Oct</a>
       <a href="#trip-saved-row">Trip saved row · 30 Oct</a>
@@ -216,6 +217,30 @@
       <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
     </nav>
+
+    <section id="speed-dial-icon" aria-labelledby="speed-dial-icon-heading">
+      <div class="section-head"><h2 id="speed-dial-icon-heading">Speed dial app icon · 2 November 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
+      <p class="section-intro">The app has its own launcher icon in place of the shared cvke sliced c. The owner asked for a mark that shows speed first and compared four concepts, three colour versions, and text options. The owner chose the speed dial on the family blue-to-apricot gradient, with GPS in bold type below the dial.
+        The dial is a white half-disc with a slice cut out at the reading. The slice floats out in light apricot. GPS is Source Han Sans Bold (SIL Open Font License 1.1), converted to outlines, because a vector drawable cannot hold text. The report favicon uses the same icon.</p>
+      <pre><code><a href="app/src/main/res/drawable/ic_launcher_foreground.xml">ic_launcher_foreground.xml</a> · the 64-unit icon grid fills the 72 dp visible area of the 108 dp layer
+&lt;group android:scaleX="1.125" android:scaleY="1.125" android:translateX="18" android:translateY="18"&gt;</code></pre>
+      <div class="screens"><figure class="shot landscape"><a href="docs/progress/images/2026-11-02-launcher-icon-speed-dial.png"><img src="docs/progress/images/2026-11-02-launcher-icon-speed-dial.png" loading="lazy" alt="App drawer row with the CVKE GPS speed dial icon, a white dial with an apricot slice and GPS below it on a blue-to-apricot gradient, beside Contacts, Drive, and Files."></a>
+      <figcaption><strong>Launcher icon in the app drawer</strong>2 November 2026. Baseline <code>c0be6c7</code> plus the speed dial icon. Pixel 10 Pro emulator, Android 17 (API 37), light theme. No location data is shown.</figcaption></figure></div>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li>The debug build and debug lint passed with no issues. The debug APK was installed on the Pixel 10 Pro API 37 emulator, and the icon was inspected in the app drawer.</li>
+          <li>The farthest point of the dial is 22.7 units from the centre. The 66 dp safe zone is 29.3 units, so circle, rounded square, and other launcher masks do not cut the mark.</li>
+          <li>The outlined text was compared with the approved draft at 256, 64, and 48 px. Design drafts and comparison pages: <code>artifacts/logo-design/2026-11-02/</code> (not in Git).</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>The white parts reach 2.8:1 and the apricot slice 1.4:1 against the pink middle of the gradient. The design language asks for 3:1. The owner chose the family gradient with this known limit.</li>
+          <li>Themed (monochrome) icons were checked only in drafts, not on a launcher. Other launchers and a real phone were not checked.</li>
+          <li>The icon has no grain, because vector drawables have no noise filter.</li>
+          <li>The mark was not checked for similarity to other store icons. Many speedometer icons use a dial and a needle.</li>
+        </ul>
+      </article>
+    </section>
 
     <section id="ui-suggestions" aria-labelledby="ui-suggestions-heading">
       <div class="section-head"><h2 id="ui-suggestions-heading">UI changes from the design review · 31 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
@@ -886,7 +911,7 @@ val keepOn = screen &amp;&amp; when (settings.screenOn) {
           <tr><th scope="row">Navigation</th><td>The bottom bar and the rail show icons only. The tab names are the accessible names. The baseline-profile journey finds the tabs by that name.</td></tr>
           <tr><th scope="row">Lists and states</th><td>Trips are open rows with a 32 dp icon tile, a chevron, and a dot-and-text status. The selected trip has an <code>accent-subtle</code> fill. Problems show in a <code>danger-subtle</code> banner with an icon. The GPS card shows its state as a coloured dot with text. Delete in the trip menu is last, after a divider, in the danger colour. The delete confirmation uses a danger fill. Settings has a heading and a card for each section (new string: Display).</td></tr>
           <tr><th scope="row">Icons</th><td>Lucide outlines, 1.5 stroke, 20 dp (16 dp in buttons). A new alert icon for problem banners. The recording dot stays filled.</td></tr>
-          <tr><th scope="row">Brand layer</th><td>The launcher icon is the cvke app icon: the sliced c on the blue-to-apricot gradient, with a monochrome layer. The report favicon uses the same icon. The empty trip list and the empty detail pane show a small flat slice composition. On the empty list, the slice drifts 5 to 11 units from the disc and back, 2.4 s each way. The loop runs only in the draw phase, stops off screen, and stays still when animations are off in the system. The detail pane art stays still, so only one slice moves on a screen.</td></tr>
+          <tr><th scope="row">Brand layer</th><td>The launcher icon is the cvke app icon: the sliced c on the blue-to-apricot gradient, with a monochrome layer. The report favicon uses the same icon. (On 2 November 2026 the <a href="#speed-dial-icon">speed dial icon</a> replaced it.) The empty trip list and the empty detail pane show a small flat slice composition. On the empty list, the slice drifts 5 to 11 units from the disc and back, 2.4 s each way. The loop runs only in the draw phase, stops off screen, and stays still when animations are off in the system. The detail pane art stays still, so only one slice moves on a screen.</td></tr>
           <tr><th scope="row">Data display</th><td>The accuracy bar fill uses the functional accent-to-gradient-end gradient on a flat track. GPS satellites use the accent; the other systems use neutral steps and keep their shapes. The route line uses the accent.</td></tr>
           <tr><th scope="row">Motion</th><td>Tab changes are instant. A drill-in screen fades in and moves 8 dp over 340 ms, and leaves in 240 ms, with the standard easing. The accuracy bar changes at once. Pending values, the technical details section, and list items use the same duration tokens.</td></tr>
         </tbody>
@@ -2439,6 +2464,8 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-11-02">2 November 2026</time><div><h3>Speed dial app icon</h3>
+<p>Replaced the shared cvke sliced c launcher icon with a speed dial on the family gradient, with GPS in bold type below it. The owner chose it from four concepts, three colour versions, and text options. The report favicon changed with it. The debug build and lint passed, and the icon was inspected in the emulator app drawer. The white parts and the slice stay below 3:1 contrast on the pink middle of the gradient. See <a href="#speed-dial-icon">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-31">31 October 2026</time><div><h3>UI changes from the design review</h3>
 <p>The owner accepted the UI suggestions of a design review prototype, except a GPS row in place of the accuracy bar. The Speed tab has no dial title, a short activity chip beside Start trip, and trip distance and average speed cards during a trip. The Trips list groups trips by day. The saved trip shows the distance first, and the Trip saved row now shows the time left for Resume trip. This replaces the "no countdown" rule of 30 October. The current trip panel shows speed, time, and distance on one row. Replay chart titles show the cursor values, a steady series shows as text, and the map zoom buttons are one control. On a Pixel 10 Pro API 37 emulator, all 53 device tests passed, one test class for each run, after a cold boot of an unstable emulator. 58 of 58 calculation tests, lint, and the release build passed. See <a href="#ui-suggestions">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-10-30">30 October 2026</time><div><h3>Saved row and map styles together on native-maps</h3>

@@ -81,9 +81,14 @@ The recording notification opens the current trip. Navigation uses Navigation 3 
 
 ## App icon
 
-The launcher icon is the cvke app icon from the owner's design language: the sliced c in white, its slice in light
-apricot, on the blue-to-apricot brand gradient. It is an adaptive vector icon with a monochrome layer for themed icons.
-Vector drawables have no noise filter, so the icon has no grain. `PROGRESS.html` uses the same icon as its favicon.
+The launcher icon is the speed dial on the blue-to-apricot brand gradient of the owner's design language: a white
+half-disc with a slice cut out at the reading, the slice in light apricot, and GPS in white below it. The owner chose it
+on 2 November 2026 in place of the shared cvke sliced c, so this app has its own mark. GPS is Source Han Sans Bold
+(SIL Open Font License 1.1), converted to outlines. It is an adaptive vector icon with a monochrome layer for themed
+icons. Vector drawables have no noise filter, so the icon has no grain. `PROGRESS.html` uses the same icon as its favicon.
+
+The white parts and the slice have less than 3:1 contrast against the pink middle of the gradient (2.8:1 and 1.4:1).
+The owner accepted this for the gradient.
 
 ## Design language on 27 October 2026
 
