@@ -1,6 +1,14 @@
 # Issue tracker: GitHub
 
-Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
+Issues and specs live as GitHub issues in three repositories. Use the `gh` CLI for all operations.
+
+- `Glebenator/cvkegps-android`: issues for the Android app only.
+- `Glebenator/cvkegps-ios`: issues for the iOS app only.
+- `Glebenator/cvkegps`: issues for the product, the shared rules, the docs, and the parent issue of a feature or
+  decision that affects both apps. Each app then gets one sub-issue in its own repository.
+
+To add an issue from an app repository as a sub-issue of a parent in `cvkegps`, use its database id:
+`gh api --method POST repos/Glebenator/cvkegps/issues/<parent>/sub_issues -F sub_issue_id=$(gh api repos/Glebenator/cvkegps-ios/issues/<child> --jq .id)`.
 
 ## Conventions
 
@@ -12,7 +20,7 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 - **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - **Close**: `gh issue close <number> --comment "..."`
 
-Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
+Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone. Use `-R Glebenator/<repo>` for an issue in another repository.
 
 ## Pull requests as a triage surface
 

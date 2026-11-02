@@ -160,14 +160,14 @@
     <!-- Update the date, app baseline, and evidence after each completed change. -->
     <div class="hero">
       <div>
-        <div class="eyebrow">Native Android · Trip recording</div>
+        <div class="eyebrow">Native Android and iOS · Trip recording</div>
         <h1>Speed, trips,<br>and measured routes.</h1>
         <p>Record car, transit, plane, bike, and ski trips. Save the route locally, continue with the screen locked, and review recorded segments on a native Google map. Physical-device validation and publication work remain open.</p>
       </div>
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-11-02">2 November 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd>Branch <code>claude/android-to-ios-port-g3ohdc</code> after the merge of <code>native-maps</code> at <code>202b836</code>. Android: <code>202b836</code> plus the app comparison fixes. iOS: <code>b3474a9</code></dd></div>
+          <div><dt>App code baseline</dt><dd>Android: <a href="https://github.com/Glebenator/cvkegps-android/commit/8d66eef"><code>cvkegps-android@8d66eef</code></a>. iOS: <a href="https://github.com/Glebenator/cvkegps-ios/commit/502346d"><code>cvkegps-ios@502346d</code></a>. Both apps were in this repository until <a href="#repo-split">2 November 2026</a></dd></div>
           <div><dt>Publication status</dt><dd>Development build</dd></div>
           <div><dt>iOS app</dt><dd><a href="#ios-app">UI flow passed on a simulator</a> · Real iPhone not tested</dd></div>
         </dl>
@@ -179,6 +179,7 @@
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, debug lint, and unsigned release build</span><span class="small">Release APK not installed or run</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#repo-split">Repository split · 2 Nov</a>
       <a href="#app-comparison">App comparison fixes · 2 Nov</a>
       <a href="#speed-dial-icon">Speed dial app icon · 2 Nov</a>
       <a href="#ios-ui-review">iOS UI review fixes · 1 Nov</a>
@@ -221,6 +222,37 @@
       <a href="#history">Change history</a>
     </nav>
 
+    <section id="repo-split" aria-labelledby="repo-split-heading">
+      <div class="section-head"><h2 id="repo-split-heading">Repository split · 2 November 2026</h2><span class="tag pending">CI passed in both app repositories · Android device tests not in CI</span></div>
+      <p class="section-intro">CVKE GPS now has three repositories. The owner chose this split so that each app has its own CI, issues, releases, and rules, and the product documents stay in one place. Branch <code>native-maps</code> became <code>main</code> before the split, and the OpenStreetMap version stays in the history.</p>
+      <ul>
+        <li><a href="https://github.com/Glebenator/cvkegps">cvkegps</a>: this repository. The ADRs, the glossary, the research, this report, and the parent issues for both apps. It has no app code.</li>
+        <li><a href="https://github.com/Glebenator/cvkegps-android">cvkegps-android</a>: the Android app with its history (54 commits), its rules, and a new CI workflow: debug build, device test build, lint, unit tests, and the release APK. The unmerged performance review branch <code>clanker/performance-review-71251c</code> moved there.</li>
+        <li><a href="https://github.com/Glebenator/cvkegps-ios">cvkegps-ios</a>: the iOS app with its history (9 commits), at the repository root, with its rules and the iOS CI workflow for each push to <code>main</code> and each pull request.</li>
+        <li>The tag <code>archive/before-split-2026-11-02</code> marks the last commit with both apps (<code>7c4dc55</code>). The links from this report and the research to app code now go to that commit on GitHub. The tag <code>archive/performance-review-71251c</code> keeps the performance review branch with its report entry.</li>
+        <li>All three repositories delete a branch when its pull request merges, and have the same labels.</li>
+      </ul>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li>Before the push, the extracted iOS repository passed <code>swift test</code> (54 of 54) and the build for testing on this Mac.</li>
+          <li>Android CI, the first build of the app since <code>b3474a9</code>: <a href="https://github.com/Glebenator/cvkegps-android/actions/runs/41538583917">run 41538583917</a> on <code>cvkegps-android@8d66eef</code> passed the debug build, the device test build, lint, the unit tests, and the release APK on <code>ubuntu-latest</code>. No device test ran.</li>
+          <li>iOS CI: <a href="https://github.com/Glebenator/cvkegps-ios/actions/runs/41538581302">run 41538581302</a> on <code>cvkegps-ios@502346d</code> passed the core tests, the build, the UI flow in light mode, and the screens in dark mode and at the largest text size, on a macOS runner with simulated locations.</li>
+          <li>All 128 links from the documents to app code were changed to the pre-split commit. Three were opened and loaded. No relative link in this repository is broken.</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>Links to app code in this report now need a network connection. Images and other local assets stay relative.</li>
+          <li>The Android device tests do not run in CI. They need an emulator workflow and a Maps API key as a secret.</li>
+          <li>No GitHub Project exists yet. The <code>gh</code> token needs the <code>project</code> scope first.</li>
+        </ul>
+        <h3 style="margin-top:18px">Required work</h3>
+        <ul>
+          <li>The owner's Android checkout: clone <code>cvkegps-android</code> and work there.</li>
+          <li>Create the CVKE GPS project over the three repositories, and redesign this report as a dashboard for both apps.</li>
+        </ul>
+      </article>
+    </section>
+
     <section id="app-comparison" aria-labelledby="app-comparison-heading">
       <div class="section-head"><h2 id="app-comparison-heading">App comparison fixes · 2 November 2026</h2><span class="tag pending">iOS UI flow passed on a simulator · Android not built</span></div>
       <p class="section-intro">A comparison of the iOS app with the Android changes after <code>d14442b</code> (branches <code>native-maps</code> and <code>clanker/performance-review-71251c</code>) found these items. App baseline: <code>b3474a9</code>, which also has the iOS UI review fixes. Branch <code>native-maps</code> was merged after it (<code>202b836</code>).</p>
@@ -231,7 +263,7 @@
         <li>The iOS ADR is now <a href="docs/adr/0007-build-the-ios-app-with-apple-maps-and-a-shared-swift-core.md">ADR 0007</a>. <a href="docs/adr/0006-map-styles-as-json-styles-without-a-map-id.md">ADR 0006</a> is the Android map styles decision.</li>
         <li>The iOS UI review entry below said "Trip saved" shows for about 10 seconds. It shows for the full 2 minutes in which the trip can continue. The entry is corrected.</li>
       </ul>
-      <pre><code><a href="ios/CVKEGPS/Map/TripMapView.swift">TripMapView.swift</a> · the first replay move does not wait for the replay
+      <pre><code><a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/ios/CVKEGPS/Map/TripMapView.swift">TripMapView.swift</a> · the first replay move does not wait for the replay
 guard let sample = position?.sample ?? (mode == .replay &amp;&amp; replayStart ? routeStart : nil) else { return }</code></pre>
       <div class="screens">
       <figure class="shot"><a href="docs/progress/images/2026-11-02-ios-replay-start-zoom.webp"><img src="docs/progress/images/2026-11-02-ios-replay-start-zoom.webp" loading="lazy" alt="Trip replay at 0:00 before Play: the speed shows No GPS signal, and the map is at street zoom at the start of the route, with moment 1 near the centre."></a>
@@ -266,7 +298,7 @@ guard let sample = position?.sample ?? (mode == .replay &amp;&amp; replayStart ?
       <div class="section-head"><h2 id="speed-dial-icon-heading">Speed dial app icon · 2 November 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
       <p class="section-intro">The app has its own launcher icon in place of the shared cvke sliced c. The owner asked for a mark that shows speed first and compared four concepts, three colour versions, and text options. The owner chose the speed dial on the family blue-to-apricot gradient, with GPS in bold type below the dial.
         The dial is a white half-disc with a slice cut out at the reading. The slice floats out in light apricot. GPS is Source Han Sans Bold (SIL Open Font License 1.1), converted to outlines, because a vector drawable cannot hold text. The report favicon uses the same icon.</p>
-      <pre><code><a href="app/src/main/res/drawable/ic_launcher_foreground.xml">ic_launcher_foreground.xml</a> · the 64-unit icon grid fills the 72 dp visible area of the 108 dp layer
+      <pre><code><a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/res/drawable/ic_launcher_foreground.xml">ic_launcher_foreground.xml</a> · the 64-unit icon grid fills the 72 dp visible area of the 108 dp layer
 &lt;group android:scaleX="1.125" android:scaleY="1.125" android:translateX="18" android:translateY="18"&gt;</code></pre>
       <div class="screens"><figure class="shot landscape"><a href="docs/progress/images/2026-11-02-launcher-icon-speed-dial.png"><img src="docs/progress/images/2026-11-02-launcher-icon-speed-dial.png" loading="lazy" alt="App drawer row with the CVKE GPS speed dial icon, a white dial with an apricot slice and GPS below it on a blue-to-apricot gradient, beside Contacts, Drive, and Files."></a>
       <figcaption><strong>Launcher icon in the app drawer</strong>2 November 2026. Baseline <code>c0be6c7</code> plus the speed dial icon. Pixel 10 Pro emulator, Android 17 (API 37), light theme. No location data is shown.</figcaption></figure></div>
@@ -314,7 +346,7 @@ guard let sample = position?.sample ?? (mode == .replay &amp;&amp; replayStart ?
           Not ported: the Android map styles (MapKit has no style files) and the cards on the Speed tab (the owner chose no cards on iOS). <a href="docs/adr/0007-build-the-ios-app-with-apple-maps-and-a-shared-swift-core.md">ADR 0007</a> records both.</li>
         <li>The trip status no longer pulses when the GPS signal is lost. The design language does not allow pulsing icons. The text and the red tint show the state.</li>
       </ul>
-      <pre><code><a href="ios/CVKEGPS/Map/TripMapView.swift">TripMapView.swift</a> · the map inset under the panel
+      <pre><code><a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/ios/CVKEGPS/Map/TripMapView.swift">TripMapView.swift</a> · the map inset under the panel
 .safeAreaPadding(.bottom, bottomInset + geometry.safeAreaInsets.bottom)
 .ignoresSafeArea()</code></pre>
       <h3 style="margin-top:24px">iPhone 17 Pro simulator, iOS 26.2</h3>
@@ -376,7 +408,7 @@ guard let sample = position?.sample ?? (mode == .replay &amp;&amp; replayStart ?
 
     <section id="ios-app" aria-labelledby="ios-app-heading">
       <div class="section-head"><h2 id="ios-app-heading">iOS app on the simulator · 1 November 2026</h2><span class="tag pending">UI flow passed on a simulator · Real iPhone not tested</span></div>
-      <p class="section-intro">The native iOS app is in <a href="ios/README.md"><code>ios/</code></a>: SwiftUI with Liquid Glass, Apple Maps, Core Location, Core Motion, Swift Charts, a Live Activity, and a Control Center button. The Swift package <code>CVKEGPSCore</code> has the measurement rules, the trip recorder, and an SQLite store with the Room tables. <a href="docs/adr/0007-build-the-ios-app-with-apple-maps-and-a-shared-swift-core.md">ADR 0007</a> gives the decisions and the platform differences. iOS reports no satellites, so the satellite ring, the sky map, and the satellite details are Android only.</p>
+      <p class="section-intro">The native iOS app is in <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/ios/README.md"><code>ios/</code></a>: SwiftUI with Liquid Glass, Apple Maps, Core Location, Core Motion, Swift Charts, a Live Activity, and a Control Center button. The Swift package <code>CVKEGPSCore</code> has the measurement rules, the trip recorder, and an SQLite store with the Room tables. <a href="docs/adr/0007-build-the-ios-app-with-apple-maps-and-a-shared-swift-core.md">ADR 0007</a> gives the decisions and the platform differences. iOS reports no satellites, so the satellite ring, the sky map, and the satellite details are Android only.</p>
       <p>App baseline: <code>4c887b1</code> plus the layout and test fixes that this entry adds. The first UI flow run found these problems, and this change fixes them:</p>
       <ul>
         <li>The map legend and the map buttons were under the status bar and the navigation bar buttons. Now only the map goes to the screen edges.</li>
@@ -387,7 +419,7 @@ guard let sample = position?.sample ?? (mode == .replay &amp;&amp; replayStart ?
         <li>At the largest text size, the dial label was cut, the value cards were too narrow, the map buttons covered each other, and Play had no visible label. These now fit. The map buttons and the legend stop growing at the largest standard size, as in Apple Maps.</li>
         <li>The UI test now selects the first of two elements with the same identifier. In iOS 26, a toolbar item has a container and a button with the same identifier. The CI export now copies only screenshots, because the artifact upload refused a debug file name with quotes.</li>
       </ul>
-      <pre><code><a href="ios/CVKEGPS/Map/TripMapView.swift">TripMapView.swift</a> · the saved trip map fit
+      <pre><code><a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/ios/CVKEGPS/Map/TripMapView.swift">TripMapView.swift</a> · the saved trip map fit
 guard let frame = RouteMath.frame(points, width: max(freeWidth - margin, 48), height: max(freeHeight - margin, 48)) else { return }
 let rect = MKMapRect(x: centre.x - freeWidth * scale / 2, y: centre.y - freeHeight * scale / 2,
                      width: freeWidth * scale, height: freeHeight * scale)</code></pre>
@@ -469,14 +501,14 @@ let rect = MKMapRect(x: centre.x - freeWidth * scale / 2, y: centre.y - freeHeig
           <tr><th scope="row">Maps</th><td>Zoom in and zoom out are one control with a divider: vertical on tall maps, horizontal on short maps. Each button has a 48 dp touch target. The speed legend on short maps stays below the buttons.</td></tr>
         </tbody>
       </table></div>
-      <pre><code><a href="app/src/main/java/com/example/cvkegps/ui/AppShell.kt">AppShell.kt</a> · the Speed tab cards come from a slot, so the speedometer does not know about trips
+      <pre><code><a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/ui/AppShell.kt">AppShell.kt</a> · the Speed tab cards come from a slot, so the speedometer does not know about trips
 metrics = { default -&gt; TripMetricCards(tracking, default) },</code></pre>
-      <pre><code><a href="app/src/main/java/com/example/cvkegps/tracking/ReplayCharts.kt">ReplayCharts.kt</a> · a chart with one displayed value shows as text
+      <pre><code><a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/ReplayCharts.kt">ReplayCharts.kt</a> · a chart with one displayed value shows as text
 /** The one displayed value when all values look the same in display units, such as a flat height. Null when they change. */
 val steady: String? = runs.flatMap { run -&gt; run.values.filter { it.isFinite() } }.let { values -&gt;
     if (values.isEmpty()) null else label(values.min()).takeIf { it == label(values.max()) }
 }</code></pre>
-      <pre><code><a href="app/src/main/java/com/example/cvkegps/tracking/SavedTripScreen.kt">SavedTripScreen.kt</a> · the countdown of the Trip saved row
+      <pre><code><a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/SavedTripScreen.kt">SavedTripScreen.kt</a> · the countdown of the Trip saved row
 // The countdown changes once each second, and only while the screen is resumed. It stops at the end of the time.
 lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
     while (true) {
@@ -532,7 +564,7 @@ lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
 
     <section id="map-styles" aria-labelledby="map-styles-heading">
       <div class="section-head"><h2 id="map-styles-heading">Map styles · 30 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
-      <p class="section-intro">Settings &gt; Maps &gt; Map style changes the look of the Default map type. It is the first Group A feature of the <a href="docs/google-maps-features-research.md">Google Maps features research</a>: free, in the Maps SDK, and with no new data to Google. The owner chose Minimal and High contrast. The styles are JSON styles in <a href="app/src/main/res/raw"><code>res/raw</code></a> without a map ID, so they add no cost (<a href="docs/adr/0006-map-styles-as-json-styles-without-a-map-id.md">ADR 0006</a>).</p>
+      <p class="section-intro">Settings &gt; Maps &gt; Map style changes the look of the Default map type. It is the first Group A feature of the <a href="docs/google-maps-features-research.md">Google Maps features research</a>: free, in the Maps SDK, and with no new data to Google. The owner chose Minimal and High contrast. The styles are JSON styles in <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/res/raw"><code>res/raw</code></a> without a map ID, so they add no cost (<a href="docs/adr/0006-map-styles-as-json-styles-without-a-map-id.md">ADR 0006</a>).</p>
       <div class="table-wrap"><table class="wrap-cells">
         <thead><tr><th scope="col">Style</th><th scope="col">Look</th><th scope="col">Light and dark</th></tr></thead>
         <tbody>
@@ -550,7 +582,7 @@ lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
           <tr><th scope="row">3D buildings</th><td>Buildings use the built-up area colour of the style.</td></tr>
         </tbody>
       </table></div>
-      <pre><code><a href="app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt">RouteMap.kt</a> · the style of the map
+      <pre><code><a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt">RouteMap.kt</a> · the style of the map
 // Styles work only on the default map type. A style replaces the dark map of the SDK, so each style has a dark version.
 val style = rememberMapStyle(choice.mapStyle.takeIf { choice.mapLayer == MapLayer.Default }?.resource(dark))</code></pre>
       <h3 style="margin-top:24px">Pixel 10 Pro emulator, Android 17 (API 37)</h3>
@@ -591,7 +623,7 @@ val style = rememberMapStyle(choice.mapStyle.takeIf { choice.mapLayer == MapLaye
     <section id="trip-saved-row" aria-labelledby="trip-saved-row-heading">
       <div class="section-head"><h2 id="trip-saved-row-heading">Trip saved row in place of the snackbar · 30 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
       <p class="section-intro">Stop and save showed a "Trip saved" snackbar with Resume trip. It covered the trip values, it closed after about 10 seconds while the recorder accepts Resume for 2 minutes, and the design language allows no toasts. The owner chose an inline row from four options.
-      The row is <code>SavedRow</code> in <a href="app/src/main/java/com/example/cvkegps/tracking/SavedTripScreen.kt"><code>SavedTripScreen.kt</code></a>.</p>
+      The row is <code>SavedRow</code> in <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/SavedTripScreen.kt"><code>SavedTripScreen.kt</code></a>.</p>
       <div class="table-wrap"><table class="wrap-cells">
         <thead><tr><th scope="col">Part</th><th scope="col">Behaviour</th></tr></thead>
         <tbody>
@@ -626,7 +658,7 @@ val style = rememberMapStyle(choice.mapStyle.takeIf { choice.mapLayer == MapLaye
 
     <section id="map-settings" aria-labelledby="map-settings-heading">
       <div class="section-head"><h2 id="map-settings-heading">Map settings · 30 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
-      <p class="section-intro">Settings &gt; Maps has six new choices. The values that were fixed in <a href="app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt"><code>RouteMap.kt</code></a> now come from <a href="app/src/main/java/com/example/cvkegps/settings/AppSettings.kt"><code>AppSettings.kt</code></a>. The defaults keep the earlier behaviour. The map theme still follows the app theme, as the owner chose.</p>
+      <p class="section-intro">Settings &gt; Maps has six new choices. The values that were fixed in <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt"><code>RouteMap.kt</code></a> now come from <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/settings/AppSettings.kt"><code>AppSettings.kt</code></a>. The defaults keep the earlier behaviour. The map theme still follows the app theme, as the owner chose.</p>
       <div class="table-wrap"><table class="wrap-cells">
         <thead><tr><th scope="col">Setting</th><th scope="col">Default</th><th scope="col">Effect</th></tr></thead>
         <tbody>
@@ -639,7 +671,7 @@ val style = rememberMapStyle(choice.mapStyle.takeIf { choice.mapLayer == MapLaye
           <tr><th scope="row">Accuracy circle</th><td>On</td><td>Off hides the circle around the position on the current trip and replay maps.</td></tr>
         </tbody>
       </table></div>
-      <pre><code><a href="app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt">RouteMap.kt</a> · the zoom of a following map
+      <pre><code><a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt">RouteMap.kt</a> · the zoom of a following map
 !placed -&gt; if (choice.mapZoomWithSpeed) speedZoom(last) ?: 15f else FIXED_ZOOM
 userZoomed || !choice.mapZoomWithSpeed -&gt; current.zoom.coerceIn(3f, 18f)
 else -&gt; speedZoom(last) ?: current.zoom.coerceIn(3f, 18f)</code></pre>
@@ -671,7 +703,7 @@ else -&gt; speedZoom(last) ?: current.zoom.coerceIn(3f, 18f)</code></pre>
     <section id="colour-choices" aria-labelledby="colour-choices-heading">
       <div class="section-head"><h2 id="colour-choices-heading">Three colour choices, wallpaper colours by default · 30 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
       <p class="section-intro">The owner asked that turning dynamic colour off turns it off everywhere, and chose the native look as the default. The Colours card now has three choices. On Android 11 and earlier, the two wallpaper choices are disabled with <em>Needs Android 12 or later.</em>, and the app uses App colours.
-      The choice is in <a href="app/src/main/java/com/example/cvkegps/settings/AppSettings.kt"><code>AppSettings.kt</code></a>, and <a href="app/src/main/java/com/example/cvkegps/ui/theme/Theme.kt"><code>Theme.kt</code></a> applies it.</p>
+      The choice is in <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/settings/AppSettings.kt"><code>AppSettings.kt</code></a>, and <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/ui/theme/Theme.kt"><code>Theme.kt</code></a> applies it.</p>
       <div class="table-wrap"><table class="wrap-cells">
         <thead><tr><th scope="col">Choice</th><th scope="col">Accent and text</th><th scope="col">Backgrounds and lines</th></tr></thead>
         <tbody>
@@ -704,7 +736,7 @@ else -&gt; speedZoom(last) ?: current.zoom.coerceIn(3f, 18f)</code></pre>
     <section id="speed-colours" aria-labelledby="speed-colours-heading">
       <div class="section-head"><h2 id="speed-colours-heading">Speed colours on saved routes · 30 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
       <p class="section-intro">Saved trip and replay maps colour the route by speed, from dark (slow) to yellow (fast). The scale uses the speed range of each trip, and a legend on the map shows the speeds at the two ends.
-      The rules are in <a href="app/src/main/java/com/example/cvkegps/tracking/SpeedColours.kt"><code>SpeedColours.kt</code></a>, the drawing and the legend in <a href="app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt"><code>RouteMap.kt</code></a>, and the decision in <a href="docs/adr/0005-colour-saved-routes-by-trip-speed-range.md">ADR 0005</a>.</p>
+      The rules are in <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/SpeedColours.kt"><code>SpeedColours.kt</code></a>, the drawing and the legend in <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt"><code>RouteMap.kt</code></a>, and the decision in <a href="docs/adr/0005-colour-saved-routes-by-trip-speed-range.md">ADR 0005</a>.</p>
       <div class="table-wrap"><table class="wrap-cells">
         <thead><tr><th scope="col">Part</th><th scope="col">Behaviour</th></tr></thead>
         <tbody>
@@ -716,7 +748,7 @@ else -&gt; speedZoom(last) ?: current.zoom.coerceIn(3f, 18f)</code></pre>
           <tr><th scope="row">Drawing</th><td>One line for each recorded piece, with map style spans: one span for each run of segments with the same rounded colour (32 steps). The Maps SDK fails when a line with spans gets points while it has no span, so a part without a segment is not drawn.</td></tr>
         </tbody>
       </table></div>
-      <pre><code><a href="app/src/main/java/com/example/cvkegps/tracking/SpeedColours.kt">SpeedColours.kt</a> · scale
+      <pre><code><a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/SpeedColours.kt">SpeedColours.kt</a> · scale
 val slow = moving[((moving.size - 1) * 0.05).roundToInt()]
 val fast = moving[((moving.size - 1) * 0.95).roundToInt()]
 if (fast - slow &gt;= MIN_RANGE_METERS_PER_SECOND) return SpeedScale(slow, fast)</code></pre>
@@ -753,7 +785,7 @@ if (fast - slow &gt;= MIN_RANGE_METERS_PER_SECOND) return SpeedScale(slow, fast)
     <section id="wallpaper-colours" aria-labelledby="wallpaper-colours-heading">
       <div class="section-head"><h2 id="wallpaper-colours-heading">Wallpaper colours as a setting · 30 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
       <p class="section-intro">Settings has a new <strong>Colours</strong> card. <strong>App colours</strong> is the default and keeps the design language: the electric blue accent, and on Android 12 and later a light wallpaper tint on the neutral surfaces. <strong>Wallpaper colours</strong> brings back full Android dynamic colour: the accent, text, and surfaces come from the wallpaper palette.
-      The choice is stored in <a href="app/src/main/java/com/example/cvkegps/settings/AppSettings.kt"><code>AppSettings.kt</code></a>, <a href="app/src/main/java/com/example/cvkegps/MainActivity.kt"><code>MainActivity.kt</code></a> gives it to the theme, and <a href="app/src/main/java/com/example/cvkegps/ui/theme/Theme.kt"><code>Theme.kt</code></a> maps the wallpaper palette to the tokens.</p>
+      The choice is stored in <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/settings/AppSettings.kt"><code>AppSettings.kt</code></a>, <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/MainActivity.kt"><code>MainActivity.kt</code></a> gives it to the theme, and <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/ui/theme/Theme.kt"><code>Theme.kt</code></a> maps the wallpaper palette to the tokens.</p>
       <div class="table-wrap"><table class="wrap-cells">
         <thead><tr><th scope="col">Part</th><th scope="col">Behaviour</th></tr></thead>
         <tbody>
@@ -763,7 +795,7 @@ if (fast - slow &gt;= MIN_RANGE_METERS_PER_SECOND) return SpeedScale(slow, fast)
           <tr><th scope="row">Before Android 12</th><td>Android has no wallpaper palette. The wallpaper choice is disabled and shows <em>Needs Android 12 or later.</em> App colours show as selected.</td></tr>
         </tbody>
       </table></div>
-      <pre><code><a href="app/src/main/java/com/example/cvkegps/ui/theme/Theme.kt">Theme.kt</a> · withWallpaperColours
+      <pre><code><a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/ui/theme/Theme.kt">Theme.kt</a> · withWallpaperColours
 withWallpaperNeutrals(wallpaper, dark).copy(
     ink = wallpaper.onSurface, inkMuted = wallpaper.onSurfaceVariant,
     accent = wallpaper.primary, accentInk = wallpaper.onPrimary,
@@ -799,7 +831,7 @@ withWallpaperNeutrals(wallpaper, dark).copy(
     <section id="replay-mode" aria-labelledby="replay-mode-heading">
       <div class="section-head"><h2 id="replay-mode-heading">Trip replay as a mode, and smooth map movement · 28 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
       <p class="section-intro">The replay is now a mode of the saved trip screen, so the map stays when the replay opens, and the map moves smoothly while the replay plays.
-      The screen is in <a href="app/src/main/java/com/example/cvkegps/tracking/SavedTripScreen.kt"><code>SavedTripScreen.kt</code></a>, and the replay parts are in <a href="app/src/main/java/com/example/cvkegps/tracking/TripReplayScreen.kt"><code>TripReplayScreen.kt</code></a>.</p>
+      The screen is in <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/SavedTripScreen.kt"><code>SavedTripScreen.kt</code></a>, and the replay parts are in <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/TripReplayScreen.kt"><code>TripReplayScreen.kt</code></a>.</p>
       <div class="table-wrap"><table class="wrap-cells">
         <thead><tr><th scope="col">Part</th><th scope="col">Behaviour</th></tr></thead>
         <tbody>
@@ -833,7 +865,7 @@ withWallpaperNeutrals(wallpaper, dark).copy(
     <section id="replay-step3" aria-labelledby="replay-step3-heading">
       <div class="section-head"><h2 id="replay-step3-heading">Trip replay, step 3: layouts, moments, and the played route · 28 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
       <p class="section-intro">Step 3 of concept D fits the charts to each window, keeps the moments in the details, shows the played part of the route, and removes the view of the whole world when the replay opens.
-      The layouts are in <a href="app/src/main/java/com/example/cvkegps/tracking/TripReplayScreen.kt"><code>TripReplayScreen.kt</code></a>, the selector in <a href="app/src/main/java/com/example/cvkegps/tracking/ReplayCharts.kt"><code>ReplayCharts.kt</code></a>, and the played route in <a href="app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt"><code>RouteMap.kt</code></a>.</p>
+      The layouts are in <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/TripReplayScreen.kt"><code>TripReplayScreen.kt</code></a>, the selector in <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/ReplayCharts.kt"><code>ReplayCharts.kt</code></a>, and the played route in <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt"><code>RouteMap.kt</code></a>.</p>
       <div class="table-wrap"><table class="wrap-cells">
         <thead><tr><th scope="col">Part</th><th scope="col">Behaviour</th></tr></thead>
         <tbody>
@@ -878,7 +910,7 @@ withWallpaperNeutrals(wallpaper, dark).copy(
       <div class="section-head"><h2 id="replay-charts-heading">Trip replay, step 2: linked charts · 28 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
       <p class="section-intro">Step 2 of concept D adds the details stop. A drag up on the handle under the map, or the <strong>Charts</strong> button, opens it. The map becomes a strip at the top that follows the playhead.
       Three linked charts show speed, height, and along-track acceleration with one playhead. <strong>Map</strong>, a drag down, or Back returns to the glance stop. The playhead and the stop stay after a rotation.
-      The charts are in <a href="app/src/main/java/com/example/cvkegps/tracking/ReplayCharts.kt"><code>ReplayCharts.kt</code></a>.</p>
+      The charts are in <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/ReplayCharts.kt"><code>ReplayCharts.kt</code></a>.</p>
       <div class="table-wrap"><table class="wrap-cells">
         <thead><tr><th scope="col">Part</th><th scope="col">Behaviour</th></tr></thead>
         <tbody>
@@ -886,7 +918,7 @@ withWallpaperNeutrals(wallpaper, dark).copy(
           Speed hatches the GPS gaps and has the dashed warning line for approximate positions. Height and acceleration continue through GPS gaps and hatch only the gaps in their own record.</td></tr>
           <tr><th scope="row">Input</th><td>A tap or a horizontal drag on any chart moves the one playhead for all charts, the values, and the map. A tap near a moment number goes to that moment and pauses. A vertical drag scrolls the page, so the charts take only horizontal drags.</td></tr>
           <tr><th scope="row">Screen readers</th><td>The speed chart is the slider, with the time, the speed, and Next and Previous moment actions. Each chart has a text summary, for example "Speed from 11.2 mph to 44.7 mph. Fastest at 6 s.", which also shows under the chart.</td></tr>
-          <tr><th scope="row">Performance</th><td>The glance stop does not draw the charts. <a href="app/src/main/java/com/example/cvkegps/tracking/ReplayChartData.kt"><code>ReplayChartData</code></a> reduces each chart to a minimum and a maximum for each pixel column, once for each width, so a long High accuracy trip draws as fast as a short one and a short peak stays visible.</td></tr>
+          <tr><th scope="row">Performance</th><td>The glance stop does not draw the charts. <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/ReplayChartData.kt"><code>ReplayChartData</code></a> reduces each chart to a minimum and a maximum for each pixel column, once for each width, so a long High accuracy trip draws as fast as a short one and a short peak stays visible.</td></tr>
           <tr><th scope="row">Design change</th><td>The second stop is a panel with a drag handle and a Charts and Map button, not the Material bottom sheet component. The sheet's vertical drag competes with the chart drags and the page scroll. See <a href="docs/adr/0004-replay-as-a-player-with-charts.md">ADR 0004</a>.</td></tr>
         </tbody>
       </table></div>
@@ -924,7 +956,7 @@ withWallpaperNeutrals(wallpaper, dark).copy(
       <div class="table-wrap"><table class="wrap-cells">
         <thead><tr><th scope="col">Part</th><th scope="col">Behaviour</th></tr></thead>
         <tbody>
-          <tr><th scope="row">Calculations</th><td><a href="app/src/main/java/com/example/cvkegps/tracking/TripReplay.kt"><code>TripReplay.kt</code></a>, plain Kotlin, run once off the main thread and kept while the app shows the trip.
+          <tr><th scope="row">Calculations</th><td><a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/TripReplay.kt"><code>TripReplay.kt</code></a>, plain Kotlin, run once off the main thread and kept while the app shows the trip.
           The replay clock joins the segments without their pauses. At the playhead, the values come from the newest fix for at most 10 seconds, so an old speed never shows as current. A position is interpolated only inside one route line.
           Barometric height: the standard atmosphere for the shape, the median difference to GPS heights with a vertical accuracy of 10 m or better for the level, 1 second means smoothed over 3 seconds. Plane trips use the GPS height only.
           Along-track acceleration: each accelerometer reading turned by the game rotation vector, gravity removed, 1 second means, turned to east and north by the angle that best fits the GPS change of velocity in 30 second windows, then projected on the GPS direction of travel. Without the sensor record, it comes from the change of GPS speed.</td></tr>
@@ -935,7 +967,7 @@ withWallpaperNeutrals(wallpaper, dark).copy(
           <tr><th scope="row">Rules</th><td>The playhead moves at most 10 times each second, only while the replay plays and the screen is in front. The playhead, play state, and speed stay after a rotation. TalkBack reads the profile as one slider with the time, the speed, and Next and Previous moment actions. Landscape and wide windows use the map with a side pane.</td></tr>
         </tbody>
       </table></div>
-      <pre><code><a href="app/src/main/java/com/example/cvkegps/tracking/TripReplay.kt">TripReplay.kt</a> · valuesAt
+      <pre><code><a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/TripReplay.kt">TripReplay.kt</a> · valuesAt
 val index = lastFixAt(time)
 val fix = fixes.getOrNull(index)?.takeIf { time - it.timeNanos &lt; RouteMath.SIGNAL_GAP_NANOS }
 val position = fix?.takeIf { it.sample.usablePosition }?.let { interpolate(index, time) }</code></pre>
@@ -976,7 +1008,7 @@ val position = fix?.takeIf { it.sample.usablePosition }?.let { interpolate(index
       <div class="table-wrap"><table class="wrap-cells">
         <thead><tr><th scope="col">Part</th><th scope="col">Behaviour</th></tr></thead>
         <tbody>
-          <tr><th scope="row">Sensor record</th><td>While a trip records, <a href="app/src/main/java/com/example/cvkegps/tracking/AndroidMotionSource.kt"><code>AndroidMotionSource</code></a> stores the accelerometer (m/s², with gravity, along the phone's axes) and the game rotation vector at 50 readings each second, and the barometer (hPa) at up to 10 each second.
+          <tr><th scope="row">Sensor record</th><td>While a trip records, <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/AndroidMotionSource.kt"><code>AndroidMotionSource</code></a> stores the accelerometer (m/s², with gravity, along the phone's axes) and the game rotation vector at 50 readings each second, and the barometer (hPa) at up to 10 each second.
           Events arrive on a worker thread. About every 2 seconds, one chunk for each sensor goes through the recorder's command queue into the <code>sensor_chunks</code> table, in the segment that was open at its time. Pause, Stop, and an interruption stop the sensors; the last readings arrive after them. A sensor that the phone does not have is not recorded.</td></tr>
           <tr><th scope="row">Network positions</th><td>After 10 seconds without a GPS fix, a recording trip asks Android's network provider for a position every 5 seconds, until the next GPS fix. The Speed tab never uses them. A network position stores its position and accuracy only: no speed, direction, or height, also when Android supplies them.
           It forms its own route line. The change between sources adds no distance. The current trip shows <strong>No GPS: approximate position</strong>, and the map draws the line dashed in the warning colour. A saved trip explains the dashed line in its technical details. GPX files mark these points with <code>&lt;src&gt;network&lt;/src&gt;</code>. On by default; Settings can turn it off.</td></tr>
@@ -986,7 +1018,7 @@ val position = fix?.takeIf { it.sample.usablePosition }?.let { interpolate(index
           <tr><th scope="row">Storage</th><td>Database version 4 deletes older trips. The app is not published, so it has no migration. The old distance migration and its device test are removed.</td></tr>
         </tbody>
       </table></div>
-      <pre><code><a href="app/src/main/java/com/example/cvkegps/tracking/SharedLocationSource.kt">SharedLocationSource.kt</a> · the GPS request for the active features
+      <pre><code><a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/SharedLocationSource.kt">SharedLocationSource.kt</a> · the GPS request for the active features
 val high = recordingOwned &amp;&amp; options.highAccuracy
 val next = if (high) Profile(HIGH_INTERVAL_MILLIS, 0L, batch = false)
     else Profile(1_000L, 1_000L, batch = !foreground &amp;&amp; displayCount == 0)</code></pre>
@@ -1027,13 +1059,13 @@ val next = if (high) Profile(HIGH_INTERVAL_MILLIS, 0L, batch = false)
     <section id="settings-screen" aria-labelledby="settings-screen-heading">
       <div class="section-head"><h2 id="settings-screen-heading">Settings screen · 28 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
       <p class="section-intro">Settings is now one long page in the owner's design language: a heading and a card for each section, switches for on and off, radio rows for choices that need an explanation, and a pill segmented control for short choices such as units.
-      Each change saves at once and shows <strong>Saved</strong> with a check next to its section heading for 2 seconds. The settings are in <a href="app/src/main/java/com/example/cvkegps/settings/AppSettings.kt"><code>AppSettings.kt</code></a> and <a href="app/src/main/java/com/example/cvkegps/settings/Units.kt"><code>Units.kt</code></a>.
-      The screen is in <a href="app/src/main/java/com/example/cvkegps/ui/SettingsScreen.kt"><code>SettingsScreen.kt</code></a>.</p>
+      Each change saves at once and shows <strong>Saved</strong> with a check next to its section heading for 2 seconds. The settings are in <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/settings/AppSettings.kt"><code>AppSettings.kt</code></a> and <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/settings/Units.kt"><code>Units.kt</code></a>.
+      The screen is in <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/ui/SettingsScreen.kt"><code>SettingsScreen.kt</code></a>.</p>
       <div class="table-wrap"><table class="wrap-cells">
         <thead><tr><th scope="col">Section</th><th scope="col">Options and behaviour</th></tr></thead>
         <tbody>
           <tr><th scope="row">Units</th><td>Speed: km/h, mph, or kn. Distance: km, mi, or nmi. Altitude: m or ft. Without a choice, the units follow the device region: miles and feet in the United States, Liberia, and Myanmar, miles and metres in the United Kingdom, and metric units in other regions.
-          The units apply to the Speed tab, the current trip, saved trips, the trip list, and the notification (text and the Android 17 metric card). Measurements stay in SI units until <a href="app/src/main/java/com/example/cvkegps/ui/DisplayFormat.kt"><code>DisplayFormat</code></a> formats them. Accuracy values, GPS details, and GPX files stay in SI units. Screen readers hear unit names in full, for example "knots".</td></tr>
+          The units apply to the Speed tab, the current trip, saved trips, the trip list, and the notification (text and the Android 17 metric card). Measurements stay in SI units until <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/ui/DisplayFormat.kt"><code>DisplayFormat</code></a> formats them. Accuracy values, GPS details, and GPX files stay in SI units. Screen readers hear unit names in full, for example "knots".</td></tr>
           <tr><th scope="row">Altitude reference</th><td><strong>Above sea level</strong> is the default. On Android 14 and later, <code>AltitudeConverter</code> calculates it from the GPS height and the geoid model on the device. The conversion reads model data from disk, so it runs on a background thread. The reading shows when the sea-level value is known, so the value does not change between the two heights.
           <strong>GPS height</strong> is the height above the WGS 84 ellipsoid. Before Android 14 the app shows the GPS height, and the sea-level choice is disabled with the text "Needs Android 14 or later". The altitude card names the reference, for example "Above sea level". Trips do not store the sea-level altitude.</td></tr>
           <tr><th scope="row">Screen</th><td><strong>Keep the screen on</strong>: Never (the default), During a trip (only while a trip records, so a paused trip lets the screen turn off), or Always. Two switches select the screens: the Speed tab and the current trip map. They are disabled while the choice is Never.
@@ -1042,7 +1074,7 @@ val next = if (high) Profile(HIGH_INTERVAL_MILLIS, 0L, batch = false)
           <tr><th scope="row">About</th><td>App version and "Location stays on this device."</td></tr>
         </tbody>
       </table></div>
-      <pre><code><a href="app/src/main/java/com/example/cvkegps/ui/AppShell.kt">AppShell.kt</a> · KeepScreenOnWhenChosen
+      <pre><code><a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/ui/AppShell.kt">AppShell.kt</a> · KeepScreenOnWhenChosen
 val screen = (top == Destination.Speed &amp;&amp; settings.screenOnSpeed) || (top == Destination.LiveTrip &amp;&amp; settings.screenOnTripMap)
 val keepOn = screen &amp;&amp; when (settings.screenOn) {
     ScreenOn.Off -&gt; false
@@ -1064,7 +1096,7 @@ val keepOn = screen &amp;&amp; when (settings.screenOn) {
       </div>
       <article class="panel" style="margin-top:24px"><h3>Verification</h3>
         <ul>
-          <li>Pixel 10 Pro emulator, Android 17 (API 37), with the development Maps API key: all 45 device tests passed before the last change (the section heading "Altitude reference" and two screenshots in the test). After that change, the 4 tests in <a href="app/src/androidTest/java/com/example/cvkegps/SettingsDeviceTest.kt"><code>SettingsDeviceTest</code></a> passed again.</li>
+          <li>Pixel 10 Pro emulator, Android 17 (API 37), with the development Maps API key: all 45 device tests passed before the last change (the section heading "Altitude reference" and two screenshots in the test). After that change, the 4 tests in <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/androidTest/java/com/example/cvkegps/SettingsDeviceTest.kt"><code>SettingsDeviceTest</code></a> passed again.</li>
           <li><code>SettingsDeviceTest</code> checks: the region units and then knots on the Speed tab; sea level between 110 m and 125 m for a GPS height of 100 m near Vancouver; GPS height; the choices after recreation; where and when the screen stays on, also with a paused trip; the dim after 1 minute and the bright screen after a touch; and the layout in light, dark, 200% text, portrait, and landscape.</li>
           <li><code>SpeedometerDeviceTest</code> now sets km/h, metres, and GPS height before each test, because it checks fixed values. The trip tests use the region units through <code>DisplayFormat</code>.</li>
           <li>37 of 37 calculation tests passed, with new tests for imperial and nautical conversion, region units, the old screen switch, and unknown stored values. Debug build, test build, debug lint, and the unsigned release build passed.</li>
@@ -1090,7 +1122,7 @@ val keepOn = screen &amp;&amp; when (settings.screenOn) {
       <div class="table-wrap"><table class="wrap-cells">
         <thead><tr><th scope="col">Item</th><th scope="col">Change</th></tr></thead>
         <tbody>
-          <tr><th scope="row">Rule</th><td>The app shell sets the screen-on flag once, from the screen at the top of the back stack (<a href="app/src/main/java/com/example/cvkegps/ui/AppShell.kt"><code>KeepScreenOnWhenChosen</code></a>).
+          <tr><th scope="row">Rule</th><td>The app shell sets the screen-on flag once, from the screen at the top of the back stack (<a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/ui/AppShell.kt"><code>KeepScreenOnWhenChosen</code></a>).
           Before, the Speed screen set the flag itself. If two screens each set it, the screen that leaves during a transition could clear the flag after the new screen set it.</td></tr>
           <tr><th scope="row">Setting text</th><td><strong>Keep the screen on for speed and the current trip</strong>. The screen stays on only while the Speed tab or the current trip map shows. This uses more battery.</td></tr>
           <tr><th scope="row">Device test</th><td><code>keepScreenOnIsOffByDefaultAndAppliesOnlyToSpeedAndTheCurrentTrip</code> also opens the current trip from the Trips tab and checks that the screen stays on there and turns off again after Back.</td></tr>
@@ -1112,9 +1144,9 @@ val keepOn = screen &amp;&amp; when (settings.screenOn) {
     <section id="design-language" aria-labelledby="design-language-heading">
       <div class="section-head"><h2 id="design-language-heading">Owner's design language · 27 October 2026</h2><span class="tag done">Implemented and checked on an emulator</span></div>
       <p class="section-intro">The app now uses the owner's design language (My Design Language, touch dialect) in place of the earlier warm Material palette.
-      Colours, type, spacing, radii, sizes, and motion come from the design tokens in <a href="app/src/main/java/com/example/cvkegps/ui/theme/Tokens.kt"><code>Tokens.kt</code></a>.
-      <a href="app/src/main/java/com/example/cvkegps/ui/theme/Theme.kt"><code>Theme.kt</code></a> maps them to Material roles, and
-      <a href="app/src/main/java/com/example/cvkegps/ui/theme/Components.kt"><code>Components.kt</code></a> holds the shared parts. Behaviour and app text did not change, except where the table says so.</p>
+      Colours, type, spacing, radii, sizes, and motion come from the design tokens in <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/ui/theme/Tokens.kt"><code>Tokens.kt</code></a>.
+      <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/ui/theme/Theme.kt"><code>Theme.kt</code></a> maps them to Material roles, and
+      <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/ui/theme/Components.kt"><code>Components.kt</code></a> holds the shared parts. Behaviour and app text did not change, except where the table says so.</p>
       <div class="table-wrap"><table class="wrap-cells">
         <thead><tr><th scope="col">Area</th><th scope="col">Change</th></tr></thead>
         <tbody>
@@ -1239,28 +1271,28 @@ val keepOn = screen &amp;&amp; when (settings.screenOn) {
           <tr><th scope="row">R03 · A trip read failure closed the app</th>
             <td>Trip list and trip detail reads have three states: loading, data, and failed. A failed read shows <strong>The app cannot read the saved trips. The trips stay on the phone.</strong> and <strong>Try again</strong>, which starts new reads.
             GPX export also catches database errors. Cancellation is not an error. The database is never deleted or made again.
-            (<a href="app/src/main/java/com/example/cvkegps/tracking/TrackingViewModel.kt">TrackingViewModel.kt</a>)</td>
+            (<a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/TrackingViewModel.kt">TrackingViewModel.kt</a>)</td>
             <td><code>storageReadFailureShowsAnErrorAndRetryReadsTheSameTrip</code>: renames the trips table through Room's own connection, checks export, the saved trip, and the list, then restores the name and retries. Point and segment counts stay the same.
             With the earlier export code, the test stopped with <code>SQLiteException: no such table: trips</code>.</td></tr>
           <tr><th scope="row">R01 · Poor fixes kept an old map position current</th>
             <td>The marker's colour, accuracy area, and direction arrow use the shown point's own fix time and the 10 second limit. The screen schedules the expiry, so it happens also without a new fix.
             The map also tells a screen reader whether the position is current or old.
-            (<a href="app/src/main/java/com/example/cvkegps/tracking/TripComponents.kt">rememberPositionCurrent</a>)</td>
+            (<a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/TripComponents.kt">rememberPositionCurrent</a>)</td>
             <td><code>poorFixesDoNotKeepAnOldMapPositionCurrent</code>: good fixes, then 100 m fixes for 12.5 seconds with a recreation. The marker becomes old, the status stays <strong>Recording</strong>, a good fix makes it current again, and it becomes old again without fixes.
             It fails with the earlier rule. A calculation test checks the 10 second limit exactly.</td></tr>
           <tr><th scope="row">R05 · Resume after Stop and save stayed on Starting…</th>
             <td>The controller keeps the whole pending command, with its reopen flag, through the access dialog and activity recreation. A resume from a saved trip opens Current trip only after the recorder resumes the trip.
             A refusal stays on the saved trip and shows <strong>This trip cannot continue. A saved trip can continue only for 2 minutes after Stop and save.</strong> The 2-minute rule stays in <code>TripRecorder</code>.
-            (<a href="app/src/main/java/com/example/cvkegps/tracking/TrackingController.kt">TrackingController.kt</a>)</td>
+            (<a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/TrackingController.kt">TrackingController.kt</a>)</td>
             <td><code>undoAfterLocationRecoveryContinuesTheSameTrip</code> (fails with the earlier code) and <code>undoAfterTheTimeLimitShowsARefusalOnTheSavedTrip</code>. The same trip records in a second segment with one GPS request.</td></tr>
           <tr><th scope="row">R02 · A short, narrow window hid the map</th>
             <td>Current trip uses the side pane at compact height only when it has 600 dp of width. A narrower window shows a header with Back, the status, the speed, and Details; the full-width map; and Pause and Stop below it.
             A short map shows its three 48 dp buttons in a row and the attribution on one line. With 200% text the speed moves to the details sheet, so the map keeps its height.
-            (<a href="app/src/main/java/com/example/cvkegps/tracking/LiveTripScreen.kt">LiveTripScreen.kt</a>)</td>
+            (<a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/LiveTripScreen.kt">LiveTripScreen.kt</a>)</td>
             <td><code>shortNarrowWindowKeepsTheMapBackAndTripButtonsUsable</code>: 320 × 400 dp and 400 × 400 dp at text scale 1.0 and 2.0. The map keeps at least 80% of the width. Back, the map buttons, Details, Pause, and Stop have 48 dp touch areas. Display size and text scale are restored.</td></tr>
           <tr><th scope="row">R04 · Settings were read on the main thread, and an early Off was lost</th>
             <td>All preference access runs in order on one IO worker. A choice made before the first read wins, also when it is false, and a write changes only its own value.
-            (<a href="app/src/main/java/com/example/cvkegps/settings/AppSettings.kt">AppSettings.kt</a>)</td>
+            (<a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/settings/AppSettings.kt">AppSettings.kt</a>)</td>
             <td><code>AppSettingsTest</code>: a delayed read with an Off choice and with On choices before it finishes. The preference file is opened and read away from the screen thread.</td></tr>
           <tr><th scope="row">V01 · Two device tests depended on time</th>
             <td>The home ring test supplies new compass readings while it waits for a current heading, because a reading expires after 2 seconds. The production limit did not change.
@@ -1467,11 +1499,11 @@ val keepOn = screen &amp;&amp; when (settings.screenOn) {
         <p class="test-note"><strong>Still needs a real device:</strong> a receiver that reports a speed accuracy that is not a valid number, GPS accuracy, and battery use.
         The screens did not change, so this section has no screenshots. No release build was made for this change.</p>
         <p class="source">Debug APK SHA-256: <code>7c80ba6e58e2b7a691a724b317808831a9abb98bd9cf1919f6ff48c11c65c270</code>. Local evidence: <code>artifacts/fix-interpretation/</code>.
-        Sources: <a href="app/src/main/java/com/example/cvkegps/location/FixInterpreter.kt">FixInterpreter.kt</a>,
-        <a href="app/src/main/java/com/example/cvkegps/location/TrackSample.kt">TrackSample.kt</a>,
-        <a href="app/src/main/java/com/example/cvkegps/location/AndroidFix.kt">AndroidFix.kt</a>,
-        <a href="app/src/main/java/com/example/cvkegps/tracking/SharedLocationSource.kt">SharedLocationSource.kt</a>,
-        <a href="app/src/test/java/com/example/cvkegps/location/FixInterpreterTest.kt">FixInterpreterTest.kt</a>.</p>
+        Sources: <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/location/FixInterpreter.kt">FixInterpreter.kt</a>,
+        <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/location/TrackSample.kt">TrackSample.kt</a>,
+        <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/location/AndroidFix.kt">AndroidFix.kt</a>,
+        <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/SharedLocationSource.kt">SharedLocationSource.kt</a>,
+        <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/test/java/com/example/cvkegps/location/FixInterpreterTest.kt">FixInterpreterTest.kt</a>.</p>
       </article>
       <details style="margin-top:18px">
         <summary>The reading takes its speed from the track sample</summary>
@@ -1484,7 +1516,7 @@ val issue = when {
     speed == null -&gt; SpeedIssue.SpeedAccuracy
     else -&gt; null
 }</code></pre>
-        <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/location/FixInterpreter.kt">FixInterpreter.kt</a>.</p>
+        <p class="source">Source excerpt: <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/location/FixInterpreter.kt">FixInterpreter.kt</a>.</p>
       </details>
     </section>
 
@@ -1577,15 +1609,15 @@ val issue = when {
       <p class="note"><strong>Emulator restarts:</strong> during the distance change, the emulator's Android system stopped twice in
       <code>homeAndSavedMapFitThemesLargeTextAndRotation</code> (<code>DeadSystemException</code> in system apps, load average 36 with 2.5 GB of emulator memory), and then the emulator closed.
       The app process was not the cause in the logs. After a cold start of the emulator, the remaining tests passed one at a time.</p>
-      <p class="source">Local evidence: <code>artifacts/ux-review/</code>. Sources: <a href="app/src/main/java/com/example/cvkegps/tracking/ActivityEstimate.kt">ActivityEstimate.kt</a>,
-      <a href="app/src/main/java/com/example/cvkegps/ui/DisplayFormat.kt">DisplayFormat.kt</a>, <a href="app/src/test/java/com/example/cvkegps/ui/DisplayFormatTest.kt">DisplayFormatTest.kt</a>,
-      <a href="app/src/main/java/com/example/cvkegps/tracking/TrackingController.kt">TrackingController.kt</a>, <a href="app/src/main/java/com/example/cvkegps/tracking/TrackingHost.kt">TrackingHost.kt</a>.</p>
+      <p class="source">Local evidence: <code>artifacts/ux-review/</code>. Sources: <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/ActivityEstimate.kt">ActivityEstimate.kt</a>,
+      <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/ui/DisplayFormat.kt">DisplayFormat.kt</a>, <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/test/java/com/example/cvkegps/ui/DisplayFormatTest.kt">DisplayFormatTest.kt</a>,
+      <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/TrackingController.kt">TrackingController.kt</a>, <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/TrackingHost.kt">TrackingHost.kt</a>.</p>
       <details style="margin-top:18px">
         <summary>One conversion from metres per second</summary>
         <pre><code>fun speedNumber(metersPerSecond: Float): String = speedNumber.format(metersPerSecond * KMH_PER_MPS)
 
 fun speed(metersPerSecond: Float): String = text(R.string.trip_speed_value, arrayOf(speedNumber(metersPerSecond)))</code></pre>
-        <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/ui/DisplayFormat.kt">DisplayFormat.kt</a>.</p>
+        <p class="source">Source excerpt: <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/ui/DisplayFormat.kt">DisplayFormat.kt</a>.</p>
       </details>
     </section>
 
@@ -1616,8 +1648,8 @@ fun speed(metersPerSecond: Float): String = text(R.string.trip_speed_value, arra
       <figcaption><strong>Android share sheet with the GPX file</strong>23 October 2026. Baseline <code>5036b47</code> plus this change. Debug APK <code>ce42dfdb</code>. API 36 emulator. The trip was recorded from simulated Android test locations. Captured by the device test.</figcaption></figure></div>
       <p class="source">Debug APK SHA-256: <code>ce42dfdb109a978765dafeeac68982fa753d4b87f58da598b31828ba6fd77e21</code>. Local evidence: <code>artifacts/gpx-build.log</code>, <code>artifacts/gpx-tracking-test.log</code>,
       <code>artifacts/gpx-tracking-test.xml</code>, and <code>artifacts/gpx-test-single.log</code>.
-      Sources: <a href="app/src/main/java/com/example/cvkegps/tracking/Gpx.kt">Gpx.kt</a>, <a href="app/src/main/java/com/example/cvkegps/tracking/TrackingViewModel.kt">TrackingViewModel.kt</a>,
-      <a href="app/src/main/java/com/example/cvkegps/tracking/TrackingController.kt">TrackingController.kt</a>, <a href="app/src/test/java/com/example/cvkegps/tracking/GpxTest.kt">GpxTest.kt</a>.</p>
+      Sources: <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/Gpx.kt">Gpx.kt</a>, <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/TrackingViewModel.kt">TrackingViewModel.kt</a>,
+      <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/TrackingController.kt">TrackingController.kt</a>, <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/test/java/com/example/cvkegps/tracking/GpxTest.kt">GpxTest.kt</a>.</p>
       <details style="margin-top:18px">
         <summary>One track segment for each route line</summary>
         <pre><code>for (line in lines) {
@@ -1625,7 +1657,7 @@ fun speed(metersPerSecond: Float): String = text(R.string.trip_speed_value, arra
     for (sample in line) {
         // Locale.ROOT keeps a decimal point in every language.
         val lat = String.format(Locale.ROOT, "%.7f", Math.toDegrees(sample.latitudeRadians))</code></pre>
-        <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/tracking/Gpx.kt">Gpx.kt</a>.</p>
+        <p class="source">Source excerpt: <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/Gpx.kt">Gpx.kt</a>.</p>
       </details>
     </section>
 
@@ -1659,13 +1691,13 @@ fun speed(metersPerSecond: Float): String = text(R.string.trip_speed_value, arra
         The emulator screen recorder drops frames, so frame timing comes from the test clock.</p>
         <p class="source">Final debug APK SHA-256: <code>82257b68c8b672bc5b9395bafb2ac84cbbed23bd85d28e9ba6ad56f035b45374</code>. Local evidence: <code>artifacts/transitions/</code>, <code>artifacts/transitions-full-test.xml</code>,
         <code>artifacts/transitions-rerun-live-tracker.log</code>, <code>artifacts/transitions-tracking-test.xml</code>, and <code>artifacts/transitions-test-default-fade.log</code>.
-        Source: <a href="app/src/main/java/com/example/cvkegps/ui/AppShell.kt">AppShell.kt</a>.</p>
+        Source: <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/ui/AppShell.kt">AppShell.kt</a>.</p>
       </article>
       <details style="margin-top:18px">
         <summary>Shared horizontal axis</summary>
         <pre><code>return (slideInHorizontally(slide) { width -&gt; direction * width / 12 } + fade.targetContentEnter) togetherWith
     (slideOutHorizontally(slide) { width -&gt; -direction * width / 12 } + fade.initialContentExit)</code></pre>
-        <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/ui/AppShell.kt">AppShell.kt</a>.</p>
+        <p class="source">Source excerpt: <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/ui/AppShell.kt">AppShell.kt</a>.</p>
       </details>
     </section>
 
@@ -1707,16 +1739,16 @@ fun speed(metersPerSecond: Float): String = text(R.string.trip_speed_value, arra
         <p class="test-note"><strong>Not checked:</strong> the notification on a physical device, other languages and date formats, TalkBack, and a release build.</p>
         <p class="source">Debug APK SHA-256: <code>d111f808b9ea9e70b453ad7e4f19f9983a8a249c03af5f8e2662bc09f3c00bea</code>. Local evidence: <code>artifacts/polish-captures/</code>,
         <code>artifacts/polish-build.log</code>, <code>artifacts/polish-tracking-test.log</code>, and <code>artifacts/polish-tracking-test.xml</code>.
-        Sources: <a href="app/src/main/java/com/example/cvkegps/tracking/TripsScreen.kt">TripsScreen.kt</a>,
-        <a href="app/src/main/java/com/example/cvkegps/tracking/RecordingService.kt">RecordingService.kt</a>,
-        <a href="app/src/main/java/com/example/cvkegps/tracking/RecordingBar.kt">RecordingBar.kt</a>,
-        <a href="app/src/main/res/values/tracking_strings.xml">tracking_strings.xml</a>.</p>
+        Sources: <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/TripsScreen.kt">TripsScreen.kt</a>,
+        <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/RecordingService.kt">RecordingService.kt</a>,
+        <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/RecordingBar.kt">RecordingBar.kt</a>,
+        <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/res/values/tracking_strings.xml">tracking_strings.xml</a>.</p>
       </article>
       <details style="margin-top:18px">
         <summary>Notification: the system counts the recording time</summary>
         <pre><code>val elapsedMillis = (state.segmentBaseDurationNanos + SystemClock.elapsedRealtimeNanos() - segmentStart) / 1_000_000
 builder.setWhen(System.currentTimeMillis() - elapsedMillis.coerceAtLeast(0)).setUsesChronometer(true).setShowWhen(true)</code></pre>
-        <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/tracking/RecordingService.kt">RecordingService.kt</a>.</p>
+        <p class="source">Source excerpt: <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/RecordingService.kt">RecordingService.kt</a>.</p>
       </details>
     </section>
 
@@ -1764,8 +1796,8 @@ builder.setWhen(System.currentTimeMillis() - elapsedMillis.coerceAtLeast(0)).set
         The Trips list shows the stored recording time for an active trip. The recording bar shows the live time.</p>
         <p class="source">Debug APK SHA-256: <code>cc8cbdd7d08e913fc2832f7d86c03a8f3402d8dccf853172fef672ed322f56c7</code>. Local evidence: <code>artifacts/nav-redesign/</code>,
         <code>artifacts/nav-connected-test.log</code>, and <code>artifacts/nav-build.log</code>.
-        Sources: <a href="app/src/main/java/com/example/cvkegps/ui/AppNavigation.kt">AppNavigation.kt</a>, <a href="app/src/main/java/com/example/cvkegps/ui/AppShell.kt">AppShell.kt</a>,
-        <a href="app/src/main/java/com/example/cvkegps/tracking/RecordingBar.kt">RecordingBar.kt</a>.</p>
+        Sources: <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/ui/AppNavigation.kt">AppNavigation.kt</a>, <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/ui/AppShell.kt">AppShell.kt</a>,
+        <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/RecordingBar.kt">RecordingBar.kt</a>.</p>
       </article>
       <article id="trip-opening" class="panel" style="margin-top:24px"><h3>Trip opening without loading messages · 23 October 2026</h3>
         <p>A saved trip showed "Loading trip…" during the screen transition. The screen selected the trip only after its first frame.
@@ -1787,15 +1819,15 @@ builder.setWhen(System.currentTimeMillis() - elapsedMillis.coerceAtLeast(0)).set
         In the full run, <code>homeFitsWithoutScrollWithLargeTextAndRotation</code> timed out while it waited for the emulator to apply a font and rotation change.
         It passed in two separate reruns; the earlier three full runs also passed. Two screen recordings were inspected frame by frame. The second had no status message in any frame.
         <strong>Not checked:</strong> long trips with many points, a slow network, and a physical device. Map tiles still need the network, so the map area can stay plain until they arrive.</p>
-        <p class="source">Sources: <a href="app/src/main/java/com/example/cvkegps/tracking/TrackingViewModel.kt">TrackingViewModel.kt</a>,
-        <a href="app/src/main/java/com/example/cvkegps/tracking/SavedTripScreen.kt">SavedTripScreen.kt</a>, <a href="app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt">RouteMap.kt</a>.
+        <p class="source">Sources: <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/TrackingViewModel.kt">TrackingViewModel.kt</a>,
+        <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/SavedTripScreen.kt">SavedTripScreen.kt</a>, <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt">RouteMap.kt</a>.
         Local evidence: <code>artifacts/loading-check/</code> and <code>artifacts/loading-test.log</code>.</p>
       </article>
       <details style="margin-top:18px">
         <summary>Back stack: Trips shows above the Speed root</summary>
         <p>Android Back from the Trips root therefore returns to Speed without a separate back handler.</p>
         <pre><code>val backStack: List&lt;Destination&gt; get() = if (tab == Tab.Speed) speed.toList() else listOf(Destination.Speed) + trips</code></pre>
-        <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/ui/AppNavigation.kt">AppNavigation.kt</a>.</p>
+        <p class="source">Source excerpt: <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/ui/AppNavigation.kt">AppNavigation.kt</a>.</p>
       </details>
     </section>
 
@@ -1820,7 +1852,7 @@ builder.setWhen(System.currentTimeMillis() - elapsedMillis.coerceAtLeast(0)).set
         <p>This update changes the caption layout only. Earlier functional and calculation checks are recorded below.
         Physical-device and TalkBack checks remain open. No release check was run for this update.</p>
         <p class="source">Debug APK SHA-256: <code>3fb007cafe44ca3e495742a3e9c3073aa5526c9f3850b99ebf3f1c2a11371eac</code>. Local evidence: <code>artifacts/map-attribution/</code> and <code>artifacts/map-attribution-build.log</code>.
-        Source: <a href="app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt">map attribution</a>.</p>
+        Source: <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt">map attribution</a>.</p>
       </article>
     </section>
 
@@ -1869,9 +1901,9 @@ builder.setWhen(System.currentTimeMillis() - elapsedMillis.coerceAtLeast(0)).set
         <p>Physical-device accuracy, power use, TalkBack operation, long trips, Doze, Battery Saver, and API 29/37 flows still need checks.
         Offline map failure remains unverified. Release results below refer to earlier code; no release check is claimed for this update.</p>
         <p class="source">Debug APK SHA-256: <code>6e0db4357b1f3903b98b7c08cf8c7a125d0710b67ec3a24337662bde92c1e1dc</code>. Local evidence: <code>artifacts/ui-polish/</code> and <code>artifacts/ui-polish-build.log</code>.
-        Source: <a href="app/src/main/java/com/example/cvkegps/tracking/LiveTripScreen.kt">tracking screens</a>,
-        <a href="app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt">map controls</a>, and
-        <a href="app/src/androidTest/java/com/example/cvkegps/TrackingDeviceTest.kt">device tests</a>.</p>
+        Source: <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/LiveTripScreen.kt">tracking screens</a>,
+        <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt">map controls</a>, and
+        <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/androidTest/java/com/example/cvkegps/TrackingDeviceTest.kt">device tests</a>.</p>
       </article>
     </section>
 
@@ -1961,7 +1993,7 @@ builder.setWhen(System.currentTimeMillis() - elapsedMillis.coerceAtLeast(0)).set
         The live map follows the latest saved position. A map gesture stops following. Select Follow route to restore it.</p>
       <p>Source: <code>dd886b5</code>. The tested app also includes the earlier GPS display work.
         See the <a href="docs/tracking-implementation-plan.html#design-correction">corrected plan</a> and
-        <a href="app/src/main/java/com/example/cvkegps/tracking/ActivityEstimate.kt">activity rules</a>.</p>
+        <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/ActivityEstimate.kt">activity rules</a>.</p>
       <div class="screens">
         <figure class="shot"><a href="docs/progress/images/2026-10-21-tracker-home-light.png"><img
           src="docs/progress/images/2026-10-21-tracker-home-light.png" width="1080" height="2340"
@@ -2302,7 +2334,7 @@ builder.setWhen(System.currentTimeMillis() - elapsedMillis.coerceAtLeast(0)).set
         <p class="small">Local logs: <code>artifacts/tracking-plan/final-build.log</code>,
           <code>artifacts/tracking-plan/final-*.log</code>, <code>artifacts/tracking-plan/recovery.log</code>,
           and <code>artifacts/tracking-plan/commit-check-build.log</code>. Generated logs are not stored in Git.
-          Repeat process-loss verification with <a href="scripts/check-interrupted-trip.py">the external emulator check</a>.</p>
+          Repeat process-loss verification with <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/scripts/check-interrupted-trip.py">the external emulator check</a>.</p>
       </article>
       <h3 style="margin:24px 0">Earlier display verification</h3>
 
@@ -2324,8 +2356,8 @@ builder.setWhen(System.currentTimeMillis() - elapsedMillis.coerceAtLeast(0)).set
           references, not hardware limits. No physical-device accuracy or battery check was done for this change.</p>
         <p class="source">Evidence: build and lint log (<code>artifacts/accuracy-scale-build.log</code>; local only),
           focused device results (<code>artifacts/accuracy-scale-test-results.json</code>; local only),
-          <a href="app/src/main/java/com/example/cvkegps/ui/PositionAccuracy.kt">bar and notch source</a>,
-          <a href="app/src/main/java/com/example/cvkegps/location/SatelliteDisplay.kt">accuracy scale source</a>.</p>
+          <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/ui/PositionAccuracy.kt">bar and notch source</a>,
+          <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/location/SatelliteDisplay.kt">accuracy scale source</a>.</p>
       </div>
       <div class="panel" style="margin-bottom:24px" id="constellation-verification">
         <h3>Earlier constellation experiment · 21 October 2026</h3>
@@ -2347,7 +2379,7 @@ builder.setWhen(System.currentTimeMillis() - elapsedMillis.coerceAtLeast(0)).set
           All 55 local links and anchors resolved.</p>
         <p class="source">Evidence: build and lint log (<code>artifacts/constellation-build.log</code>; local only),
           device results and APK hashes (<code>artifacts/constellation-test-results.json</code>; local only),
-          <a href="app/src/androidTest/java/com/example/cvkegps/SatelliteDisplayDeviceTest.kt">controlled GNSS tests</a>.</p>
+          <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/androidTest/java/com/example/cvkegps/SatelliteDisplayDeviceTest.kt">controlled GNSS tests</a>.</p>
       </div>
       <div class="note" style="margin:0 0 24px"><strong>GPS details · Earlier result, 20 October 2026.</strong>
         Installed the new debug build on the Pixel 7 Pro. The user ran it and reported that it worked correctly.
@@ -2365,7 +2397,7 @@ builder.setWhen(System.currentTimeMillis() - elapsedMillis.coerceAtLeast(0)).set
         After two denials, Android marked both location permissions as <code>USER_FIXED</code>.
         The app still showed “Allow precise location”. A third tap opened no dialog.
         The old callback could leave the settings action out of date.
-        <a href="app/src/main/java/com/example/cvkegps/ui/SpeedometerRoute.kt">The fix</a> updates observable permission state
+        <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/ui/SpeedometerRoute.kt">The fix</a> updates observable permission state
         after each result and when the app resumes. A second code review found no new permission defect.
         The new automated test checks two denials, activity recreation, and the Android App info page.
         It grants permission through Android's test API, checks that no GPS request exists while Settings is open,
@@ -2437,7 +2469,7 @@ builder.setWhen(System.currentTimeMillis() - elapsedMillis.coerceAtLeast(0)).set
           </ul>
         </article>
       </div>
-      <p class="test-note">Evidence: <a href="app/src/androidTest/java/com/example/cvkegps/SpeedometerDeviceTest.kt">device test source</a>
+      <p class="test-note">Evidence: <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/androidTest/java/com/example/cvkegps/SpeedometerDeviceTest.kt">device test source</a>
         and <a href="README.md">dated build notes</a>.
         Local output: seven-test result and APK hashes (<code>artifacts/permission-device-results.json</code>; local only),
         tested source hashes (<code>artifacts/permission-verified-source-hashes.json</code>; local only), and
@@ -2467,7 +2499,7 @@ builder.setWhen(System.currentTimeMillis() - elapsedMillis.coerceAtLeast(0)).set
     ContextCompat.checkSelfPermission(activity, Manifest.permission.ACCESS_FINE_LOCATION) !=
     PackageManager.PERMISSION_GRANTED &amp;&amp;
     !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.ACCESS_FINE_LOCATION)</code></pre>
-        <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/ui/SpeedometerRoute.kt">SpeedometerRoute.kt</a>.</p>
+        <p class="source">Source excerpt: <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/ui/SpeedometerRoute.kt">SpeedometerRoute.kt</a>.</p>
       </details>
       <details open>
         <summary>Measurement model: SI units and explicit missing values</summary>
@@ -2478,16 +2510,16 @@ builder.setWhen(System.currentTimeMillis() - elapsedMillis.coerceAtLeast(0)).set
 val altitudeMeters: Double?,
 val accuracyMeters: Float?,
 val elapsedRealtimeNanos: Long,</code></pre>
-        <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/location/GpsSource.kt">GpsSource.kt</a>.</p>
+        <p class="source">Source excerpt: <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/location/GpsSource.kt">GpsSource.kt</a>.</p>
       </details>
       <details>
         <summary>Location ownership: recording continues after the screen stops</summary>
         <p>The shared source keeps one request while recording or while a visible speed display needs GPS.
           Trip Pause stops both demands. Route batches enter an ordered recorder queue before display updates.</p>
         <pre><code>val wanted = !paused &amp;&amp; (recordingOwned || displayCount &gt; 0)</code></pre>
-        <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/tracking/SharedLocationSource.kt">SharedLocationSource.kt</a>.
-          See <a href="app/src/main/java/com/example/cvkegps/tracking/TripRecorder.kt">TripRecorder.kt</a> for queue failure and save handling,
-          and <a href="app/src/main/java/com/example/cvkegps/tracking/TripDatabase.kt">TripDatabase.kt</a> for transactions.</p>
+        <p class="source">Source excerpt: <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/SharedLocationSource.kt">SharedLocationSource.kt</a>.
+          See <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/TripRecorder.kt">TripRecorder.kt</a> for queue failure and save handling,
+          and <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/TripDatabase.kt">TripDatabase.kt</a> for transactions.</p>
       </details>
       <details>
         <summary>Measurement quality: initial limits to validate outdoors</summary>
@@ -2496,10 +2528,10 @@ val elapsedRealtimeNanos: Long,</code></pre>
           10 seconds old. It also clears the screen if no fresh fix follows. These thresholds need field validation.</p>
         <pre><code>private const val MAX_HORIZONTAL_ERROR_METERS = 50f
 private const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
-        <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/location/TrackSample.kt">TrackSample.kt</a>.
-          Interpretation: <a href="app/src/main/java/com/example/cvkegps/location/FixInterpreter.kt">FixInterpreter.kt</a>.
-          Request interval: <a href="app/src/main/java/com/example/cvkegps/tracking/SharedLocationSource.kt">SharedLocationSource.kt</a>.
-          Freshness logic: <a href="app/src/main/java/com/example/cvkegps/ui/SpeedometerViewModel.kt">SpeedometerViewModel.kt</a>.</p>
+        <p class="source">Source excerpt: <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/location/TrackSample.kt">TrackSample.kt</a>.
+          Interpretation: <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/location/FixInterpreter.kt">FixInterpreter.kt</a>.
+          Request interval: <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/SharedLocationSource.kt">SharedLocationSource.kt</a>.
+          Freshness logic: <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/ui/SpeedometerViewModel.kt">SpeedometerViewModel.kt</a>.</p>
       </details>
       <details>
         <summary>Route framing: one zoom rule for a whole route</summary>
@@ -2507,15 +2539,15 @@ private const val MAX_SPEED_ERROR_METERS_PER_SECOND = 3f</code></pre>
           A route across the date line uses the shorter way round. A short route stops at zoom 17, and one point uses zoom 14. The rule has no Android types,
           so the iOS app can use the same behaviour. The Google map then receives a camera position, not a bounds request, so it does not need its final size first.</p>
         <pre><code>private fun zoomFor(span: Double, dp: Double): Double = if (span &lt;= 0.0) Double.POSITIVE_INFINITY else log2(dp * 2 * PI / (256 * span))</code></pre>
-        <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/tracking/TripModels.kt">RouteMath.frame in TripModels.kt</a>.
-          Map use: <a href="app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt">RouteMap.kt</a>.</p>
+        <p class="source">Source excerpt: <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/TripModels.kt">RouteMath.frame in TripModels.kt</a>.
+          Map use: <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt">RouteMap.kt</a>.</p>
       </details>
       <details>
         <summary>Satellite status: share one callback between home and details</summary>
         <p>Home and details observe satellite status through a separate interface.
           They share the existing location request. Pause, disabled location, or app inactivity removes the callback.</p>
         <pre><code>awaitClose { LocationManagerCompat.unregisterGnssStatusCallback(manager, callback) }</code></pre>
-        <p class="source">Source excerpt: <a href="app/src/main/java/com/example/cvkegps/location/AndroidGnssSource.kt">AndroidGnssSource.kt</a>.</p>
+        <p class="source">Source excerpt: <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/location/AndroidGnssSource.kt">AndroidGnssSource.kt</a>.</p>
       </details>
       <details>
         <summary>Sky ring and map: reported angles, signal brightness, and distinct satellites</summary>
@@ -2529,11 +2561,11 @@ val angle = azimuthRadians - headingRadians</code></pre>
         <pre><code>fun signalStrength(cn0DbHz: Float): Float =
     if (!cn0DbHz.isFinite()) 0f
     else ((cn0DbHz - SIGNAL_WEAK_DBHZ) / (SIGNAL_STRONG_DBHZ - SIGNAL_WEAK_DBHZ)).coerceIn(0f, 1f)</code></pre>
-        <p class="source">Sources: <a href="app/src/main/java/com/example/cvkegps/location/SkyPosition.kt">sky projection</a>,
-          <a href="app/src/main/java/com/example/cvkegps/location/SatelliteDisplay.kt">satellite grouping, signal scale, and bar scale</a>,
-          <a href="app/src/main/java/com/example/cvkegps/ui/SatelliteConstellation.kt">sky ring and map drawing</a>,
-          <a href="app/src/main/java/com/example/cvkegps/ui/CompassViewModel.kt">heading states and one-degree filter</a>,
-          <a href="app/src/main/java/com/example/cvkegps/ui/SpeedometerViewModel.kt">report expiry</a>.</p>
+        <p class="source">Sources: <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/location/SkyPosition.kt">sky projection</a>,
+          <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/location/SatelliteDisplay.kt">satellite grouping, signal scale, and bar scale</a>,
+          <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/ui/SatelliteConstellation.kt">sky ring and map drawing</a>,
+          <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/ui/CompassViewModel.kt">heading states and one-degree filter</a>,
+          <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/ui/SpeedometerViewModel.kt">report expiry</a>.</p>
       </details>
     </section>
 
@@ -2646,7 +2678,7 @@ val angle = azimuthRadians - headingRadians</code></pre>
           <p class="reason">Core recording and online route review are implemented. Simulated GPS tests do not prove accuracy or power use.</p>
         </article>
         <article class="panel roadmap-card">
-          <span class="tag neutral">Planned · iOS app</span>
+          <span class="tag pending">Started · iOS app</span>
           <h3>Keep the product consistent across platforms</h3>
           <ul>
             <li>Agree common measurement units, freshness rules, and trip data fields.</li>
@@ -2654,7 +2686,7 @@ val angle = azimuthRadians - headingRadians</code></pre>
             <li>Use the iOS design language for its interface.</li>
             <li>Validate equivalent user flows on iOS devices. Review code sharing only when both apps need it.</li>
           </ul>
-          <p class="reason">No iOS project exists in this repository yet.</p>
+          <p class="reason">Updated on 2 November 2026: the iOS app exists in <a href="https://github.com/Glebenator/cvkegps-ios">cvkegps-ios</a> and passed its UI flow on a simulator (see <a href="#ios-app">iOS app</a>). Validation on iOS devices remains open.</p>
         </article>
         <article class="panel roadmap-card">
           <span class="tag neutral">Optional · Select after the core works</span>
@@ -2677,6 +2709,8 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-11-02">2 November 2026</time><div><h3>Repository split</h3>
+<p>CVKE GPS now has three repositories: cvkegps for the product documents, cvkegps-android, and cvkegps-ios. Each app repository keeps its history and has its own rules and CI. Branch native-maps became main before the split. Links to app code go to the tag archive/before-split-2026-11-02. See <a href="#repo-split">the details</a>.</p></div></li>
 <li><time datetime="2026-11-02">2 November 2026</time><div><h3>App comparison fixes</h3>
 <p>A comparison of the two apps after the Android design review and performance review. The iOS Replay tap zooms the map at once, as on Android. A failed delete shows its own message in both apps. Android keeps numbers with their units at large text sizes. The iOS ADR is renumbered to 0007. The iOS UI flow passed on a simulator. The Android part is not built yet. See <a href="#app-comparison">evidence and limits</a>.</p></div></li>
 <li><time datetime="2026-11-02">2 November 2026</time><div><h3>Speed dial app icon</h3>

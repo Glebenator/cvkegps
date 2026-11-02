@@ -7,7 +7,7 @@ Status: research only. No app code changed. A decision needs an ADR.
 ## Problem
 
 The trip maps use MapLibre with raster tiles from `tile.openstreetmap.org`
-([RouteMap.kt:100-121](../app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt)).
+([RouteMap.kt:100-121](https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt)).
 The OpenStreetMap Foundation (OSMF) tile policy gives no service level. It can
 block an app without notice, and it warns that commercial services can lose
 access at any time.
@@ -42,9 +42,9 @@ the live map with the same test as review item B3.
 | Cost | No charge, but no right of use at scale. | Mobile map loads without a map ID use the "Maps SDK" SKU. It bills one load per `MapView` creation; pan and zoom do not add loads. Google's price list shows this SKU with an unlimited free cap. Confirm the price in the Cloud console before release. A map ID (cloud styling) changes the SKU to the paid "Dynamic Maps" SKU, so do not use a map ID. |
 | Account | None. | Google Cloud project with billing turned on, and an API key. |
 | Device need | None. | Google Play services. `minSdk` 23 or higher (this app: 29). |
-| Dark theme | The app dims and desaturates raster tiles ([RouteMap.kt:117-121](../app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt)). | `mapColorScheme` follows the system theme by default (maps-compose 8.6.0 and later). |
+| Dark theme | The app dims and desaturates raster tiles ([RouteMap.kt:117-121](https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt)). | `mapColorScheme` follows the system theme by default (maps-compose 8.6.0 and later). |
 | Rendering | Raster tiles, TextureView mode (`textureMode(true)`). | Vector map, SurfaceView by default. |
-| Lifecycle code | Manual `MapView` lifecycle and listener code ([RouteMap.kt:168-255](../app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt)). | `GoogleMap` composable owns the lifecycle. |
+| Lifecycle code | Manual `MapView` lifecycle and listener code ([RouteMap.kt:168-255](https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt)). | `GoogleMap` composable owns the lifecycle. |
 | Attribution | The app shows its own OSM caption and link. | The SDK shows the Google logo and legal text. Do not cover them. Use the map `contentPadding` for the system bars and the app's buttons. |
 | APK size | MapLibre native libraries in the APK, plus OkHttp. | The map code is in Play services, so the APK becomes smaller. OkHttp is used only by `RouteMap.kt`, so it can go too. |
 | iOS | MapLibre has an iOS SDK. | iOS uses a separate native map (MapKit or Google Maps SDK for iOS). AGENTS.md permits native UI on each platform; share only the map behaviour. |
@@ -90,7 +90,7 @@ Required changes:
 - Update the Data safety form for the SDK data types above. Review item S2
   (map area sent to the tile service) stays open, with Google as the receiver.
 - Change `map_privacy` and `trip_privacy` in
-  [tracking_strings.xml](../app/src/main/res/values/tracking_strings.xml).
+  [tracking_strings.xml](https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/res/values/tracking_strings.xml).
   They now name OpenStreetMap.
 - Update the privacy policy.
 
@@ -108,10 +108,10 @@ Required changes:
 
 | Item | Change |
 | --- | --- |
-| [RouteMap.kt](../app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt) | Rewrite `MapCanvas` with `GoogleMap`. `MapSurface` keeps its parameters, so `LiveTripScreen`, `SavedTripScreen`, and `TripComponents` do not change. |
-| [libs.versions.toml](../gradle/libs.versions.toml), [app/build.gradle.kts](../app/build.gradle.kts) | Add `maps-compose` and `play-services-maps` and the Secrets plugin. Remove `maplibre` and `okhttp`. |
-| [AndroidManifest.xml](../app/src/main/AndroidManifest.xml) | Add the API key meta-data. Check the merged permissions again (review item S5). |
-| [TrackingDeviceTest.kt](../app/src/androidTest/java/com/example/cvkegps/TrackingDeviceTest.kt) | The helpers `cameraAtLatest` (`:275-294`) and `mapCamera` (`:808-821`) look for a MapLibre `MapView`. Change them to read the camera through a test tag or the Google `MapView`. The emulator images must include Google APIs (the current `sdk_gphone64` images do). |
+| [RouteMap.kt](https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt) | Rewrite `MapCanvas` with `GoogleMap`. `MapSurface` keeps its parameters, so `LiveTripScreen`, `SavedTripScreen`, and `TripComponents` do not change. |
+| [libs.versions.toml](https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/gradle/libs.versions.toml), [app/build.gradle.kts](https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/build.gradle.kts) | Add `maps-compose` and `play-services-maps` and the Secrets plugin. Remove `maplibre` and `okhttp`. |
+| [AndroidManifest.xml](https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/AndroidManifest.xml) | Add the API key meta-data. Check the merged permissions again (review item S5). |
+| [TrackingDeviceTest.kt](https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/androidTest/java/com/example/cvkegps/TrackingDeviceTest.kt) | The helpers `cameraAtLatest` (`:275-294`) and `mapCamera` (`:808-821`) look for a MapLibre `MapView`. Change them to read the camera through a test tag or the Google `MapView`. The emulator images must include Google APIs (the current `sdk_gphone64` images do). |
 | Strings, README, PROGRESS.html | Remove OpenStreetMap text and the attribution caption. Record the change. |
 | `docs/adr/` | Add an ADR for the provider choice and the Play services requirement. |
 

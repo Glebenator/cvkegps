@@ -28,8 +28,8 @@ Which Google Maps Platform features can CVKE GPS use, and which of them suit a p
 ## What the app uses now
 
 The trip maps use `maps-compose` 8.3.0 and `play-services-maps` 20.0.0 without a map ID
-([ADR 0002](adr/0002-use-google-maps-for-trip-maps.md), [libs.versions.toml](../gradle/libs.versions.toml)).
-[RouteMap.kt](../app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt) uses these SDK features:
+([ADR 0002](adr/0002-use-google-maps-for-trip-maps.md), [libs.versions.toml](https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/gradle/libs.versions.toml)).
+[RouteMap.kt](https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/RouteMap.kt) uses these SDK features:
 normal, satellite, hybrid, and terrain map types; traffic; 3D buildings; the map colour scheme; route lines with
 `StyleSpan` gradients for speed colours; circles; markers with the toolbar that opens Google Maps.
 
@@ -114,7 +114,7 @@ These use only the Maps SDK, `maps-compose`, and the open-source Maps utility li
 | Feature | Google feature | Notes |
 | --- | --- | --- |
 | **All-trips map**: one map with every saved trip as a heat map, and the trip starts as clusters | `HeatmapTileProvider` (Maps utility library), clustering in `maps-compose-utils`, `TileOverlay` | Uses only local trips. Good pro feature with no running cost. Large trip counts need calculation off the main thread. |
-| **Planned route overlay**: show an imported route on the live and saved trip maps | KML and GeoJSON layers (Maps utility library) | The library reads KML and GeoJSON, not GPX. The app already writes GPX ([Gpx.kt](../app/src/main/java/com/example/cvkegps/tracking/Gpx.kt)), so a GPX reader in app code is also possible. |
+| **Planned route overlay**: show an imported route on the live and saved trip maps | KML and GeoJSON layers (Maps utility library) | The library reads KML and GeoJSON, not GPX. The app already writes GPX ([Gpx.kt](https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/tracking/Gpx.kt)), so a GPX reader in app code is also possible. |
 | **More map styles**: for example a minimal style for driving or a high-contrast style | JSON styling (`MapStyleOptions`), no map ID | Free. The style must then handle dark mode itself. The release notes show no deprecation of JSON styling up to 20.1.0. |
 | **Transit layer** in the map type menu | `setTransitEnabled()`, Maps SDK 20.0.0 | The app already has 20.0.0. `maps-compose` 8.3.0 needs `MapEffect` for it. Small; suits the free version. **Not usable yet** (see below). |
 | **Trip list thumbnails** | Lite mode | Lite mode has no dark mode, no gestures, and no tile overlays. Do not save the image to disk (no caching). Measure the list performance first. |

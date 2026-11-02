@@ -1,38 +1,8 @@
-# Local tools and generated files.
-.idea/
-.gradle/
-.kotlin/
-**/build/
-*.iml
-local.properties
-captures/
-.externalNativeBuild/
-.cxx/
-.DS_Store
-Thumbs.db
-
-# Local design exports are reference material, not app source.
-/GPS tracker app prototype/
-
-# Test output and local credentials.
+# Local tools, test output, raw captures, and credentials.
 /artifacts/
 __pycache__/
-*.jks
-*.keystore
-keystore.properties
+.DS_Store
+Thumbs.db
+.idea/
 .env
 .env.*
-!.env.example
-
-# iOS: Swift package build output, the project that XcodeGen generates, and Xcode user state.
-.build/
-.swiftpm/
-/ios/CVKEGPS.xcodeproj/
-DerivedData/
-xcuserdata/
-*.xcresult
-/ios/CVKEGPS/Info.plist
-/ios/CVKEGPSWidgets/Info.plist
-/ios/build/
-/ios/captures/
-/ios/attachments-*/

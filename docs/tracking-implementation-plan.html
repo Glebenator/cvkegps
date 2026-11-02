@@ -153,7 +153,7 @@
         Android types stay in its adapter. Preserve every delivered point before producing the latest display state.</p>
       <p>The current <code>AndroidGpsSource</code> (removed on 25 October 2026)
         uses <code>conflate()</code>. Its reading model has no coordinates or UTC time.
-        The <a href="../app/src/main/java/com/example/cvkegps/ui/SpeedometerViewModel.kt">ViewModel</a>
+        The <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/ui/SpeedometerViewModel.kt">ViewModel</a>
         rejects readings at least ten seconds old. Keep this display rule separate from valid historical samples.</p>
       <ul>
         <li>Use one coordinator with a defined coroutine scope and constructor injection.
@@ -287,10 +287,10 @@
       <p>Recheck the linked Android foreground-service and permission rules during implementation.
         Confirm the API 37 location-button and store policy requirements before publication.</p>
       <p>Source references:
-        <a href="../app/src/main/java/com/example/cvkegps/location/GpsSource.kt">measurement interface</a>,
-        <a href="../app/src/main/java/com/example/cvkegps/ui/SpeedometerRoute.kt">screen lifecycle</a>,
-        <a href="../app/src/main/AndroidManifest.xml">manifest</a>,
-        <a href="../app/src/androidTest/java/com/example/cvkegps/SpeedometerDeviceTest.kt">existing device tests</a>,
+        <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/location/GpsSource.kt">measurement interface</a>,
+        <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/java/com/example/cvkegps/ui/SpeedometerRoute.kt">screen lifecycle</a>,
+        <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/main/AndroidManifest.xml">manifest</a>,
+        <a href="https://github.com/Glebenator/cvkegps/blob/7c4dc55563806f5bddad2512a642ad98d3217b55/app/src/androidTest/java/com/example/cvkegps/SpeedometerDeviceTest.kt">existing device tests</a>,
         <a href="../AGENTS.md">project rules</a>.</p>
     </section>
   </main>
