@@ -44,6 +44,8 @@ commit with both apps. Links in older documents go to that commit.
   future work.
 - Add a dated change-history entry for meaningful progress. Preserve earlier milestone entries.
 - Use real app screenshots for UI changes. Store selected captures in `docs/progress/images/` with dated names.
+- Save report screenshots as WebP (lossy, quality about 85, at the capture size). They average about a tenth of a PNG,
+  and every image stays in the Git history. Use PNG only where exact pixels matter, such as an app icon.
 - Track these selected report images in Git. Keep raw captures and other generated output in the ignored `artifacts/`
   folder.
 - Caption each image with its date, app baseline, and relevant state. Identify simulated location data.
