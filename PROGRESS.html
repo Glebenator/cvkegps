@@ -167,8 +167,8 @@
       <aside class="meta" aria-label="Report details">
         <dl>
           <div><dt>Report updated</dt><dd><time datetime="2026-11-02">2 November 2026</time></dd></div>
-          <div><dt>App code baseline</dt><dd>Android: <a href="https://github.com/Glebenator/cvkegps-android/commit/8d66eef"><code>cvkegps-android@8d66eef</code></a>. iOS: <a href="https://github.com/Glebenator/cvkegps-ios/commit/502346d"><code>cvkegps-ios@502346d</code></a>. Both apps were in this repository until <a href="#repo-split">2 November 2026</a></dd></div>
-          <div><dt>Publication status</dt><dd>Development build</dd></div>
+          <div><dt>App code baseline</dt><dd>Android: <a href="https://github.com/Glebenator/cvkegps-android/commit/8b949c1"><code>cvkegps-android@8b949c1</code></a>. iOS: <a href="https://github.com/Glebenator/cvkegps-ios/commit/502346d"><code>cvkegps-ios@502346d</code></a>. Both apps were in this repository until <a href="#repo-split">2 November 2026</a></dd></div>
+          <div><dt>Publication status</dt><dd>Android: <a href="#release-prep">preparing the first Google Play release</a>. iOS: development build</dd></div>
           <div><dt>iOS app</dt><dd><a href="#ios-app">UI flow passed on a simulator</a> · Real iPhone not tested</dd></div>
         </dl>
       </aside>
@@ -179,6 +179,7 @@
       <div class="metric"><strong>Passed</strong><span>Debug build, test build, debug lint, and unsigned release build</span><span class="small">Release APK not installed or run</span></div>
     </div>
     <nav class="nav" aria-label="Report sections">
+      <a href="#release-prep">Release preparation · 2 Nov</a>
       <a href="#repo-split">Repository split · 2 Nov</a>
       <a href="#app-comparison">App comparison fixes · 2 Nov</a>
       <a href="#speed-dial-icon">Speed dial app icon · 2 Nov</a>
@@ -221,6 +222,40 @@
       <a href="docs/location-power-research.md">GPS power research</a>
       <a href="#history">Change history</a>
     </nav>
+
+    <section id="release-prep" aria-labelledby="release-prep-heading">
+      <div class="section-head"><h2 id="release-prep-heading">Release preparation for Google Play · 2 November 2026</h2><span class="tag pending">CI passed · Signed release not built yet</span></div>
+      <p class="section-intro">The owner started the preparation for the first Android release on Google Play. The application ID is now <code>com.cvke.gps</code>, the release build can be signed with an upload key, and CI builds the Play bundle. The owner keeps target API 37 (Android 17) and has a personal developer account.</p>
+      <ul>
+        <li>The application ID and the Kotlin package are <code>com.cvke.gps</code>. Google Play keeps this ID for the life of the app. The sources, the Baseline Profile rules, and the recording intent actions moved with it.</li>
+        <li>The debug build has the ID <code>com.cvke.gps.debug</code> and the name CVKE GPS Debug, so it can be on the same phone as the Play build. The earlier development app <code>com.example.cvkegps</code> is a separate app, and its trips stay in it.</li>
+        <li>The release build is signed with an upload key from <code>keystore.properties</code> or <code>CVKE_UPLOAD_*</code> environment variables, both outside Git. Without a key, the release output is unsigned. The upload key does not exist yet.</li>
+        <li>CI builds the release bundle (AAB) with <code>:app:bundleRelease</code>, in addition to the earlier checks. CI has no upload key, so the bundle is unsigned.</li>
+        <li>The Android README describes how to make the upload key, build the bundle, and restrict the Maps API key to both application IDs and their certificates.</li>
+        <li>The app supports Android 10 (API 29) and later. Only the metric card of the recording notification needs Android 17. Live Updates need Android 16 QPR1, sea level altitude needs Android 14, and wallpaper colours need Android 12. Older versions show the plain form of each feature.</li>
+      </ul>
+      <article class="panel" style="margin-top:24px"><h3>Verification</h3>
+        <ul>
+          <li>Android CI <a href="https://github.com/Glebenator/cvkegps-android/actions/runs/41566333342">run 41566333342</a> on the branch <code>release-prep</code> (<code>8b949c1</code>) passed the debug build, the device test build, lint, the unit tests, the release APK, and the release bundle on <code>ubuntu-latest</code>. The same commit on <code>main</code> passed in <a href="https://github.com/Glebenator/cvkegps-android/actions/runs/41567007305">run 41567007305</a>. No device test ran after the package change.</li>
+          <li>Owner report: the owner ran the real-phone tests that they could on a Pixel 7 Pro with the latest Android version for that phone, before the package change. The owner reports that the app performed well. No detailed results, measurements, or Android build number were recorded.</li>
+        </ul>
+        <h3 style="margin-top:18px">Known limits</h3>
+        <ul>
+          <li>No signed release was built, installed, or run. The minified release build has never run on a phone.</li>
+          <li>The device test suite did not run with the new package. The Maps API key for debug builds needs the new ID <code>com.cvke.gps.debug</code>.</li>
+          <li>The owner's real-phone tests have no recorded detail. Battery use, GPS accuracy, and TalkBack still have no measured result.</li>
+          <li>Network positions are on by default. The Android network location service can send nearby Wi-Fi and mobile network data to Google. The privacy policy and the Data safety form must state this.</li>
+        </ul>
+        <h3 style="margin-top:18px">Required work before the production release</h3>
+        <ul>
+          <li>Make the upload key, build the signed bundle, and install and run it from a Play testing track.</li>
+          <li>Run a closed test with at least 12 testers for 14 days in a row. Google Play requires this for a new app from a personal account made after 13 November 2023.</li>
+          <li>Publish a privacy policy. A draft is ready for the owner's review (not in Git).</li>
+          <li>In Play Console: the foreground service declaration with a video of a trip that records with the screen locked, the precise location declaration for apps that target Android 17 (effective 27 January 2027, with pre-review checks since 27 October 2026), the Data safety form with the Maps SDK and network location data, the content rating, the target audience, and the store listing.</li>
+          <li>Create the release Maps API key with billing. Restrict it to <code>com.cvke.gps</code> with the upload and Play app signing certificates.</li>
+        </ul>
+      </article>
+    </section>
 
     <section id="repo-split" aria-labelledby="repo-split-heading">
       <div class="section-head"><h2 id="repo-split-heading">Repository split · 2 November 2026</h2><span class="tag pending">CI passed in both app repositories · Android device tests not in CI</span></div>
@@ -2660,13 +2695,14 @@ val angle = azimuthRadians - headingRadians</code></pre>
               Extend coverage to the minimum supported API and current devices.</li>
             <li>Check a physical foldable, closed and open, including fold and unfold during a trip.
               Check the Android 17 metric card and an Android 16 Live Update on physical phones.</li>
-            <li>Select the final application ID and launcher artwork. Configure release signing outside Git.</li>
+            <li>Select the final application ID and launcher artwork. Configure release signing outside Git. Done on 2 November 2026: <code>com.cvke.gps</code>, the speed dial icon, and upload signing from outside Git. The upload key is not made yet.</li>
+            <li>Run a closed test with at least 12 testers for 14 days in a row (personal developer account).</li>
+            <li>Send the foreground service declaration with a video, and the precise location declaration for target API 37.</li>
             <li>Complete the privacy and store requirements for the final feature set. Verify the signed release.</li>
             <li>Create a release Maps API key with billing in the Google Cloud project. Restrict it to the Maps SDK for Android, the final application ID,
               and the upload and Play App Signing certificates. Do not use a map ID. Declare the Maps SDK data in the Data safety form and the privacy policy.</li>
           </ol>
-          <p class="reason">The current application ID is <code>com.example.cvkegps</code>.
-            The release build is unsigned.</p>
+          <p class="reason">Updated on 2 November 2026: the application ID is <code>com.cvke.gps</code>. The release build is signed only when an upload key is set, and no signed release was built yet. See <a href="#release-prep">Release preparation</a>.</p>
         </article>
         <article class="panel roadmap-card">
           <span class="tag pending">Required · Tracking field validation</span><h3>Measure power and route quality</h3>
@@ -2709,6 +2745,8 @@ val angle = azimuthRadians - headingRadians</code></pre>
       <div class="section-head"><h2 id="history-heading"><span class="number">06</span>Change history</h2></div>
       <!-- Add new completed milestones first. Keep older entries and their evidence. -->
       <ol class="history">
+<li><time datetime="2026-11-02">2 November 2026</time><div><h3>Release preparation for Google Play</h3>
+<p>The Android application ID and package are now <code>com.cvke.gps</code>. The debug build is <code>com.cvke.gps.debug</code>, named CVKE GPS Debug. The release build can be signed with an upload key from outside Git, and CI builds the Play bundle. The target stays API 37. Android CI passed. The owner reports that real-phone tests on a Pixel 7 Pro went well, with no detailed results. No signed release was built or run. See <a href="#release-prep">evidence and the required work</a>.</p></div></li>
 <li><time datetime="2026-11-02">2 November 2026</time><div><h3>Repository split</h3>
 <p>CVKE GPS now has three repositories: cvkegps for the product documents, cvkegps-android, and cvkegps-ios. Each app repository keeps its history and has its own rules and CI. Branch native-maps became main before the split. Links to app code go to the tag archive/before-split-2026-11-02. See <a href="#repo-split">the details</a>.</p></div></li>
 <li><time datetime="2026-11-02">2 November 2026</time><div><h3>App comparison fixes</h3>
